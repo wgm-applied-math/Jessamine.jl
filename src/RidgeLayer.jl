@@ -46,7 +46,7 @@ function least_squares_ridge(
     num_output_cols = length(last_round)
     offset_col = ones(size(y, 1))
     data_cols = map(u -> as_vec(u, size(offset_col)), last_round)
-    X = hcat(offset_col, data_cols...)
+    X = stack([offset_col, data_cols...])
     @assert num_output_cols + 1 == size(X, 2)
     b = (X' * X + lambda * I) \ (X' * y)
     y_hat = X * b
