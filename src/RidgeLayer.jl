@@ -60,11 +60,12 @@ function least_squares_ridge(
 end
 
 """
-    least_squares_ridge_grow_and_rate(xs, y, lambda_b, lambda_p, g_spec, genome)
+    least_squares_ridge_grow_and_rate(xs, y, lambda_b, lambda_p, lambda_op, g_spec, genome)
 
 Solve for the parameter vector `p` that minimzes
-`norm(y - y_hat)^2 + lambda_b * norm(b)^2 + lambda_p * norm(p)^2`,
+`norm(y - y_hat)^2 + lambda_b * norm(b)^2 + lambda_p * norm(p)^2 + lambda_op R`,
 where `y_hat` and `b` are found using `least_squares_ridge`.
+`R` is the total number of operands across all instructions in `genome`.
 
 If all goes well, return an `Agent`, whose genome is `genome`,
 whose `parameter` is the best `p`, and whose `extra` is `b`.
