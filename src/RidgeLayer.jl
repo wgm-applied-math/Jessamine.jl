@@ -76,6 +76,7 @@ function least_squares_ridge_grow_and_rate(
         y::AbstractVector,
         lambda_b::Float64,
         lambda_p::Float64,
+        lambda_operand::Float64,
         g_spec::GenomeSpec,
         genome::Genome)::Union{Agent, Nothing}
     u0 = zeros(g_spec.parameter_size)
@@ -93,7 +94,8 @@ function least_squares_ridge_grow_and_rate(
         if isnothing(b)
             return nothing
         else
-            return Agent(sol.objective, genome, sol.u, b)
+            r = sol.objective + lambda_operand * num_operands(genome)
+            return Agent(r, genome, sol.u, b)
         end
     else
         return nothing

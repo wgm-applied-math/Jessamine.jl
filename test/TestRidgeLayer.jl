@@ -53,8 +53,9 @@ test_ridge()
 function test_ridge_grow_and_rate()
     lambda_b = 1e-6
     lambda_p = lambda_b
+    lambda_o = lambda_b
     agent = least_squares_ridge_grow_and_rate(
-        RD.xs, RD.y, lambda_b, lambda_p, RG.spec, RG.genome)
+        RD.xs, RD.y, lambda_b, lambda_p, lambda_o, RG.spec, RG.genome)
     g_res = run_genome(RG.spec, RG.genome, agent.parameter, RD.xs)
     y_rgr = g_res[end][1]
     b = agent.extra

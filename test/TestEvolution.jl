@@ -29,11 +29,12 @@ pop_size = s_spec.num_to_keep + s_spec.num_to_pick
 s_dist = SelectionDist(s_spec)
 lambda_b = 1e-6
 lambda_p = 1e-6
+lambda_o = 1e-6
 
 # Adapt least_squares_ridge_grow_and_rate so that it can be used by next_generation
 function grow_and_rate(rng, g_spec, genome)
     return least_squares_ridge_grow_and_rate(
-        RD.xs, RD.y, lambda_b, lambda_p,
+        RD.xs, RD.y, lambda_b, lambda_p, lambda_o,
         g_spec, genome)
 end
 
@@ -85,6 +86,12 @@ println("Symbolic form of best agent")
 a_best = pop_next.agents[1]
 
 p, x, w, b, y_sym, y_num = linear_model_symbolic_output(g_spec, a_best)
+
+short_show(a_best)
+@show y_sym
+@show a_best.parameter
+@show a_best.extra
+@show y_num
 
 c1 = Symbolics.coeff(y_num)
 cx1 = Symbolics.coeff(Symbolics.coeff(y_num, x[1]))
