@@ -16,20 +16,17 @@ function recombine(rng::AbstractRNG, g_left::Genome, g_right::Genome)
     @assert length(g_left.instruction_blocks) == length(g_right.instruction_blocks)
     mixed = similar(g_left.instruction_blocks)
     for j in eachindex(g_left.instruction_blocks)
-        l_block = g_left.instruction_blocks[j]
-        r_block = g_right.instruction_blocks[j]
-        l_m = length(l_block)
-        if l_m == 0
-            l_k = 1
-            l_frag = []
-        elseif l_m == 1
-            l_k = 1
-            l_frag = l_block
+        if rand(rng, Bernoulli(0.5))
+            head_block = g_left.instruction_blocks[j]
+            tail_block = g_right.instruction_blocks[j]
         else
-            l_k = rand(rng, DiscreteUniform(1, l_m - 1))
-            l_frag = l_block[1:l_k]
+            tail_block = g_left.instruction_blocks[j]
+            head_block = g_right.instruction_blocks[j]
         end
-        r_frag = r_block[(l_k + 1):end]
+        l_m = length(head_block)
+        m = rand(rng, DiscreteUniform(0, l_m))
+        l_frag = head_block[1:m]
+        r_frag = tail_block[1+m:end]
         new_block = vcat(l_frag, r_frag)
         mixed[j] = new_block
     end
