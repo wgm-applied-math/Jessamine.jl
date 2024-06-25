@@ -13,7 +13,7 @@ using ..RD
 rng = Xoshiro(3208201)
 
 g_spec = GenomeSpec(4, 0, 1, 2, 3)
-index_max = g_spec.output_size + g_spec.parameter_size + g_spec.input_size
+index_max = workspace_size(g_spec)
 m_spec = MutationSpec(
     p_mutate_op = 0.01,
     p_mutate_index = 0.1,

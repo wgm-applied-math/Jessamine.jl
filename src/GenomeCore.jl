@@ -1,6 +1,6 @@
 export AbstractGeneOp
 export GenomeSpec, CellState, Instruction, Genome
-export run_genome, num_instructions, num_operands
+export run_genome, num_instructions, num_operands, workspace_size
 export short_show
 
 """
@@ -28,8 +28,17 @@ A collection of parameters specifying the genome architecture and mutation proce
     num_time_steps::Int
 end
 
+"""
+    workspace_size(g_spec::GenomeSpec)
+
+Return the number of elements in the workspace vector specified by `g_spec`.
+"""
+function workspace_size(g_spec::GenomeSpec)
+    return g_spec.output_size + g_spec.scratch_size + g_spec.parameter_size + g_spec.input_size
+end
+
 @kwdef struct CellState
-    work_space::Vector
+    workspace::Vector
 end
 
 @kwdef struct Instruction{OpType}
@@ -106,9 +115,9 @@ function eval_time_step(
         instructions = genome.instruction_blocks[dest]
         val = 0
         for instr in instructions
-            val = val .+ as_function(instr.op)(current_state.work_space[instr.operand_ixs])
+            val = val .+ as_function(instr.op)(current_state.workspace[instr.operand_ixs])
         end
-        future_state.work_space[dest] = val
+        future_state.workspace[dest] = val
     end
     return future_state
 end
@@ -134,13 +143,13 @@ function run_genome(
     num_instr_blocks = length(genome.instruction_blocks)
     @assert num_instr_blocks == g_spec.output_size + g_spec.scratch_size
     scratch = zeros(num_instr_blocks)
-    work_space = vcat(scratch, parameter, input)
-    current_state = CellState(work_space)
+    workspace = vcat(scratch, parameter, input)
+    current_state = CellState(workspace)
     output_size = g_spec.output_size
     outputs = Vector(undef, g_spec.num_time_steps)
     for t in 1:(g_spec.num_time_steps)
         future_state = eval_time_step(current_state, genome)
-        outputs[t] = future_state.work_space[1:output_size]
+        outputs[t] = future_state.workspace[1:output_size]
         current_state = future_state
     end
     return outputs
