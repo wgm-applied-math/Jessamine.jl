@@ -1,6 +1,6 @@
 export AbstractGeneOp
 export GenomeSpec, CellState, Instruction, Genome
-export run_genome
+export run_genome, num_instructions, num_operands
 export short_show
 
 """
@@ -60,6 +60,43 @@ next work space.  """
 @kwdef struct Genome
     instruction_blocks::Vector{Vector{Instruction}}
 end
+
+"""
+    num_instructions(genome::Genome)
+
+Return the total number of instructions in all blocks in the genome.
+"""
+function num_instructions(genome::Genome)
+    return sum(length.(genome.instruction_blocks))
+end
+
+"""
+    num_operands(genome::Genome)
+
+Return the total number of operands in all instructions in the genome.
+"""
+function num_operands(genome::Genome)
+    return num_operands(genome.instruction_blocks)
+end
+
+"""
+    num_operands(instruction::Instruction)
+
+Return the total number of operands in the instruction.
+"""
+function num_operands(instruction::Instruction)
+    return length(instruction.operand_ixs)
+end
+
+"""
+    num_operands(xs::AbstractVector)
+
+Return the total number of instruction operands in `xs`.
+"""
+function num_operands(xs::AbstractVector)
+    return sum(num_operands.(xs))
+end
+
 
 function eval_time_step(
         current_state::CellState,
