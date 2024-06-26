@@ -1,4 +1,5 @@
 export SelectionSpec, SelectionDist, Population
+export generation_size
 export random_genome, random_initial_population, next_generation
 
 """
@@ -15,6 +16,15 @@ struct SelectionSpec
     the one with the highest rating with this probability.
     Otherwise, use the other one."""
     p_take_highest::Float64
+end
+
+"""
+    generation_size(s_spec::SelectionSpec)
+
+Return the size of a generation.
+"""
+function generation_size(s_spec::SelectionSpec)
+    return s_spec.num_to_keep + s_spec.num_to_pick
 end
 
 """
@@ -90,11 +100,11 @@ possible indices.
 """
 function random_genome(rng::AbstractRNG, g_spec::GenomeSpec,
         m_spec::MutationSpec, arity_dist::Distribution)
-    index_max = g_spec.output_size + g_spec.scratch_size + g_spec.parameter_size +
-                g_spec.input_size
+    index_max = workspace_size(g_spec)
     index_dist = DiscreteUniform(1, index_max)
-    instruction_blocks = Vector(undef, g_spec.output_size)
-    for j in 1:(g_spec.output_size + g_spec.scratch_size)
+    num_instruction_blocks = g_spec.output_size + g_spec.scratch_size
+    instruction_blocks = Vector(undef, num_instruction_blocks)
+    for j in 1:num_instruction_blocks
         op = rand(rng, m_spec.op_inventory)
         num_operands = rand(rng, arity_dist)
         operands = rand(rng, index_dist, num_operands)
