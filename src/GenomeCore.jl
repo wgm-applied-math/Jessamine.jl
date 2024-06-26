@@ -1,5 +1,6 @@
 export AbstractGeneOp
 export GenomeSpec, CellState, Instruction, Genome
+export eval_time_step
 export run_genome, num_instructions, num_operands, workspace_size
 export short_show
 
@@ -108,18 +109,18 @@ end
 
 
 function eval_time_step(
-        current_state::CellState,
+        cell_state::CellState,
         genome::Genome)
-    future_state = deepcopy(current_state)
+    workspace_next = deepcopy(cell_state.workspace)
     for dest in eachindex(genome.instruction_blocks)
         instructions = genome.instruction_blocks[dest]
         val = 0
         for instr in instructions
-            val = val .+ as_function(instr.op)(current_state.workspace[instr.operand_ixs])
+            val = val .+ as_function(instr.op)(cell_state.workspace[instr.operand_ixs])
         end
-        future_state.workspace[dest] = val
+        workspace_next[dest] = val
     end
-    return future_state
+    return CellState(workspace_next)
 end
 
 """
