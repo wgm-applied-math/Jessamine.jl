@@ -128,7 +128,8 @@ function random_initial_population(
         m_spec::MutationSpec,
         arity_dist::Distribution,
         s_spec::SelectionSpec,
-        grow_and_rate::Function)::Population
+        grow_and_rate::Function,
+        sense = MinSense)::Population
     pop_size = s_spec.num_to_keep + s_spec.num_to_generate
     agents = Vector(undef, pop_size)
     j = 1
@@ -142,6 +143,8 @@ function random_initial_population(
             j += 1
         end
     end
+    rev = sense == Optimization.MaxSense
+    sort!(agents, rev = rev)
     return Population(agents)
 end
 
