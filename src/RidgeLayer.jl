@@ -125,7 +125,7 @@ agent.parameters` and `b = agent.extra` applied, so that only
 """
 function linear_model_symbolic_output(
         g_spec::GenomeSpec,
-        agent::Agent{<:AbstractVector};
+        agent::Agent;
         parameter_sym = :p,
         input_sym = :x,
         coefficient_sym = :b)
