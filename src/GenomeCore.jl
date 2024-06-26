@@ -1,6 +1,6 @@
 export AbstractGeneOp
 export GenomeSpec, CellState, Instruction, Genome
-export eval_time_step
+export eval_time_step, op_eval
 export run_genome, num_instructions, num_operands, workspace_size
 export short_show
 
@@ -48,11 +48,11 @@ end
 end
 
 """
-    as_function(op<:AbstractGeneOp)
+    op_eval(op<:AbstractGeneOp, operands<:AbstractVector)
 
-Return a function that computes op when applied to a list of arguments.
+Return `op`` applied to a list of operands.
 """
-function as_function end
+function op_eval end
 
 """
     short_show([io::IO], x)
@@ -116,7 +116,7 @@ function eval_time_step(
         instructions = genome.instruction_blocks[dest]
         val = 0
         for instr in instructions
-            val = val .+ as_function(instr.op)(cell_state.workspace[instr.operand_ixs])
+            val = val .+ op_eval(instr.op, cell_state.workspace[instr.operand_ixs])
         end
         workspace_next[dest] = val
     end
