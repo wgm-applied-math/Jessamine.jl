@@ -129,15 +129,15 @@ function linear_model_symbolic_output(
         parameter_sym = :p,
         input_sym = :x,
         coefficient_sym = :b)
-    p, x, w = run_genome_symbolic(
+    p, x, z = run_genome_symbolic(
         g_spec, agent.genome;
         parameter_sym = parameter_sym,
         input_sym = input_sym)
     b = Symbolics.variables(coefficient_sym, 1:(g_spec.output_size + 1))
-    y_pred_sym = dot(b, [1, w...])
+    y_pred_sym = dot(b, [1, z...])
     y_pred_simp = simplify(y_pred_sym; expand = true)
     p_subs = Dict(p[j] => agent.parameter[j] for j in eachindex(p))
     b_subs = Dict(b[j] => agent.extra[j] for j in eachindex(b))
     y_num = simplify(substitute(y_pred_simp, merge(p_subs, b_subs)); expand = true)
-    return (p = p, x = x, w = w, b = b, y_sym = y_pred_simp, y_num = y_num)
+    return (p = p, x = x, w = z, b = b, y_sym = y_pred_simp, y_num = y_num)
 end
