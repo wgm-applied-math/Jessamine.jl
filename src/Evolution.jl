@@ -5,17 +5,17 @@ export random_genome, random_initial_population, next_generation
 """
 Parameters for tournament selection.
 """
-struct SelectionSpec
+@kwdef struct SelectionSpec
     "Keep this many high-rated agents from the current generation."
     num_to_keep::Int
 
     "Create this many new agents to add to the next generation."
-    num_to_pick::Int
+    num_to_generate::Int
 
     """When choosing parents, pick two agents and random, and use
     the one with the highest rating with this probability.
     Otherwise, use the other one."""
-    p_take_highest::Float64
+    p_take_better::Float64
 end
 
 """
@@ -24,7 +24,7 @@ end
 Return the size of a generation.
 """
 function generation_size(s_spec::SelectionSpec)
-    return s_spec.num_to_keep + s_spec.num_to_pick
+    return s_spec.num_to_keep + s_spec.num_to_generate
 end
 
 """
@@ -38,7 +38,7 @@ end
 function SelectionDist(s_spec::SelectionSpec)
     return SelectionDist(
         s_spec,
-        Bernoulli(s_spec.p_take_highest))
+        Bernoulli(s_spec.p_take_better))
 end
 
 """An agent has a rating, a genome, a parameter vector, and an
@@ -129,7 +129,7 @@ function random_initial_population(
         arity_dist::Distribution,
         s_spec::SelectionSpec,
         grow_and_rate::Function)::Population
-    pop_size = s_spec.num_to_keep + s_spec.num_to_pick
+    pop_size = s_spec.num_to_keep + s_spec.num_to_generate
     agents = Vector(undef, pop_size)
     j = 1
     while j <= pop_size
@@ -198,9 +198,9 @@ function next_generation(
         grow_and_rate::Function;
         sense = MinSense)::Population
     s_spec = s_dist.spec
-    new_agents = Vector(undef, s_spec.num_to_pick)
+    new_agents = Vector(undef, s_spec.num_to_generate)
     j = 1
-    while j <= s_spec.num_to_pick
+    while j <= s_spec.num_to_generate
         agent = grow_and_rate(rng, g_spec, new_genome(rng, s_dist, m_dist, pop))
         if isnothing(agent)
             continue
