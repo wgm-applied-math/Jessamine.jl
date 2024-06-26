@@ -43,8 +43,8 @@ end
 
 """An agent has a rating, a genome, a parameter vector, and an
 extra bit of data that depends on how rating is done."""
-struct Agent{T}
-    rating::Float64
+struct Agent{R,T}
+    rating::R
     genome::Genome
     parameter::Vector
     extra::T
