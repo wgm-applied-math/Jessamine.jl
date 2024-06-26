@@ -99,13 +99,13 @@ operator is picked uniformly at random from
 possible indices.
 """
 function random_genome(rng::AbstractRNG, g_spec::GenomeSpec,
-        m_spec::MutationSpec, arity_dist::Distribution)
+        m_dist::MutationDist, arity_dist::Distribution)
     index_max = workspace_size(g_spec)
     index_dist = DiscreteUniform(1, index_max)
     num_instruction_blocks = g_spec.output_size + g_spec.scratch_size
     instruction_blocks = Vector(undef, num_instruction_blocks)
     for j in 1:num_instruction_blocks
-        op = rand(rng, m_spec.op_inventory)
+        op = m_dist.op_inventory[rand(rng, m_dist.d_op)]
         num_operands = rand(rng, arity_dist)
         operands = rand(rng, index_dist, num_operands)
         instruction_blocks[j] = [Instruction(op, operands)]
@@ -114,7 +114,7 @@ function random_genome(rng::AbstractRNG, g_spec::GenomeSpec,
 end
 
 """
-    random_initial_population(rng::AbstractRNG, g_spec::GenomeSpec, m_spec::MutationSpec, arity_dist::Distribution, s_spec::SelectionSpec, grow_and_rate::Function)
+    random_initial_population(rng::AbstractRNG, g_spec::GenomeSpec, m_dist::MutationDist, arity_dist::Distribution, s_spec::SelectionSpec, grow_and_rate::Function)
 
 Make a random initial population.  The number of genomes is
 specified by adding the number of new genomes per generation and
@@ -125,7 +125,7 @@ The `grow_and_rate` function is called with `rng, g_spec, genome`.
 function random_initial_population(
         rng::AbstractRNG,
         g_spec::GenomeSpec,
-        m_spec::MutationSpec,
+        m_dist::MutationDist,
         arity_dist::Distribution,
         s_spec::SelectionSpec,
         grow_and_rate::Function,
@@ -134,7 +134,7 @@ function random_initial_population(
     agents = Vector(undef, pop_size)
     j = 1
     while j <= pop_size
-        genome = random_genome(rng, g_spec, m_spec, arity_dist)
+        genome = random_genome(rng, g_spec, m_dist, arity_dist)
         agent = grow_and_rate(rng, g_spec, genome)
         if isnothing(agent)
             continue
