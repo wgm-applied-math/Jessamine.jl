@@ -1,3 +1,5 @@
+export RandomDuplicateDelete
+
 """
 Wrap an iterator `source` to produce an iterator that will
 randomly include some elements yielded by the source twice in a
