@@ -1,4 +1,4 @@
-export MutationSpec, MutationDist, RandomDuplicateDelete
+export MutationSpec, MutationDist
 export mutate
 
 """
@@ -23,8 +23,11 @@ A collection of parameters specifying the probabilities of various mutations.
     "Probability that an instruction is deleted"
     p_delete_instruction::Float64 = 1.0e-5
 
-    "Which operations are available"
-    op_inventory::Vector{AbstractGeneOp} = []
+    "Which operators are available"
+    op_inventory::Vector{AbstractGeneOp} = [Add(), Multiply()]
+
+    "Probability of choosing each operator; `nothing` means choose uniformly"
+    op_probabilities::Union{Vector{Float64}, Nothing} = nothing
 end
 
 """
@@ -38,75 +41,87 @@ A collection of distribution objects built from a `MutationSpec` and used to pro
     d_delete_index::Bernoulli
     d_duplicate_instruction::Bernoulli
     d_delete_instruction::Bernoulli
+    d_op::DiscreteNonParametric
     op_inventory::Vector{AbstractGeneOp}
 end
 
 """
-    MutationDist(ms::MutationSpec, src_index_max::Int)
+    MutationDist(m_spec::MutationSpec, src_index_max::Int)
 
-Use `ms` to build a `MutationDist`.
-Specify that an operator index must be <= `src_index_max`.
+Use `m_spec` to build a `MutationDist`.
+Specify that an operand index must be <= `src_index_max`.
 """
-function MutationDist(ms::MutationSpec, src_index_max::Int)
+function MutationDist(m_spec::MutationSpec, src_index_max::Int)
+    if isnothing(m_spec.op_probabilities)
+        p = 1.0 / length(m_spec.op_inventory)
+        op_probabilities = fill(p, length(m_spec.op_inventory))
+    else
+        op_probabilities = m_spec.op_probabilities
+    end
+    # DiscreteNonParametric requires the values of possibilities to be
+    # numerical, so I have to set this up to produce a random index
+    # into the op_inventory.
     return MutationDist(
-        Bernoulli(ms.p_mutate_op),
-        Bernoulli(ms.p_mutate_index),
+        Bernoulli(m_spec.p_mutate_op),
+        Bernoulli(m_spec.p_mutate_index),
         DiscreteUniform(1, src_index_max),
-        Bernoulli(ms.p_duplicate_index),
-        Bernoulli(ms.p_delete_index),
-        Bernoulli(ms.p_duplicate_instruction),
-        Bernoulli(ms.p_delete_instruction),
-        ms.op_inventory
+        Bernoulli(m_spec.p_duplicate_index),
+        Bernoulli(m_spec.p_delete_index),
+        Bernoulli(m_spec.p_duplicate_instruction),
+        Bernoulli(m_spec.p_delete_instruction),
+        DiscreteNonParametric(1:length(op_probabilities), op_probabilities),
+        m_spec.op_inventory
     )
 end
 
 """
-    mutate(rng::AbstractRNG, md::MutationDist, x)
+    mutate(rng::AbstractRNG, m_dist::MutationDist, x)
 
 Randomly change `x`, using random numbers supplied by RNG and
-the distributions specified by `md`.
+the distributions specified by `m_dist`.
 """
 function mutate end
 
-function mutate(rng::AbstractRNG, md::MutationDist, j::Int)
-    if rand(rng, md.d_mutate_index)
-        return rand(rng, md.d_new_src_index)
+function mutate(rng::AbstractRNG, m_dist::MutationDist, j::Int)
+    if rand(rng, m_dist.d_mutate_index)
+        return rand(rng, m_dist.d_new_src_index)
     else
         return j
     end
 end
 
-function mutate(rng::AbstractRNG, md::MutationDist, op::AbstractGeneOp)
-    if rand(rng, md.d_mutate_op)
-        rand(rng, md.op_inventory)
+function mutate(rng::AbstractRNG, m_dist::MutationDist, op::AbstractGeneOp)
+    if rand(rng, m_dist.d_mutate_op)
+        k = rand(rng, m_dist.d_op)
+        m_dist.op_inventory[k]
     else
         op
     end
 end
 
-function mutate(rng::AbstractRNG, md::MutationDist, inst::Instruction)
-    op = mutate(rng, md, inst.op)
+function mutate(rng::AbstractRNG, m_dist::MutationDist, inst::Instruction)
+    op = mutate(rng, m_dist, inst.op)
     rdd = RandomDuplicateDelete(
         rng,
-        md.d_duplicate_index,
-        md.d_delete_index,
+        m_dist.d_duplicate_index,
+        m_dist.d_delete_index,
         inst.operand_ixs)
-    operand_ixs = mutate(rng, md, collect(rdd))
+    operand_ixs = mutate(rng, m_dist, collect(rdd))
     return Instruction(op, operand_ixs)
 end
 
-function mutate(rng::AbstractRNG, md::MutationDist, v::AbstractVector)
-    return map(x -> mutate(rng, md, x), v)
+function mutate(rng::AbstractRNG, m_dist::MutationDist, v::AbstractVector)
+    return map(x -> mutate(rng, m_dist, x), v)
 end
 
-function mutate(rng::AbstractRNG, md::MutationDist, g::Genome)
+function mutate(rng::AbstractRNG, m_dist::MutationDist, g::Genome)
     instruction_blocks = map(g.instruction_blocks) do block
         rdd = RandomDuplicateDelete(
             rng,
-            md.d_duplicate_instruction,
-            md.d_delete_instruction,
+            m_dist.d_duplicate_instruction,
+            m_dist.d_delete_instruction,
             block)
-        mutate(rng, md, collect(rdd))
+        mutate(rng, m_dist, collect(rdd))
     end
     return Genome(instruction_blocks)
 end

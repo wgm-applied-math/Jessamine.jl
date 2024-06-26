@@ -1,20 +1,30 @@
 export SelectionSpec, SelectionDist, Population
+export generation_size
 export random_genome, random_initial_population, next_generation
 
 """
 Parameters for tournament selection.
 """
-struct SelectionSpec
+@kwdef struct SelectionSpec
     "Keep this many high-rated agents from the current generation."
     num_to_keep::Int
 
     "Create this many new agents to add to the next generation."
-    num_to_pick::Int
+    num_to_generate::Int
 
     """When choosing parents, pick two agents and random, and use
     the one with the highest rating with this probability.
     Otherwise, use the other one."""
-    p_take_highest::Float64
+    p_take_better::Float64
+end
+
+"""
+    generation_size(s_spec::SelectionSpec)
+
+Return the size of a generation.
+"""
+function generation_size(s_spec::SelectionSpec)
+    return s_spec.num_to_keep + s_spec.num_to_generate
 end
 
 """
@@ -28,13 +38,13 @@ end
 function SelectionDist(s_spec::SelectionSpec)
     return SelectionDist(
         s_spec,
-        Bernoulli(s_spec.p_take_highest))
+        Bernoulli(s_spec.p_take_better))
 end
 
 """An agent has a rating, a genome, a parameter vector, and an
 extra bit of data that depends on how rating is done."""
-struct Agent{T}
-    rating::Float64
+struct Agent{R,T}
+    rating::R
     genome::Genome
     parameter::Vector
     extra::T
@@ -90,11 +100,11 @@ possible indices.
 """
 function random_genome(rng::AbstractRNG, g_spec::GenomeSpec,
         m_spec::MutationSpec, arity_dist::Distribution)
-    index_max = g_spec.output_size + g_spec.scratch_size + g_spec.parameter_size +
-                g_spec.input_size
+    index_max = workspace_size(g_spec)
     index_dist = DiscreteUniform(1, index_max)
-    instruction_blocks = Vector(undef, g_spec.output_size)
-    for j in 1:(g_spec.output_size + g_spec.scratch_size)
+    num_instruction_blocks = g_spec.output_size + g_spec.scratch_size
+    instruction_blocks = Vector(undef, num_instruction_blocks)
+    for j in 1:num_instruction_blocks
         op = rand(rng, m_spec.op_inventory)
         num_operands = rand(rng, arity_dist)
         operands = rand(rng, index_dist, num_operands)
@@ -118,8 +128,9 @@ function random_initial_population(
         m_spec::MutationSpec,
         arity_dist::Distribution,
         s_spec::SelectionSpec,
-        grow_and_rate::Function)::Population
-    pop_size = s_spec.num_to_keep + s_spec.num_to_pick
+        grow_and_rate::Function,
+        sense = MinSense)::Population
+    pop_size = s_spec.num_to_keep + s_spec.num_to_generate
     agents = Vector(undef, pop_size)
     j = 1
     while j <= pop_size
@@ -132,6 +143,8 @@ function random_initial_population(
             j += 1
         end
     end
+    rev = sense == Optimization.MaxSense
+    sort!(agents, rev = rev)
     return Population(agents)
 end
 
@@ -188,9 +201,9 @@ function next_generation(
         grow_and_rate::Function;
         sense = MinSense)::Population
     s_spec = s_dist.spec
-    new_agents = Vector(undef, s_spec.num_to_pick)
+    new_agents = Vector(undef, s_spec.num_to_generate)
     j = 1
-    while j <= s_spec.num_to_pick
+    while j <= s_spec.num_to_generate
         agent = grow_and_rate(rng, g_spec, new_genome(rng, s_dist, m_dist, pop))
         if isnothing(agent)
             continue
