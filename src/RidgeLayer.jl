@@ -89,16 +89,20 @@ function least_squares_ridge_grow_and_rate(
 
     f_opt = OptimizationFunction(f)
     prob = OptimizationProblem(f_opt, u0, sense = MinSense)
-    sol = solve(prob, NelderMead())
-    if SciMLBase.successful_retcode(sol)
-        n, b = least_squares_ridge(xs, y, lambda_b, g_spec, genome, sol.u)
-        if isnothing(b)
-            return nothing
+    try
+        sol = solve(prob, NelderMead())
+        if SciMLBase.successful_retcode(sol)
+            n, b = least_squares_ridge(xs, y, lambda_b, g_spec, genome, sol.u)
+            if isnothing(b)
+                return nothing
+            else
+                r = sol.objective + lambda_operand * num_operands(genome)
+                return Agent(r, genome, sol.u, b)
+            end
         else
-            r = sol.objective + lambda_operand * num_operands(genome)
-            return Agent(r, genome, sol.u, b)
+            return nothing
         end
-    else
+    catch e
         return nothing
     end
 end
