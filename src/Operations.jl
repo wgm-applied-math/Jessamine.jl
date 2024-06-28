@@ -2,7 +2,7 @@ export splat_or_default
 export Add, Multiply
 
 """
-    splat_or_default(op, def, operands<:AbstractVector)
+    splat_or_default(op, def, operands)
 
 Return the result of applying `op` to the operands,
 with `op([]) = def` and `op([x1...]) = op(x1...)`.
