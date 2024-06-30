@@ -1,4 +1,5 @@
 export least_squares_ridge, least_squares_ridge_grow_and_rate
+export linear_model_predict
 export linear_model_symbolic_output
 
 """
@@ -13,7 +14,7 @@ return that.
 function as_vec end
 
 function as_vec(u::AbstractVector, dims)
-    @assert size(u) == dims
+    @assert size(u)==dims "vector size is $(size(u)), expected $dims"
     return u
 end
 
@@ -44,9 +45,9 @@ function least_squares_ridge(
     outputs = run_genome(g_spec, genome, parameter, xs)
     last_round = outputs[end]
     num_output_cols = length(last_round)
-    offset_col = ones(size(y, 1))
-    data_cols = map(u -> as_vec(u, size(offset_col)), last_round)
-    X = stack([offset_col, data_cols...])
+    column_1s = ones(size(y, 1))
+    data_cols = map(u -> as_vec(u, size(column_1s)), last_round)
+    X = stack([column_1s, data_cols...])
     @assert num_output_cols + 1 == size(X, 2)
     b = (X' * X + lambda * I) \ (X' * y)
     y_hat = X * b
@@ -89,16 +90,20 @@ function least_squares_ridge_grow_and_rate(
 
     f_opt = OptimizationFunction(f)
     prob = OptimizationProblem(f_opt, u0, sense = MinSense)
-    sol = solve(prob, NelderMead())
-    if SciMLBase.successful_retcode(sol)
-        n, b = least_squares_ridge(xs, y, lambda_b, g_spec, genome, sol.u)
-        if isnothing(b)
-            return nothing
+    try
+        sol = solve(prob, NelderMead())
+        if SciMLBase.successful_retcode(sol)
+            n, b = least_squares_ridge(xs, y, lambda_b, g_spec, genome, sol.u)
+            if isnothing(b)
+                return nothing
+            else
+                r = sol.objective + lambda_operand * num_operands(genome)
+                return Agent(r, genome, sol.u, b)
+            end
         else
-            r = sol.objective + lambda_operand * num_operands(genome)
-            return Agent(r, genome, sol.u, b)
+            return nothing
         end
-    else
+    catch e
         return nothing
     end
 end
@@ -140,4 +145,24 @@ function linear_model_symbolic_output(
     b_subs = Dict(b[j] => agent.extra[j] for j in eachindex(b))
     y_num = simplify(substitute(y_pred_simp, merge(p_subs, b_subs)); expand = true)
     return (p = p, x = x, w = z, b = b, y_sym = y_pred_simp, y_num = y_num)
+end
+
+"""
+    linear_model_predict(g_spec::GenomeSpec, agent::Agent, xs::Vector)
+
+Run `agent.genome` on inputs `xs` and `agent.parameter`, and
+form the linear combination of a column of 1s and the genome's
+outputs using the coefficients `agent.extra`.
+"""
+function linear_model_predict(
+        g_spec::GenomeSpec,
+        agent::Agent,
+        xs::Vector)
+    num_rows = length(xs[1])
+    last_round = run_genome(g_spec, agent.genome, agent.parameter, xs)[end]
+    column_1s = ones(num_rows)
+    data_cols = map(u -> as_vec(u, size(column_1s)), last_round)
+    X = stack([column_1s, data_cols...])
+    y_hat = X * agent.extra
+    return y_hat
 end
