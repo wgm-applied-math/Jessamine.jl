@@ -1,5 +1,5 @@
 export splat_or_default
-export Add, Multiply
+export Add, Multiply, ReciprocalMultiply
 
 """
     splat_or_default(op, def, operands)
@@ -16,12 +16,17 @@ function splat_or_default(op, def, operands)
     end
 end
 
-"Add elements of the work space vector."
+"Add elements of the workspace vector."
 struct Add <: AbstractGeneOp end
 op_eval(::Add, operands) = splat_or_default(.+, 0, operands)
 short_show(io::IO, ::Add) = print(io, "add")
 
-"Multiply elements of the work space vector."
+"Multiply elements of the workspace vector."
 struct Multiply <: AbstractGeneOp end
 op_eval(::Multiply, operands) = splat_or_default(.*, 1, operands)
 short_show(io::IO, ::Multiply) = print(io, "mul")
+
+"Multiply elements of the workspace vector and return the reciprocal."
+struct ReciprocalMultiply <: AbstractGeneOp end
+op_eval(::ReciprocalMultiply, operands) = 1 ./ splat_or_default(.*, 1, operands)
+short_show(io::IO, ::ReciprocalMultiply) = print(io, "rcpm")
