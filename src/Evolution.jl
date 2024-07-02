@@ -132,16 +132,13 @@ function random_initial_population(
         sense = MinSense)::Population
     pop_size = s_spec.num_to_keep + s_spec.num_to_generate
     agents = Vector(undef, pop_size)
-    j = 1
-    while j <= pop_size
-        genome = random_genome(rng, g_spec, m_dist, arity_dist)
-        agent = grow_and_rate(rng, g_spec, genome)
-        if isnothing(agent)
-            continue
-        else
-            agents[j] = agent
-            j += 1
+    Threads.@threads for j in eachindex(agents)
+        agent = nothing
+        while isnothing(agent)
+            genome = random_genome(rng, g_spec, m_dist, arity_dist)
+            agent = grow_and_rate(rng, g_spec, genome)
         end
+        agents[j] = agent
     end
     rev = sense == Optimization.MaxSense
     sort!(agents, rev = rev)
@@ -202,15 +199,12 @@ function next_generation(
         sense = MinSense)::Population
     s_spec = s_dist.spec
     new_agents = Vector(undef, s_spec.num_to_generate)
-    j = 1
-    while j <= s_spec.num_to_generate
-        agent = grow_and_rate(rng, g_spec, new_genome(rng, s_dist, m_dist, pop))
-        if isnothing(agent)
-            continue
-        else
-            new_agents[j] = agent
-            j += 1
+    Threads.@threads for j in eachindex(new_agents)
+        agent = nothing
+        while isnothing(agent)
+            agent = grow_and_rate(rng, g_spec, new_genome(rng, s_dist, m_dist, pop))
         end
+        new_agents[j] = agent
     end
     keepers = pop.agents[1:(s_spec.num_to_keep)]
     next_rated_genomes = vcat(new_agents, keepers)

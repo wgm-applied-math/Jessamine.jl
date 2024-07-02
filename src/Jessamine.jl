@@ -8,6 +8,7 @@ using OptimizationOptimJL
 using Random
 using SciMLBase
 using Symbolics
+using Base.Threads
 
 include("GenomeCore.jl")
 include("RandomDuplicateDelete.jl")
