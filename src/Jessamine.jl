@@ -1,7 +1,9 @@
 module Jessamine
 
+using DataFrames
 using Distributions
 using LinearAlgebra
+using MLJ
 using Optim
 using Optimization
 using OptimizationOptimJL
