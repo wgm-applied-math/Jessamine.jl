@@ -2,84 +2,40 @@
 
 using MLJLinearModels
 
-# Some general defaults...
 
-"""
-    residual_norm(m_spec, r)
-
-In general, return the mean square error.
-"""
-function residual_norm(m_spec::AbstractMachineSpec, r::AbstractVector)
-    return sum(r .* r) / length(r)
-end
-
-"""
-    genome_complexity(m_spec, g_spec, genome)
-
-In general, return `m_spec.lambda_operand` times the number of
-operands in the genome.
-"""
-
-function genome_complexity(
-    m_spec::AbstractMachineSpec,
-    g_spec::GenomeSpec,
-    genome::Genome)
-    return m_spec.lambda_operand * num_operands(genome)
-end
-
-"""
-    genome_parameter_complexity(m_spec, p)
-
-In general, return `m_spec.lambda_parameter` times the L2 norm of `p`.
-"""
-function genome_parameter_complexity(m_spec::AbstractMachineSpec, p::AbstractVector)
-    return
-end
-
-
-"""
-    machine_fit!(m_spec, m)
-
-In general, return `MLJ.fit!(m, rows = m_spec.train_rows)`.
-"""
-function machine_fit!(m_spec::AbstractMachineSpec, m)
-    return MJL.fit!(m, rows=m_spec.train_rows)
-end
-
-"""
-    machine_predict(m_spec, mach, X)
-
-In general, return `MLJ.predict(m, X)`.
-"""
-
-function machine_predict(m_spec::AbstractMachineSpec, m, X)
-    return MLJ.predict(m, X)
-end
-
-
-@kwdef struct RidgeRegressionMachineSpec <: AbstractMachineSpec
-    include_bias::Bool
-    lambda_ridge::Real
+@kwdef struct LinearModelMachineSpec <: AbstractMachineSpec
+    model
     lambda_parameter::Real
     lambda_operand::Real
     train_rows::AbstractVector
     test_rows::AbstractVector
 end
 
-function machine_init(m_spec::RidgeRegressionMachineSpec, X, y)
-    return MJL.machine(
-        RidgeRegressor(
-            lambda=m_spec.lambda_ridge,
-            bias=m_spec.include_bias),
-        X, y)
+"""
+    machine_init(machine_spec::LinearModelMachineSpec, X, y)
+
+Return `MLJ.machine(machine_spec.model, X, y)`
+"""
+function machine_init(m_spec::LinearModelMachineSpec, X, y)
+    return MLJ.machine(m_spec.model, X, y)
 end
 
-function machine_complexity(m_spec::RidgeRegressionMachineSpec, m)
-    params = fitted_params(m)
+"""
+    machine_complexity(machine_spec::LinearModelMachineSpec, machine)
+
+Return the sum of squares of the numbers in
+`MLJ.fitted_params(m).coefs`
+"""
+
+function machine_complexity(m_spec::LinearModelMachineSpec, m)
+    params = MLJ.fitted_params(m)
     c = 0.0
-    if m_spec.include_bias
-        c += abs(params.bias)^2
-    end
+
+    # Hastie et al exclute the bias from the regularization term.
+    # That way, addition of a constant to every given y
+    # results in that same constant being added to the prediction.
+    #     c += abs(params.bias)^2
+
     for (feature, coef) in params.coefs
         c += abs(coef)^2
     end

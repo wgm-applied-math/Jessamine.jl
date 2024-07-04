@@ -114,7 +114,7 @@ function random_genome(rng::AbstractRNG, g_spec::GenomeSpec,
 end
 
 """
-    random_initial_population(rng::AbstractRNG, g_spec::GenomeSpec, m_dist::MutationDist, arity_dist::Distribution, s_spec::SelectionSpec, grow_and_rate::Function)
+    random_initial_population(rng::AbstractRNG, g_spec::GenomeSpec, m_dist::MutationDist, arity_dist::Distribution, s_spec::SelectionSpec, grow_and_rate)
 
 Make a random initial population.  The number of genomes is
 specified by adding the number of new genomes per generation and
@@ -128,7 +128,7 @@ function random_initial_population(
         m_dist::MutationDist,
         arity_dist::Distribution,
         s_spec::SelectionSpec,
-        grow_and_rate::Function,
+        grow_and_rate,
         sense = MinSense)::Population
     pop_size = s_spec.num_to_keep + s_spec.num_to_generate
     agents = Vector(undef, pop_size)
