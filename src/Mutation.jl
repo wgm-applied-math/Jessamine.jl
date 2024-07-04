@@ -112,6 +112,7 @@ function mutate(rng::AbstractRNG, m_dist::MutationDist, inst::Instruction)
         if isempty(new_operand_ixs)
             new_operand_ixs = [rand(rng, inst.operand_ixs)]
         end
+        @assert !isempty(new_operand_ixs)
         new_operand_ixs = mutate(rng, m_dist, new_operand_ixs)
     end
     return Instruction(op, new_operand_ixs)
@@ -136,6 +137,7 @@ function mutate(rng::AbstractRNG, m_dist::MutationDist, g::Genome)
             if isempty(new_block)
                 new_block = [rand(rng, block)]
             end
+            @assert !isempty(new_block)
             return mutate(rng, m_dist, new_block)
         end
     end
