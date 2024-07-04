@@ -136,6 +136,7 @@ function random_initial_population(
         agent = nothing
         while isnothing(agent)
             genome = random_genome(rng, g_spec, m_dist, arity_dist)
+            @assert check_genome(genome) "random init"
             agent = grow_and_rate(rng, g_spec, genome)
         end
         agents[j] = agent
@@ -174,7 +175,9 @@ function new_genome(
     a1 = pick_parent(rng, s_dist, pop)
     a2 = pick_parent(rng, s_dist, pop)
     gr = recombine(rng, a1.genome, a2.genome)
+    @assert check_genome(gr) "gr"
     grm = mutate(rng, m_dist, gr)
+    @assert check_genome(grm) "grm"
     return grm
 end
 

@@ -171,3 +171,14 @@ function short_show(io::IO, g::Genome)
         println(io, "]")
     end
 end
+
+function check_genome(g)
+    for block in g.instruction_blocks
+        for instr in block
+            if isempty(instr.operand_ixs)
+                return false
+            end
+        end
+    end
+    return true
+end

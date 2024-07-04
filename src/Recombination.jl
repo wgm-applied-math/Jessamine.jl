@@ -23,12 +23,16 @@ function recombine(rng::AbstractRNG, g_left::Genome, g_right::Genome)
             tail_block = g_left.instruction_blocks[j]
             head_block = g_right.instruction_blocks[j]
         end
-        l_m = length(head_block)
-        m = rand(rng, DiscreteUniform(0, l_m))
-        h_frag = head_block[1:m]
-        t_frag = tail_block[1+m:end]
-        new_block = vcat(h_frag, t_frag)
-        if !(isempty(head_block) || isempty(tail_block))
+        if isempty(head_block)
+            new_block = tail_block
+        elseif isempty(tail_block)
+            new_block = head_block
+        else
+            l_m = length(head_block)
+            m = rand(rng, DiscreteUniform(0, l_m))
+            h_frag = head_block[1:m]
+            t_frag = tail_block[1+m:end]
+            new_block = vcat(h_frag, t_frag)
             @assert !isempty(new_block) "$(length(head_block)) $(length(tail_block)) $m $(length(h_frag)) $(length(t_frag))"
         end
         mixed[j] = new_block

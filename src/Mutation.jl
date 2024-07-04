@@ -112,8 +112,8 @@ function mutate(rng::AbstractRNG, m_dist::MutationDist, inst::Instruction)
         if isempty(new_operand_ixs)
             new_operand_ixs = [rand(rng, inst.operand_ixs)]
         end
-        @assert !isempty(new_operand_ixs)
         new_operand_ixs = mutate(rng, m_dist, new_operand_ixs)
+        @assert !isempty(new_operand_ixs)
     end
     return Instruction(op, new_operand_ixs)
 end
