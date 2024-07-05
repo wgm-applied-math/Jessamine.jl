@@ -1,6 +1,6 @@
 export AbstractGeneOp
 export GenomeSpec, CellState, Instruction, Genome
-export eval_time_step, op_eval
+export eval_time_step, op_eval, flat_workspace
 export run_genome, num_instructions, num_operands, workspace_size
 export short_show
 
@@ -74,8 +74,16 @@ function Base.getindex(cs::CellState, ix::AbstractVector)
     return [Base.getindex(cs, j) for j in ix]
 end
 
+function Base.length(cs::CellState)
+    return length(cs.output) + length(cs.scratch) + length(cs.parameter) + length(cs.input)
+end
+
 function cell_output(cs::CellState{VOut,VScr,VPar,VIn})::VOut where {VOut,VScr,VPar,VIn}
     return cs.output
+end
+
+function flat_workspace(cs::CellState)
+    return vcat(cs.output, cs.scratch, cs.parameter, cs.input)
 end
 
 @kwdef struct Instruction{OpType}

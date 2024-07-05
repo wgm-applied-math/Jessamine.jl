@@ -3,11 +3,10 @@ export eval_time_step_symbolic, show_symbolic, run_genome_symbolic
 """
     eval_time_step_symbolic(g_spec, genome; output_sym, scratch_sym, parameter_sym, input_sym)
 
-Return symbolic objecjs representing a single time step of `genome`.
+Return symbolic objects representing a single time step of `genome`.
 The result is a named tuple with fields
 `z`, `t`, `p`, `x` for the `Symbolics` objects for those variables;
-`w` for the initial workspace state in symbolic form;
-and `w_next` for the future workspace state in symbolic form.
+`c` and `c_next` for the current and future cell state in symbolic form.
 """
 function eval_time_step_symbolic(g_spec::GenomeSpec, genome::Genome;
         output_sym = :z,
@@ -18,10 +17,9 @@ function eval_time_step_symbolic(g_spec::GenomeSpec, genome::Genome;
     t = Symbolics.variables(scratch_sym, 1:(g_spec.scratch_size))
     p = Symbolics.variables(parameter_sym, 1:(g_spec.parameter_size))
     x = Symbolics.variables(input_sym, 1:(g_spec.input_size))
-    w = vcat(z, t, p, x)
-    c_next = eval_time_step(CellState(w), genome)
-    w_next = c_next.workspace
-    return (z = z, t = t, p = p, x = x, w = w, w_next = w_next)
+    c = CellState(z, t, p, x)
+    c_next = eval_time_step(c, genome)
+    return (z = z, t = t, p = p, x = x, c = c, c_next = c_next)
 end
 
 """
@@ -37,12 +35,12 @@ function show_symbolic(g_spec::GenomeSpec, genome::Genome;
         scratch_sym = :t,
         parameter_sym = :p,
         input_sym = :x)
-    z, t, p, x, w, w_next = eval_time_step_symbolic(g_spec, genome;
+    z, t, p, x, c, c_next = eval_time_step_symbolic(g_spec, genome;
         output_sym = output_sym,
         scratch_sym = scratch_sym,
         parameter_sym = parameter_sym,
         input_sym = input_sym)
-    return hcat(1:length(w), w, w_next)
+    return hcat(1:length(c), flat_workspace(c), flat_workspace(c_next))
 end
 
 """
