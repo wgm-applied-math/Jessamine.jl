@@ -99,22 +99,25 @@ function least_squares_ridge_grow_and_rate(
             return nothing
         end
     catch e
-        return nothing
+        if isa(e, ArgumentError)
+            return nothing
+        end
+        throw(e)
     end
 end
 
-@kwdef mutable struct _LSRGR_Context
+@kwdef mutable struct _LSRGR_Context{TXs,Ty}
     g_spec::GenomeSpec
     genome::Genome
     lambda_b::Float64
-    xs::AbstractVector
-    y::AbstractVector
+    xs::TXs
+    y::Ty
     lambda_p::Float64
     n::Union{Float64,Nothing}
-    b::Union{AbstractVector,Nothing}
+    b::Union{Vector{Float64},Nothing}
 end
 
-function _LSRGR_f(u, c::_LSRGR_Context)
+function _LSRGR_f(u::Vector{Float64}, c::_LSRGR_Context{TXs,Ty}) where {TXs, Ty}
     n, b = least_squares_ridge(c.xs, c.y, c.lambda_b, c.g_spec, c.genome, u)
     c.n = n
     c.b = b
