@@ -38,12 +38,44 @@ function workspace_size(g_spec::GenomeSpec)
     return g_spec.output_size + g_spec.scratch_size + g_spec.parameter_size + g_spec.input_size
 end
 
-@kwdef struct CellState{T}
-    workspace::Vector{T}
+@kwdef struct CellState{TOut,TScr,TPar,TIn}
+    output::Vector{TOut}
+    scratch::Vector{TScr}
+    parameter::Vector{TPar}
+    input::Vector{TIn}
+    index_map::Vector{
+        Tuple{
+            Union{Vector{TOut},Vector{TScr},Vector{TPar},Vector{TIn}},
+            Int}}
 end
 
-function Base.getindex(cs::CellState, ix)
-    return cs.workspace[ix]
+function CellState(
+    output::Vector{TOut},
+    scratch::Vector{TScr},
+    parameter::Vector{TPar},
+    input::Vector{TIn}) where {TOut, TScr, TPar, TIn}
+    V = Union{Vector{TOut},Vector{TScr},Vector{TPar},Vector{TIn}}
+    T = Tuple{V,Int}
+    index_map = vcat(
+        T[(output, j) for j in 1:length(output)],
+        T[(scratch, j) for j in 1:length(scratch)],
+        T[(parameter, j) for j in 1:length(parameter)],
+        T[(input, j) for j in 1:length(input)]
+    )
+    return CellState(output, scratch, parameter, input, index_map)
+end
+
+function Base.getindex(cs::CellState, i::Int)
+    (v, j) = cs.index_map[i]
+    return v[j]
+end
+
+function Base.getindex(cs::CellState, ix::AbstractVector)
+    return [Base.getindex(cs, j) for j in ix]
+end
+
+function cell_output(cs::CellState{TOut,TScr,TPar,TIn})::Vector{TOut} where {TOut,TScr,TPar,TIn}
+    return cs.output
 end
 
 @kwdef struct Instruction{OpType}
@@ -113,48 +145,71 @@ end
 
 
 function eval_time_step(
-        cell_state::CellState,
-        genome::Genome)
-    workspace_next = deepcopy(cell_state.workspace)
-    for dest in eachindex(genome.instruction_blocks)
-        instructions = genome.instruction_blocks[dest]
-        val = 0
+        cell_state::CellState{TOut,TScr,TPar,TIn},
+    genome::Genome
+    ) where {TOut, TScr, TPar, TIn}
+    cell_state_next = deepcopy(cell_state)
+    for j in eachindex(genome.instruction_blocks)
+        vec, i = cell_state_next.index_map[j]
+        instructions = genome.instruction_blocks[j]
+        val = zero_like(vec[i])
         for instr in instructions
             val = val .+ op_eval(instr.op, cell_state[instr.operand_ixs])
         end
-        workspace_next[dest] = val
+        vec[i] = val
     end
-    return CellState(workspace_next)
+    return cell_state_next
 end
+
+# scalar case
+function zero_like(x::Number)
+    return zero(x)
+end
+
+# vector case
+function zero_like(v::AbstractVector)
+    return zeros(eltype(v), size(v))
+end
+
+# scalar case
+function zeros_like(x::Number, num_elts::Int)
+    return zeros(typeof(x), num_elts)
+end
+
+# vector case
+function zeros_like(v::T, num_elts::Int)::Vector{T} where {T <: AbstractVector}
+    return [zeros(eltype(v), size(v)) for _ in 1:num_elts]
+end
+
 
 """
     run_genome(g_spec::GenomeSpec, genome::Genome, parameter::AbstractVector, input::AbstractVector)::Vector
 
-Build a work space vector by concatenating zeros for each
-instruction block in `genome`, followed by the `parameter`
-vector, then the `input` vector.  Evaluate the instructions in
-`genome`, repeating the evaluation `g_spec.num_time_steps`.
-Return an array that contains, for each time step, the elements 1
-through `g_spec.output_size` of the work space vector.
+Build a work space vector using zeros for each output and scratch
+slot, followed by the `parameter` vector, then the `input`
+vector.  Evaluate the instructions in `genome`, repeating the
+evaluation `g_spec.num_time_steps`.  Return an array that
+contains, for each time step, the elements 1 through
+`g_spec.output_size` of the work space vector.
+
 """
 function run_genome(
         g_spec::GenomeSpec,
         genome::Genome,
         parameter::AbstractVector,
         input::AbstractVector
-)::Vector
+    )::Vector
     @assert length(input) == g_spec.input_size
     @assert length(parameter) == g_spec.parameter_size
     num_instr_blocks = length(genome.instruction_blocks)
     @assert num_instr_blocks == g_spec.output_size + g_spec.scratch_size
-    scratch = zeros(num_instr_blocks)
-    workspace = vcat(scratch, parameter, input)
-    current_state = CellState(workspace)
-    output_size = g_spec.output_size
+    output = zeros_like(input[1], g_spec.output_size)
+    scratch = zeros_like(input[1], g_spec.scratch_size)
+    current_state = CellState(output, scratch, parameter, input)
     outputs = Vector(undef, g_spec.num_time_steps)
     for t in 1:(g_spec.num_time_steps)
         future_state = eval_time_step(current_state, genome)
-        outputs[t] = future_state.workspace[1:output_size]
+        outputs[t] = cell_output(future_state)
         current_state = future_state
     end
     return outputs
