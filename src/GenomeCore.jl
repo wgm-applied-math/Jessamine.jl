@@ -1,8 +1,9 @@
 export AbstractGeneOp
-export GenomeSpec, CellState, Instruction, Genome
+export GenomeSpec, CellState, makeCellState, Instruction, Genome
 export eval_time_step, op_eval, flat_workspace
 export run_genome, num_instructions, num_operands, workspace_size
 export short_show
+export to_syntax, run_compiled_genome
 
 """
 An operation to be performed as part of the function of a gene.
@@ -92,6 +93,26 @@ end
     operand_ixs::Vector{Int}
 end
 
+function to_syntax(instr::Instruction, w)
+    return to_syntax(instr.op, w, instr.operand_ixs)
+end
+
+function to_syntax(block::Vector{Instruction}, w)
+    if isempty(block)
+        return :0
+    elseif length(block) == 1
+        return to_syntax(block[1], w)
+    else
+        return Expr(:.+, (to_syntax(instr, w) for instr in block)...)
+    end
+end
+
+function to_syntax(blocks::Vector{Vector{Instruction}}, w)
+    blocks_syn = [to_syntax(block, w) for block in blocks]
+    return :([ $(blocks_syn...) ])
+end
+
+
 """
     op_eval(op::AbstractGeneOp, operands::AbstractVector)
 
@@ -114,6 +135,18 @@ next work space.  """
 
 @kwdef struct Genome
     instruction_blocks::Vector{Vector{Instruction}}
+end
+
+function to_syntax(g_spec::GenomeSpec, genome::Genome)
+    scratch_begin = 1 + g_spec.output_size
+    quote
+        w -> makeCellState(
+            $(to_syntax(genome.instruction_blocks[1:g_spec.output_size], :w)),
+            $(to_syntax(genome.instruction_blocks[scratch_begin:end], :w)),
+            w.parameter,
+            w.input
+        )
+    end
 end
 
 """
@@ -225,6 +258,27 @@ function zeros_like(v::T, num_elts::Int)::Vector{Vector{eltype(T)}} where {T <: 
     return [zeros(eltype(v), size(v)) for _ in 1:num_elts]
 end
 
+
+function run_compiled_genome(
+        g_spec::GenomeSpec,
+        compiled_genome::Function,
+        parameter::VPar,
+        input::VIn
+    )::Vector{Vector{eltype(VIn)}} where {VPar,VIn}
+    output = zeros_like(input[1], g_spec.output_size)
+    # output::VOut
+    scratch = zeros_like(input[1], g_spec.scratch_size)
+    # scratch::VOut
+    current_state = makeCellState(output, scratch, parameter, input)
+    outputs = Vector(undef, g_spec.num_time_steps)
+    for t in 1:(g_spec.num_time_steps)
+        future_state = compiled_genome(current_state)
+        # future_state::CellState{VOut,VOut,VPar,VIn}
+        outputs[t] = cell_output(future_state)
+        current_state = future_state
+    end
+    return outputs
+end
 
 """
     run_genome(g_spec::GenomeSpec, genome::Genome, parameter::AbstractVector, input::AbstractVector)::Vector

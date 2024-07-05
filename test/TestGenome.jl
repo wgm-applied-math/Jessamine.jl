@@ -49,10 +49,24 @@ end
 
 @test f(input) == h(input)[end]
 
+println("Test syntax")
+@show genome_as_syn = to_syntax(g_spec, genome)
+g_comp = Jessamine.eval(genome_as_syn)
+function hc(input)
+    output = run_compiled_genome(g_spec, g_comp, parameter, input)
+    return output
+end
+@test f(input) == hc(input)[end]
+
 println("Test vectorization")
 
 function hv(input)
     output = run_genome(g_spec, genome, parameter, input)
+    return output
+end
+
+function hvc(input)
+    output = run_compiled_genome(g_spec, g_comp, parameter, input)
     return output
 end
 
@@ -61,6 +75,7 @@ v_input = [[0.5, 0.5, 0.2], [0.7, 0.8, 0.8]]
 println("Test vectorization:")
 @show hv(v_input)
 @test f(v_input) == hv(v_input)[end]
+@test f(v_input) == hvc(v_input)[end]
 
 println("Test RandomDuplicateDelete")
 
