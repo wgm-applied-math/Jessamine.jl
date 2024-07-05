@@ -82,23 +82,18 @@ function least_squares_ridge_grow_and_rate(
         g_spec::GenomeSpec,
         genome::Genome)::Union{Agent, Nothing}
     u0 = zeros(g_spec.parameter_size)
-
-    function f(u, _)
-        n, b = least_squares_ridge(xs, y, lambda_b, g_spec, genome, u)
-        return n^2 + lambda_b * norm(b)^2 + lambda_p * norm(u)^2
-    end
-
-    f_opt = OptimizationFunction(f)
-    prob = OptimizationProblem(f_opt, u0, sense = MinSense)
+    f_opt = OptimizationFunction(_LSRGR_f)
+    c = _LSRGR_Context(g_spec, genome, lambda_b, xs, y, lambda_p, nothing, nothing)
+    prob = OptimizationProblem(f_opt, u0, c, sense = MinSense)
     try
         sol = solve(prob, NelderMead())
         if SciMLBase.successful_retcode(sol)
-            n, b = least_squares_ridge(xs, y, lambda_b, g_spec, genome, sol.u)
-            if isnothing(b)
+            _LSRGR_f(sol.u, c)
+            if isnothing(c.b)
                 return nothing
             else
                 r = sol.objective + lambda_operand * num_operands(genome)
-                return Agent(r, genome, sol.u, b)
+                return Agent(r, genome, sol.u, c.b)
             end
         else
             return nothing
@@ -107,6 +102,26 @@ function least_squares_ridge_grow_and_rate(
         return nothing
     end
 end
+
+@kwdef mutable struct _LSRGR_Context
+    g_spec::GenomeSpec
+    genome::Genome
+    lambda_b::Float64
+    xs::AbstractVector
+    y::AbstractVector
+    lambda_p::Float64
+    n::Union{Float64,Nothing}
+    b::Union{AbstractVector,Nothing}
+end
+
+function _LSRGR_f(u, c::_LSRGR_Context)
+    n, b = least_squares_ridge(c.xs, c.y, c.lambda_b, c.g_spec, c.genome, u)
+    c.n = n
+    c.b = b
+    return n^2 + c.lambda_b * dot(b, b) + c.lambda_p * dot(u, u)
+end
+
+
 
 """
     linear_model_symbolic_output(g_spec, genome; paramter_sym=:p, input_sym=:x, coefficient_sym=:b)
