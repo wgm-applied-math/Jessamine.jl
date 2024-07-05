@@ -38,23 +38,23 @@ function workspace_size(g_spec::GenomeSpec)
     return g_spec.output_size + g_spec.scratch_size + g_spec.parameter_size + g_spec.input_size
 end
 
-@kwdef struct CellState{TOut,TScr,TPar,TIn}
-    output::Vector{TOut}
-    scratch::Vector{TScr}
-    parameter::Vector{TPar}
-    input::Vector{TIn}
+@kwdef struct CellState{VOut,VScr,VPar,VIn}
+    output::VOut
+    scratch::VScr
+    parameter::VPar
+    input::VIn
     index_map::Vector{
         Tuple{
-            Union{Vector{TOut},Vector{TScr},Vector{TPar},Vector{TIn}},
+            Union{VOut,VScr,VPar,VIn},
             Int}}
 end
 
 function CellState(
-    output::Vector{TOut},
-    scratch::Vector{TScr},
-    parameter::Vector{TPar},
-    input::Vector{TIn}) where {TOut, TScr, TPar, TIn}
-    V = Union{Vector{TOut},Vector{TScr},Vector{TPar},Vector{TIn}}
+    output::VOut,
+    scratch::VScr,
+    parameter::VPar,
+    input::VIn) where {VOut, VScr, VPar, VIn}
+    V = Union{VOut,VScr,VPar,VIn}
     T = Tuple{V,Int}
     index_map = vcat(
         T[(output, j) for j in 1:length(output)],
@@ -74,7 +74,7 @@ function Base.getindex(cs::CellState, ix::AbstractVector)
     return [Base.getindex(cs, j) for j in ix]
 end
 
-function cell_output(cs::CellState{TOut,TScr,TPar,TIn})::Vector{TOut} where {TOut,TScr,TPar,TIn}
+function cell_output(cs::CellState{VOut,VScr,VPar,VIn})::VOut where {VOut,VScr,VPar,VIn}
     return cs.output
 end
 
@@ -145,9 +145,9 @@ end
 
 
 function eval_time_step(
-        cell_state::CellState{TOut,TScr,TPar,TIn},
+        cell_state::CellState,
     genome::Genome
-    ) where {TOut, TScr, TPar, TIn}
+    )
     cell_state_next = deepcopy(cell_state)
     for j in eachindex(genome.instruction_blocks)
         vec, i = cell_state_next.index_map[j]
