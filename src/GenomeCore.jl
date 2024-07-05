@@ -154,10 +154,44 @@ end
 
 
 function eval_time_step(
+    cell_state::CellState{Vector{Vector{T}},Vector{Vector{T}},Vector{T},Vector{Vector{T}}},
+    genome::Genome
+    )::CellState{Vector{Vector{T}},Vector{Vector{T}},Vector{T},Vector{Vector{T}}} where {T <: Number}
+
+    num_rows = length(cell_state.input[1])
+
+    new_output = map(genome.instruction_blocks[1:length(cell_state.output)]) do block
+        val_out = zeros(T, num_rows)
+        for instr in block
+            val_out .= val_out .+ op_eval(instr.op, cell_state[instr.operand_ixs])
+        end
+        val_out
+    end
+    scratch_first = 1 + length(cell_state.output)
+    new_scratch = map(genome.instruction_blocks[scratch_first:end]) do block
+        val_scr = zeros(T, num_rows)
+        for instr in block
+            val_scr .= val_scr .+ op_eval(instr.op, cell_state[instr.operand_ixs])
+        end
+        val_scr
+    end
+    cell_state_next = makeCellState(
+        new_output,
+        new_scratch,
+        cell_state.parameter,
+        cell_state.input)
+    return cell_state_next
+end
+
+function eval_time_step(
     cell_state::CellState{VOut,VScr,VPar,VIn},
     genome::Genome
     )::CellState{VOut,VScr,VPar,VIn} where {VOut,VScr,VPar,VIn}
-    cell_state_next = deepcopy(cell_state)
+    cell_state_next = makeCellState(
+        deepcopy(cell_state.output),
+        deepcopy(cell_state.scratch),
+        cell_state.parameter,
+        cell_state.input)
     for j in eachindex(genome.instruction_blocks)
         vec, i = cell_state_next.index_map[j]
         instructions = genome.instruction_blocks[j]
@@ -169,6 +203,7 @@ function eval_time_step(
     end
     return cell_state_next
 end
+
 
 # scalar case
 function zero_like(x::Number)
@@ -214,14 +249,14 @@ function run_genome(
     num_instr_blocks = length(genome.instruction_blocks)
     @assert num_instr_blocks == g_spec.output_size + g_spec.scratch_size
     output = zeros_like(input[1], g_spec.output_size)
-    output::VOut
+    # output::VOut
     scratch = zeros_like(input[1], g_spec.scratch_size)
-    scratch::VOut
+    # scratch::VOut
     current_state = makeCellState(output, scratch, parameter, input)
     outputs = Vector(undef, g_spec.num_time_steps)
     for t in 1:(g_spec.num_time_steps)
         future_state = eval_time_step(current_state, genome)
-        future_state::CellState{VOut,VOut,VPar,VIn}
+        # future_state::CellState{VOut,VOut,VPar,VIn}
         outputs[t] = cell_output(future_state)
         current_state = future_state
     end

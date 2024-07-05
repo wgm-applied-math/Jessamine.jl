@@ -99,7 +99,7 @@ function least_squares_ridge_grow_and_rate(
             return nothing
         end
     catch e
-        if isa(e, ArgumentError)
+        if isa(e, ArgumentError) || isa(e, SingularException)
             return nothing
         end
         throw(e)
