@@ -38,8 +38,12 @@ function workspace_size(g_spec::GenomeSpec)
     return g_spec.output_size + g_spec.scratch_size + g_spec.parameter_size + g_spec.input_size
 end
 
-@kwdef struct CellState
-    workspace::Vector
+@kwdef struct CellState{T}
+    workspace::Vector{T}
+end
+
+function Base.getindex(cs::CellState, ix)
+    return cs.workspace[ix]
 end
 
 @kwdef struct Instruction{OpType}
@@ -116,7 +120,7 @@ function eval_time_step(
         instructions = genome.instruction_blocks[dest]
         val = 0
         for instr in instructions
-            val = val .+ op_eval(instr.op, cell_state.workspace[instr.operand_ixs])
+            val = val .+ op_eval(instr.op, cell_state[instr.operand_ixs])
         end
         workspace_next[dest] = val
     end
