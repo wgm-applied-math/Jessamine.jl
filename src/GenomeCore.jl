@@ -92,9 +92,9 @@ end
 end
 
 """
-    op_eval(op<:AbstractGeneOp, operands<:AbstractVector)
+    op_eval(op::AbstractGeneOp, operands::AbstractVector)
 
-Return `op`` applied to a list of operands.
+Return `op` applied to a list of operands.
 """
 function op_eval end
 

@@ -101,21 +101,17 @@ end
 
 function mutate(rng::AbstractRNG, m_dist::MutationDist, inst::Instruction)
     op = mutate(rng, m_dist, inst.op)
-    new_operand_ixs = []
-    if !isempty(inst.operand_ixs)
+    if isempty(inst.operand_ixs)
+        return Instruction(op, inst.operand_ixs)
+    else
         rdd = RandomDuplicateDelete(
             rng,
             m_dist.d_duplicate_index,
             m_dist.d_delete_index,
             inst.operand_ixs)
-        new_operand_ixs = collect(rdd)
-        if isempty(new_operand_ixs)
-            new_operand_ixs = [rand(rng, inst.operand_ixs)]
-        end
-        new_operand_ixs = mutate(rng, m_dist, new_operand_ixs)
-        @assert !isempty(new_operand_ixs)
+        new_operand_ixs = mutate(rng, m_dist, collect(rdd))
+        return Instruction(op, new_operand_ixs)
     end
-    return Instruction(op, new_operand_ixs)
 end
 
 function mutate(rng::AbstractRNG, m_dist::MutationDist, v::AbstractVector)
@@ -134,10 +130,10 @@ function mutate(rng::AbstractRNG, m_dist::MutationDist, g::Genome)
                 m_dist.d_delete_instruction,
                 block)
             new_block = collect(rdd)
-            if isempty(new_block)
-                new_block = [rand(rng, block)]
-            end
-            @assert !isempty(new_block)
+            # if isempty(new_block)
+            #     new_block = [rand(rng, block)]
+            # end
+            # @assert !isempty(new_block)
             return mutate(rng, m_dist, new_block)
         end
     end
