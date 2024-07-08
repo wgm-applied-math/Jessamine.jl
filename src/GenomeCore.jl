@@ -4,7 +4,7 @@ export v_convert, v_unconvert
 export eval_time_step, op_eval, flat_workspace
 export run_genome, num_instructions, num_operands, workspace_size
 export short_show
-export to_expr, CompiledGenome
+export to_expr, compile, CompiledGenome
 
 """
 An operation to be performed as part of the function of a gene.
@@ -242,6 +242,10 @@ function zero_like(v::AbstractVector)
     return zeros(eltype(v), size(v))
 end
 
+function zero_like(v::AbstractVector{Symbolics.Num})
+    return fill(Num(0), size(v))
+end
+
 function zeros_like(v::AbstractVector, num_elts::Int)
     return [zero_like(v) for _ in 1:num_elts]
 end
@@ -250,12 +254,22 @@ end
     genome::Genome
     expr::Expr
     f::Function
+end
 
-    function CompiledGenome(g_spec::GenomeSpec, genome::Genome)
-        expr = to_expr(g_spec, genome)
+function compile(g_spec::GenomeSpec, genome::Genome)
+    expr = to_expr(g_spec, genome)
+    try
         f = eval(expr)
-        return new(genome, expr, f)
+        return CompiledGenome(genome, expr, f)
+    catch e
+        short_show(genome)
+        @show expr
+        throw(e)
     end
+end
+
+function compile(g_spec::GenomeSpec, cg::CompiledGenome)
+    return cg
 end
 
 function eval_time_step(

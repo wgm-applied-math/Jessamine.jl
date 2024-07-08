@@ -50,7 +50,7 @@ end
 @test f(input) == h(input)
 
 println("Test to_expr")
-cg = CompiledGenome(g_spec, genome)
+cg = compile(g_spec, genome)
 @show cg.expr
 function hc(input)
     output = run_genome(g_spec, cg, parameter, input)

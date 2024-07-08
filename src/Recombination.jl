@@ -33,6 +33,10 @@ function recombine(rng::AbstractRNG, g_left::Genome, g_right::Genome)
     return Genome(mixed)
 end
 
+function recombine(rng::AbstractRNG, g_left::CompiledGenome, g_right::CompiledGenome)
+    return recombine(rng, g_left.genome, g_right.genome)
+end
+
 
 # function recombine_never_empty(rng::AbstractRNG, g_left::Genome, g_right::Genome)
 #     @assert length(g_left.instruction_blocks) == length(g_right.instruction_blocks)

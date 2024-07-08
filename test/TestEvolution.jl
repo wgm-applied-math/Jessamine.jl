@@ -41,12 +41,12 @@ end
 # Indices into the state vector
 z1, z2, z3, z4, p1, x1, x2 = 1:index_max
 
-# This should output [x1, x2, x1 * x2, 0]
+# This should output [1, x1, x2, x1 * x2]
 g_check = Genome(
-    [[Instruction(Add(), [x1])],
-    [Instruction(Multiply(), [x2])],
-    [Instruction(Multiply(), [x1, x2])],
-    []])
+    [[Instruction(Multiply(), Int[])], # creates a 1
+     [Instruction(Add(), [x1])],
+     [Instruction(Multiply(), [x2])],
+     [Instruction(Multiply(), [x1, x2])]])
 
 println("This should result in 2 + 3 x1 + 3 x2 - 3 x1 * x2")
 a_check = grow_and_rate(rng, g_spec, g_check)
@@ -55,7 +55,7 @@ short_show(a_check)
 println("end a_check")
 println()
 @show round.(a_check.extra)
-@test round.(a_check.extra) == [2, 3, 3, -3, 0]
+@test round.(a_check.extra) == [2, 3, 3, -3]
 
 pop_init = random_initial_population(rng, g_spec, m_dist, arity_dist, s_spec, grow_and_rate)
 println("pop_init = ")

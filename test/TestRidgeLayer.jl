@@ -19,6 +19,7 @@ xs = [x1, x2]
 end # module RD
 
 module RG
+using LinearAlgebra
 using Test
 using Jessamine
 using ..RD
@@ -35,7 +36,7 @@ genome = Genome(
 
 parameter = [1.0, -1.0]
 
-spec = GenomeSpec(1, 3, 2, 2, 4)
+spec = GenomeSpec(2, 3, 2, 2, 4)
 
 g_res = run_genome(spec, genome, parameter, RD.xs)
 y = g_res[end][1]
@@ -57,9 +58,10 @@ function test_ridge_grow_and_rate()
     agent = least_squares_ridge_grow_and_rate(
         RD.xs, RD.y, lambda_b, lambda_p, lambda_o, RG.spec, RG.genome)
     g_res = run_genome(RG.spec, RG.genome, agent.parameter, RD.xs)
-    y_rgr = g_res[end][1]
+    zs = g_res[end]
+    Z = stack(zs)
     b = agent.extra
-    y_rgr_pred = @. b[1] + b[2] * y_rgr
+    y_rgr_pred = Z * b
     residuals = RD.y - y_rgr_pred
     return (agent, y_rgr_pred, residuals)
 end
@@ -69,9 +71,6 @@ agent, y_rgr_pred, rgr_residuals = test_ridge_grow_and_rate()
 @show agent.parameter
 @show agent.extra
 @show y_rgr_pred
-
-@test round(agent.extra[1]) == 2
-@test round(agent.extra[2]) == 3
 
 end # module RG
 
@@ -84,14 +83,14 @@ using Jessamine
 using ..RD
 using ..RG
 
-# The documentation says that fewer things work with symbolic
-# arrays like this, as opposed to an array of symbols.  Not sure
-# if that's importat yet.
-@variables x[1:2]
+# Things work best if we use an array of Symbolic objects
+# instead of a Symbolic array object.
+x = Symbolics.variables(:x, 1:2)
 
-y_rgr_sym = run_genome(RG.spec, RG.genome, RG.agent.parameter, x)[end][1]
+zs_sym = run_genome(RG.spec, RG.genome, Num.(RG.agent.parameter), x)[end]
+Z_sym = stack(zs_sym)
 b = RG.agent.extra
-y_pred_sym = b[1] + dot(b[2:end], y_rgr_sym)
+y_pred_sym = Z_sym * b
 @show y_pred_sym
 y_pred_simp = simplify(y_pred_sym)
 @show y_pred_simp

@@ -2,38 +2,16 @@ export least_squares_ridge, least_squares_ridge_grow_and_rate
 export linear_model_predict
 export linear_model_symbolic_output
 
-# Convert a list of scalars to a list of scalar|vector
-function Base.convert(::Type{Vector{Union{K,Vector{K}}}}, x::Vector{K}) where K
-    y .= convert(Union{K,Vector{K}}, x)
-    return y
-end
-
-# Convert a list of vectors to a list of scalar|vector
-function Base.convert(::Type{Vector{Union{K,Vector{K}}}}, x::Vector{Vector{K}}) where K
-    y .= convert(Union{K,Vector{K}}, x)
-    return y
+function extend_if_singleton(v, m)
+    if length(v) == 1
+        return fill(v[1], m)
+    else
+        @assert length(v) == m
+        return v
+    end
 end
 
 
-"""
-    as_vec(u, dims)
-
-(Private) This is a utility function to make it easier to mix
-scalars and vectors in the work space when evaluating a genome.
-Given a vector `u`, check that its size matches `dims` and return
-it.  Given a scalar `u`, fill a vector of size `dims` with it and
-return that.
-"""
-function as_vec end
-
-function as_vec(u::AbstractVector, dims)
-    @assert size(u)==dims "vector size is $(size(u)), expected $dims"
-    return u
-end
-
-function as_vec(u::Number, dims)
-    return fill(u, dims)
-end
 
 """
     least_squares_ridge(xs, y, lambda, g_spec, genome, parameter)
@@ -53,15 +31,17 @@ function least_squares_ridge(
         lambda::Float64,
         g_spec::GenomeSpec,
         genome::AbstractGenome,
-    parameter::AbstractVector)::Tuple{Float64, Vector{Union{Float64,Vector{Float64}}}}
+    parameter::AbstractVector)
     @assert g_spec.input_size == length(xs)
+    num_rows = length(y)
+    local outputs::Vector{Vector{Vector{Float64}}}
     outputs = run_genome(g_spec, genome, parameter, xs)
+    local last_round::Vector{Vector{Float64}}
     last_round = outputs[end]
     num_output_cols = length(last_round)
-    column_1s = ones(size(y, 1))
-    data_cols = map(u -> as_vec(u, size(column_1s)), last_round)
-    X = stack([column_1s, data_cols...])
-    @assert num_output_cols + 1 == size(X, 2)
+    data_cols = map(u -> extend_if_singleton(u, num_rows), last_round)
+    X = stack(data_cols)
+    @assert num_output_cols == size(X, 2)
     b = (X' * X + lambda * I) \ (X' * y)
     y_hat = X * b
     r = y - y_hat
@@ -87,7 +67,7 @@ Otherwise, return `nothing`.
 
 """
 function least_squares_ridge_grow_and_rate(
-        xs::Vector{Union{Vector,Vector{Float64}}},
+        xs::Vector{Vector{Float64}},
         y::Vector{Float64},
         lambda_b::Float64,
         lambda_p::Float64,
@@ -191,9 +171,8 @@ function linear_model_predict(
         xs::Vector)
     num_rows = length(xs[1])
     last_round = run_genome(g_spec, agent.genome, agent.parameter, xs)[end]
-    column_1s = ones(num_rows)
-    data_cols = map(u -> as_vec(u, size(column_1s)), last_round)
-    X = stack([column_1s, data_cols...])
+    data_cols = map(u -> extend_if_singleton(u, num_rows), last_round)
+    X = stack(data_cols)
     y_hat = X * agent.extra
     return y_hat
 end
