@@ -2,6 +2,19 @@ export least_squares_ridge, least_squares_ridge_grow_and_rate
 export linear_model_predict
 export linear_model_symbolic_output
 
+# Convert a list of scalars to a list of scalar|vector
+function Base.convert(::Type{Vector{Union{K,Vector{K}}}}, x::Vector{K}) where K
+    y .= convert(Union{K,Vector{K}}, x)
+    return y
+end
+
+# Convert a list of vectors to a list of scalar|vector
+function Base.convert(::Type{Vector{Union{K,Vector{K}}}}, x::Vector{Vector{K}}) where K
+    y .= convert(Union{K,Vector{K}}, x)
+    return y
+end
+
+
 """
     as_vec(u, dims)
 
@@ -35,12 +48,12 @@ If all goes well, return `(norm(y - y_hat), b)`.
 Otherwise return `nothing`.
 """
 function least_squares_ridge(
-        xs::AbstractVector,
-        y::AbstractVector,
+        xs::Vector{Vector{Float64}},
+        y::Vector{Float64},
         lambda::Float64,
         g_spec::GenomeSpec,
-        genome::Genome,
-        parameter::AbstractVector)::Tuple{Float64, AbstractVector}
+        genome::AbstractGenome,
+    parameter::AbstractVector)::Tuple{Float64, Vector{Union{Float64,Vector{Float64}}}}
     @assert g_spec.input_size == length(xs)
     outputs = run_genome(g_spec, genome, parameter, xs)
     last_round = outputs[end]
@@ -74,18 +87,18 @@ Otherwise, return `nothing`.
 
 """
 function least_squares_ridge_grow_and_rate(
-        xs::AbstractVector,
-        y::AbstractVector,
+        xs::Vector{Union{Vector,Vector{Float64}}},
+        y::Vector{Float64},
         lambda_b::Float64,
         lambda_p::Float64,
         lambda_operand::Float64,
         g_spec::GenomeSpec,
-        genome::Genome)::Union{Agent, Nothing}
+        genome::AbstractGenome)::Union{Agent, Nothing}
     u0 = zeros(g_spec.parameter_size)
     f_opt = OptimizationFunction(_LSRGR_f)
     c = _LSRGR_Context(g_spec, genome, lambda_b, xs, y, lambda_p, nothing, nothing)
     prob = OptimizationProblem(f_opt, u0, c, sense = MinSense)
-    try
+#    try
         sol = solve(prob, NelderMead())
         if SciMLBase.successful_retcode(sol)
             _LSRGR_f(sol.u, c)
@@ -98,17 +111,17 @@ function least_squares_ridge_grow_and_rate(
         else
             return nothing
         end
-    catch e
-        if isa(e, ArgumentError) || isa(e, SingularException)
-            return nothing
-        end
-        throw(e)
-    end
+#    catch e
+#        if isa(e, ArgumentError) || isa(e, SingularException)
+#            return nothing
+#        end
+#        throw(e)
+#    end
 end
 
 @kwdef mutable struct _LSRGR_Context{TXs,Ty}
     g_spec::GenomeSpec
-    genome::Genome
+    genome::AbstractGenome
     lambda_b::Float64
     xs::TXs
     y::Ty

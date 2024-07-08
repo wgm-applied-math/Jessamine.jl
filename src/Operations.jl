@@ -21,11 +21,14 @@ end
 struct Add <: AbstractGeneOp end
 short_show(io::IO, ::Add) = print(io, "add")
 op_eval(::Add, operands) = splat_or_default(.+, 0, operands)
-function to_syntax(::Add, w, operands)
+function to_expr(::Add, cs, operands)
     if isempty(operands)
         return 0
+    elseif length(operands) == 1
+        field, j = operands[1]
+        return :($cs.$field[$j])
     else
-        return Expr(:call, :.+, (:($w[$j]) for j in operands)...)
+        return Expr(:call, :.+, (:($cs.$field[$j]) for (field, j) in operands)...)
     end
 end
 
@@ -40,13 +43,15 @@ function op_eval(::Subtract, operands)
         return operands[1] - sum(operands[2:end])
     end
 end
-function to_syntax(::Subtract, w, operands)
+function to_expr(::Subtract, cs, operands)
     if isempty(operands)
         return 0
     elseif length(operands) == 1
-        return :($w[$(operands[1])])
+        field, j = operands[1]
+        return :($cs.$field[$j])
     else
-        return Expr(:call, :.-, :($w[$(operands[1])]), Expr(:call, :.+, (:($w[$j]) for j in operands[2:end])...))
+        field1, j1 = operands[1]
+        return Expr(:call, :.-, :($cs.$field1[$j1]), Expr(:call, :.+, (:($cs.$field[$j]) for (field, j) in operands[2:end])...))
     end
 end
 
@@ -55,11 +60,14 @@ end
 struct Multiply <: AbstractGeneOp end
 short_show(io::IO, ::Multiply) = print(io, "mul")
 op_eval(::Multiply, operands) = splat_or_default(.*, 1, operands)
-function to_syntax(::Multiply, w, operands)
+function to_expr(::Multiply, cs, operands)
     if isempty(operands)
         return 1
+    elseif length(operands) == 1
+        field, j = operands[1]
+        return :($cs.$field[$j])
     else
-        return Expr(:call, :.*, (:($w[$j]) for j in operands)...)
+        return Expr(:call, :.*, (:($cs.$field[$j]) for (field, j) in operands)...)
     end
 end
 
@@ -67,10 +75,13 @@ end
 struct ReciprocalMultiply <: AbstractGeneOp end
 short_show(io::IO, ::ReciprocalMultiply) = print(io, "rcpm")
 op_eval(::ReciprocalMultiply, operands) = 1 ./ splat_or_default(.*, 1, operands)
-function to_syntax(::ReciprocalMultiply, w, operands)
+function to_expr(::ReciprocalMultiply, w, operands)
     if isempty(operands)
         return 1
+    elseif length(operands) == 1
+        field, j = operands[1]
+        return :(1 / $cs.$field[$j])
     else
-        return Expr(:call, :./, 1, Expr(:call, :.*, (:($w[$j]) for j in operands)...))
+        return Expr(:call, :./, 1, Expr(:call, :.*, (:($cs.$field[$j]) for (field, j) in operands)...))
     end
 end

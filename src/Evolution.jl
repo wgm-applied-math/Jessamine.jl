@@ -43,10 +43,10 @@ end
 
 """An agent has a rating, a genome, a parameter vector, and an
 extra bit of data that depends on how rating is done."""
-struct Agent{R,T}
+struct Agent{R,T,VPar<:AbstractVector,G<:AbstractGenome}
     rating::R
-    genome::Genome
-    parameter::Vector
+    genome::G
+    parameter::VPar
     extra::T
 end
 
@@ -110,7 +110,9 @@ function random_genome(rng::AbstractRNG, g_spec::GenomeSpec,
         operands = rand(rng, index_dist, num_operands)
         instruction_blocks[j] = [Instruction(op, operands)]
     end
-    return Genome(instruction_blocks)
+    g = Genome(instruction_blocks)
+    cg = CompiledGenome(g_spec, g)
+    return cg
 end
 
 """
@@ -198,14 +200,16 @@ function next_generation(
         s_dist::SelectionDist,
         m_dist::MutationDist,
         pop::Population,
-        grow_and_rate::Function;
+        grow_and_rate;
         sense = MinSense)::Population
     s_spec = s_dist.spec
     new_agents = Vector(undef, s_spec.num_to_generate)
     Threads.@threads for j in eachindex(new_agents)
         agent = nothing
         while isnothing(agent)
-            agent = grow_and_rate(rng, g_spec, new_genome(rng, s_dist, m_dist, pop))
+            g = new_genome(rng, s_dist, m_dist, pop)
+            cg = CompiledGenome(g_spec, g)
+            agent = grow_and_rate(rng, g_spec, cg)
         end
         new_agents[j] = agent
     end
