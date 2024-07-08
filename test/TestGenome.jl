@@ -14,13 +14,13 @@ ma = -a
 b = 0.3
 input = [0.5, 0.7]
 
-f((x, y)) = @. [1 - a * x^2 + y, b * x]
+f((x, y)) = v_convert.(@. [1 - a * x^2 + y, b * x])
 
 function g((x, y))
     t1 = @. ma * x * x
     x1 = @. 1 + t1 + y
     y1 = @. b * x
-    return [x1, y1]
+    return v_convert.([x1, y1])
 end
 
 @test f(input) == g(input)
@@ -42,21 +42,21 @@ genome = Genome(instruction_blocks)
 
 function h(input)
     output = run_genome(g_spec, genome, parameter, input)
-    return output
+    return output[end]
 end
 
 @show h(input)
 
-@test f(input) == h(input)[end]
+@test f(input) == h(input)
 
 println("Test to_expr")
 cg = CompiledGenome(g_spec, genome)
 @show cg.expr
 function hc(input)
     output = run_genome(g_spec, cg, parameter, input)
-    return output
+    return output[end]
 end
-@test f(input) == hc(input)[end]
+@test f(input) == hc(input)
 
 println("Test vectorization")
 
@@ -65,8 +65,8 @@ v_input = [[0.5, 0.5, 0.2], [0.7, 0.8, 0.8]]
 println("Test vectorization:")
 @show h(v_input)
 @show hc(v_input)
-@test f(v_input) == h(v_input)[end]
-@test f(v_input) == hc(v_input)[end]
+@test f(v_input) == h(v_input)
+@test f(v_input) == hc(v_input)
 
 println("Test RandomDuplicateDelete")
 

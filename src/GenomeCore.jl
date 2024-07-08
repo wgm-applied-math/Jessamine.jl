@@ -1,5 +1,6 @@
 export AbstractGeneOp
 export GenomeSpec, CellState, CellState, Instruction, Genome
+export v_convert, v_unconvert
 export eval_time_step, op_eval, flat_workspace
 export run_genome, num_instructions, num_operands, workspace_size
 export short_show
@@ -53,33 +54,41 @@ function workspace_size(g_spec::GenomeSpec)
     return g_spec.output_size + g_spec.scratch_size + g_spec.parameter_size + g_spec.input_size
 end
 
-struct CellState{VOut,VScr,VPar,VIn}
-    output::VOut
-    scratch::VScr
-    parameter::VPar
-    input::VIn
-    index_map::Vector{
-        Tuple{
-            Union{VOut,VScr,VPar,VIn},
-            Int}}
+struct CellState{E}
+    output::Vector{E}
+    scratch::Vector{E}
+    parameter::Vector{E}
+    input::Vector{E}
+    index_map::Vector{Tuple{Vector{E},Int}}
+end
+
+function v_convert(x::AbstractArray)
+    return x
+end
+
+
+function v_convert(x)
+    return [x]
+end
+
+function v_unconvert(xv::AbstractVector)
+    @assert length(xv) == 1
+    return xv[1]
 end
 
 function CellState(
-    output::VOut,
-    scratch::VScr,
-    parameter::VPar,
-    input::VIn)::CellState{VOut,VScr,VPar,VIn} where {VOut,VScr,VPar,VIn}
-    V = Union{VOut,VScr,VPar,VIn}
-    T = Tuple{V,Int}
+    output,
+    scratch,
+    parameter,
+    input)
     index_map = vcat(
-        T[(output, j) for j in 1:length(output)],
-        T[(scratch, j) for j in 1:length(scratch)],
-        T[(parameter, j) for j in 1:length(parameter)],
-        T[(input, j) for j in 1:length(input)]
+        [(output, j) for j in 1:length(output)],
+        [(scratch, j) for j in 1:length(scratch)],
+        [(parameter, j) for j in 1:length(parameter)],
+        [(input, j) for j in 1:length(input)]
     )
-    return CellState{VOut,VScr,VPar,VIn}(output, scratch, parameter, input, index_map)
+    return CellState(output, scratch, parameter, input, index_map)
 end
-
 
 function Base.getindex(cs::CellState, i::Int)
     (v, j) = cs.index_map[i]
@@ -94,7 +103,7 @@ function Base.length(cs::CellState)
     return length(cs.output) + length(cs.scratch) + length(cs.parameter) + length(cs.input)
 end
 
-function cell_output(cs::CellState{VOut,VScr,VPar,VIn})::VOut where {VOut,VScr,VPar,VIn}
+function cell_output(cs::CellState)
     return cs.output
 end
 
@@ -157,9 +166,9 @@ end
 function to_expr(g_spec::GenomeSpec, genome::Genome)
     scratch_begin = 1 + g_spec.output_size
     quote
-        function(cs::CellState{VOut,VScr,VPar,VIn}) where {VOut,VScr,VPar,VIn}
-            new_output = $(to_expr(g_spec, genome.instruction_blocks[1:g_spec.output_size], :cs, :(eltype(VOut))))
-            new_scratch = $(to_expr(g_spec, genome.instruction_blocks[scratch_begin:end], :cs, :(eltype(VScr))))
+        function(cs::CellState{E}) where {E}
+            new_output = $(to_expr(g_spec, genome.instruction_blocks[1:g_spec.output_size], :cs, :E))
+            new_scratch = $(to_expr(g_spec, genome.instruction_blocks[scratch_begin:end], :cs, :E))
             return CellState(new_output, new_scratch, cs.parameter, cs.input)
         end
     end
@@ -201,16 +210,12 @@ function num_operands(xs::AbstractVector)
     return sum(num_operands.(xs))
 end
 
-
 function eval_time_step(
-    cell_state::CellState{Vector{Vector{T}},Vector{T},Vector{Vector{T}}},
+    cell_state::CellState{E},
     genome::Genome
-    )::CellState{Vector{Vector{T}},Vector{T},Vector{Vector{T}}} where {T <: Number}
-
-    num_rows = length(cell_state.input[1])
-
+    )::CellState{E} where {E}
     new_output = map(genome.instruction_blocks[1:length(cell_state.output)]) do block
-        val_out = zeros(T, num_rows)
+        val_out = zero_like(cell_state.input[1])
         for instr in block
             val_out .= val_out .+ op_eval(instr.op, cell_state[instr.operand_ixs])
         end
@@ -218,7 +223,7 @@ function eval_time_step(
     end
     scratch_first = 1 + length(cell_state.output)
     new_scratch = map(genome.instruction_blocks[scratch_first:end]) do block
-        val_scr = zeros(T, num_rows)
+        val_scr = zero_like(cell_state.input[1])
         for instr in block
             val_scr .= val_scr .+ op_eval(instr.op, cell_state[instr.operand_ixs])
         end
@@ -232,46 +237,13 @@ function eval_time_step(
     return cell_state_next
 end
 
-function eval_time_step(
-    cell_state::CellState{VOut,VScr,VPar,VIn},
-    genome::Genome
-    )::CellState{VOut,VScr,VPar,VIn} where {VOut,VScr,VPar,VIn}
-    cell_state_next = CellState(
-        deepcopy(cell_state.output),
-        deepcopy(cell_state.scratch),
-        cell_state.parameter,
-        cell_state.input)
-    for j in eachindex(genome.instruction_blocks)
-        vec, i = cell_state_next.index_map[j]
-        instructions = genome.instruction_blocks[j]
-        val = zero_like(vec[i])
-        for instr in instructions
-            val = val .+ op_eval(instr.op, cell_state[instr.operand_ixs])
-        end
-        vec[i] = val
-    end
-    return cell_state_next
-end
-
-
-# scalar case
-function zero_like(x::Number)
-    return zero(x)
-end
-
 # vector case
 function zero_like(v::AbstractVector)
     return zeros(eltype(v), size(v))
 end
 
-# scalar case
-function zeros_like(x::Number, num_elts::Int)::Vector{typeof(x)}
-    return zeros(typeof(x), num_elts)
-end
-
-# vector case
-function zeros_like(v::T, num_elts::Int)::Vector{Vector{eltype(T)}} where {T <: AbstractVector}
-    return [zeros(eltype(v), size(v)) for _ in 1:num_elts]
+function zeros_like(v::AbstractVector, num_elts::Int)
+    return [zero_like(v) for _ in 1:num_elts]
 end
 
 @kwdef struct CompiledGenome <: AbstractGenome
@@ -287,9 +259,9 @@ end
 end
 
 function eval_time_step(
-    cell_state::CellState{VOut,VScr,VPar,VIn},
+    cell_state::CellState{E},
     cg::CompiledGenome
-    )::CellState{VOut,VScr,VPar,VIn} where {VOut,VScr,VPar,VIn}
+    )::CellState{E} where {E}
     return invokelatest(cg.f, cell_state)
 end
 
@@ -311,21 +283,21 @@ contains, for each time step, the elements 1 through
 function run_genome(
         g_spec::GenomeSpec,
         genome::AbstractGenome,
-        parameter::VPar,
-        input::VIn
-    )::Vector{Vector{eltype(VIn)}} where {VPar,VIn}
-    VOut = Vector{eltype(VIn)}
+        parameter::AbstractArray{P},
+        input::AbstractArray{X}
+    ) where {P, X}
     @assert length(input) == g_spec.input_size
     @assert length(parameter) == g_spec.parameter_size
-    output = zeros_like(input[1], g_spec.output_size)
-    # output::VOut
-    scratch = zeros_like(input[1], g_spec.scratch_size)
-    # scratch::VOut
-    current_state = CellState(output, scratch, parameter, input)
+    local input_v::Vector{<:AbstractVector}
+    input_v = v_convert.(input)
+    local parameter_v::Vector{<:AbstractVector}
+    parameter_v = v_convert.(parameter)
+    output_v = zeros_like(input_v[1], g_spec.output_size)
+    scratch_v = zeros_like(input_v[1], g_spec.scratch_size)
+    current_state = CellState(output_v, scratch_v, parameter_v, input_v)
     outputs = Vector(undef, g_spec.num_time_steps)
     for t in 1:(g_spec.num_time_steps)
         future_state = eval_time_step(current_state, genome)
-        # future_state::CellState{VOut,VOut,VPar,VIn}
         outputs[t] = cell_output(future_state)
         current_state = future_state
     end
