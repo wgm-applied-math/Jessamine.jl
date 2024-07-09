@@ -134,7 +134,7 @@ and `b` are vectors of `Symbolics` objects used to represent
 genome parameters, inputs, and linear model coefficients; `z` is
 a vector of genome outputs in symbolic form; `y_sym` is the
 symbolic representation of the linear model `dot(z, b)`;
-and `y_num` is the symbolic model with subsitutions `p =
+and `y_num` is the symbolic model with substitutions `p =
 agent.parameters` and `b = agent.extra` applied, so that only
 `x[j]`s remain.
 
