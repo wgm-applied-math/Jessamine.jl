@@ -14,13 +14,13 @@ ma = -a
 b = 0.3
 input = [0.5, 0.7]
 
-f((x, y)) = v_convert.(@. [1 - a * x^2 + y, b * x])
+f((x, y)) =@. [1 - a * x^2 + y, b * x]
 
 function g((x, y))
     t1 = @. ma * x * x
     x1 = @. 1 + t1 + y
     y1 = @. b * x
-    return v_convert.([x1, y1])
+    return [x1, y1]
 end
 
 @test f(input) == g(input)

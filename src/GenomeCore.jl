@@ -62,13 +62,17 @@ struct CellState{E}
     index_map::Vector{Tuple{Vector{E},Int}}
 end
 
-function v_convert(x::AbstractArray)
+function v_convert(::Type{<:AbstractArray}, x::AbstractArray)
     return x
 end
 
 
-function v_convert(x)
-    return [x]
+function v_convert(ref::Type{<:AbstractArray}, x)
+    return [convert(eltype(ref), x)]
+end
+
+function v_convert(ref::Type, x)
+    return convert(ref, x)
 end
 
 function v_unconvert(xv::AbstractVector)
@@ -213,7 +217,8 @@ end
 function eval_time_step(
     cell_state::CellState{E},
     genome::Genome
-    )::CellState{E} where {E}
+    )::CellState{E} where {E<:AbstractVector}
+    local new_output::Vector{E}
     new_output = map(genome.instruction_blocks[1:length(cell_state.output)]) do block
         val_out = zero_like(cell_state.input[1])
         for instr in block
@@ -222,6 +227,7 @@ function eval_time_step(
         val_out
     end
     scratch_first = 1 + length(cell_state.output)
+    local new_scratch::Vector{E}
     new_scratch = map(genome.instruction_blocks[scratch_first:end]) do block
         val_scr = zero_like(cell_state.input[1])
         for instr in block
@@ -237,17 +243,50 @@ function eval_time_step(
     return cell_state_next
 end
 
+function eval_time_step(
+    cell_state::CellState{E},
+    genome::Genome
+    )::CellState{E} where {E<:Number}
+    local new_output::Vector{E}
+    new_output = map(genome.instruction_blocks[1:length(cell_state.output)]) do block
+        val_out = zero_like(cell_state.input[1])
+        for instr in block
+            val_out = val_out + op_eval(instr.op, cell_state[instr.operand_ixs])
+        end
+        val_out
+    end
+    scratch_first = 1 + length(cell_state.output)
+    local new_scratch::Vector{E}
+    new_scratch = map(genome.instruction_blocks[scratch_first:end]) do block
+        val_scr = zero_like(cell_state.input[1])
+        for instr in block
+            val_scr = val_scr + op_eval(instr.op, cell_state[instr.operand_ixs])
+        end
+        val_scr
+    end
+    cell_state_next = CellState(
+        new_output,
+        new_scratch,
+        cell_state.parameter,
+        cell_state.input)
+    return cell_state_next
+end
+
+function zero_like(ref::T)::T where {T}
+    return convert(T, 0)
+end
+
 # vector case
-function zero_like(v::AbstractVector)
+function zero_like(v::V)::Vector{eltype(V)} where {V <: AbstractVector}
     return zeros(eltype(v), size(v))
 end
 
-function zero_like(v::AbstractVector{Symbolics.Num})
-    return fill(Num(0), size(v))
+function zeros_like(v::V, num_elts::Int)::Vector{Vector{eltype(V)}} where {V <: AbstractVector}
+    return [zero_like(v) for _ in 1:num_elts]
 end
 
-function zeros_like(v::AbstractVector, num_elts::Int)
-    return [zero_like(v) for _ in 1:num_elts]
+function zeros_like(v::T, num_elts::Int)::Vector{T} where {T <: Number}
+    return zeros(typeof(v), num_elts)
 end
 
 @kwdef struct CompiledGenome <: AbstractGenome
@@ -297,15 +336,13 @@ contains, for each time step, the elements 1 through
 function run_genome(
         g_spec::GenomeSpec,
         genome::AbstractGenome,
-        parameter::AbstractArray{P},
-        input::AbstractArray{X}
-    ) where {P, X}
+        parameter::AbstractArray,
+        input::AbstractArray
+    )
     @assert length(input) == g_spec.input_size
     @assert length(parameter) == g_spec.parameter_size
-    local input_v::Vector{<:AbstractVector}
-    input_v = v_convert.(input)
-    local parameter_v::Vector{<:AbstractVector}
-    parameter_v = v_convert.(parameter)
+    input_v = input
+    parameter_v = v_convert.(eltype(input_v), parameter)
     output_v = zeros_like(input_v[1], g_spec.output_size)
     scratch_v = zeros_like(input_v[1], g_spec.scratch_size)
     current_state = CellState(output_v, scratch_v, parameter_v, input_v)

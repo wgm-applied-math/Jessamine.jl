@@ -78,7 +78,7 @@ function least_squares_ridge_grow_and_rate(
     f_opt = OptimizationFunction(_LSRGR_f)
     c = _LSRGR_Context(g_spec, genome, lambda_b, xs, y, lambda_p, nothing, nothing)
     prob = OptimizationProblem(f_opt, u0, c, sense = MinSense)
-#    try
+    try
         sol = solve(prob, NelderMead())
         if SciMLBase.successful_retcode(sol)
             _LSRGR_f(sol.u, c)
@@ -91,12 +91,12 @@ function least_squares_ridge_grow_and_rate(
         else
             return nothing
         end
-#    catch e
-#        if isa(e, ArgumentError) || isa(e, SingularException)
-#            return nothing
-#        end
-#        throw(e)
-#    end
+    catch e
+        if isa(e, ArgumentError) || isa(e, SingularException)
+            return nothing
+        end
+        rethrow()
+    end
 end
 
 @kwdef mutable struct _LSRGR_Context{TXs,Ty}
@@ -155,9 +155,9 @@ function linear_model_symbolic_output(
     p_subs = Dict(p[j] => agent.parameter[j] for j in eachindex(p))
     b_subs = Dict(b[j] => agent.extra[j] for j in eachindex(b))
     y_num = simplify(substitute(y_pred_simp, merge(p_subs, b_subs)); expand = true)
-    return (p = p, x = x, w = z, b = b, y_sym = y_pred_simp, y_num = y_num)
+    return (p = p, x = x, z = z, b = b, y_sym = y_pred_simp, y_num = y_num)
 end
-
+0
 """
     linear_model_predict(g_spec::GenomeSpec, agent::Agent, xs::Vector)
 

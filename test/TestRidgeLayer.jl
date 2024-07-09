@@ -87,10 +87,9 @@ using ..RG
 # instead of a Symbolic array object.
 x = Symbolics.variables(:x, 1:2)
 
-zs_sym = run_genome(RG.spec, RG.genome, Num.(RG.agent.parameter), x)[end]
-Z_sym = stack(zs_sym)
+z_sym = run_genome(RG.spec, RG.genome, Num.(RG.agent.parameter), x)[end]
 b = RG.agent.extra
-y_pred_sym = Z_sym * b
+y_pred_sym = dot(z_sym, b)
 @show y_pred_sym
 y_pred_simp = simplify(y_pred_sym)
 @show y_pred_simp
