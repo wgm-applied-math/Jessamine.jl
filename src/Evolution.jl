@@ -111,8 +111,8 @@ function random_genome(rng::AbstractRNG, g_spec::GenomeSpec,
         instruction_blocks[j] = [Instruction(op, operands)]
     end
     g = Genome(instruction_blocks)
-    cg = compile(g_spec, g)
-    return cg
+    # cg = compile(g_spec, g)
+    return g
 end
 
 """
@@ -208,8 +208,8 @@ function next_generation(
         agent = nothing
         while isnothing(agent)
             g = new_genome(rng, s_dist, m_dist, pop)
-            cg = compile(g_spec, g)
-            agent = grow_and_rate(rng, g_spec, cg)
+            # cg = compile(g_spec, g)
+            agent = grow_and_rate(rng, g_spec, g)
         end
         new_agents[j] = agent
     end
