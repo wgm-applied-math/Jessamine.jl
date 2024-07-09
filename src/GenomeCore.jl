@@ -322,10 +322,10 @@ function compile(g_spec::GenomeSpec, genome::Genome)
     try
         f = eval(expr)
         return CompiledGenome(genome, expr, f)
-    catch e
+    catch
         short_show(genome)
         @show expr
-        throw(e)
+        rethrow()
     end
 end
 
