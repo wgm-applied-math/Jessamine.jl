@@ -58,7 +58,7 @@ a vector of genome outputs in symbolic form.
 """
 function run_genome_symbolic(
         g_spec::GenomeSpec,
-        genome::Genome;
+        genome::AbstractGenome;
         parameter_sym = :p,
         input_sym = :x)
     p = Symbolics.variables(parameter_sym, 1:(g_spec.parameter_size))

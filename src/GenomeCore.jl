@@ -127,7 +127,7 @@ function to_expr(g_spec::GenomeSpec, block::Vector{Instruction}, cs::Union{Symbo
     elseif length(block) == 1
         return to_expr(g_spec, block[1], cs)
     else
-        return Expr(:.+, (to_expr(g_spec, instr, cs) for instr in block)...)
+        return Expr(:call, :.+, (to_expr(g_spec, instr, cs) for instr in block)...)
     end
 end
 

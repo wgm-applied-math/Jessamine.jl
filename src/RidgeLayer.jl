@@ -129,11 +129,11 @@ coefficients are `Symbolics` objects of the form `p[j]`, `x[j]`,
 and `b[j]`.  The variable names can be specified with the keyword
 arguments.
 
-Return a named tuple `(p, x, w, b, y_sym, y_num)` where `p`, `x`,
+Return a named tuple `(p, x, z, b, y_sym, y_num)` where `p`, `x`,
 and `b` are vectors of `Symbolics` objects used to represent
-genome parameters, inputs, and linear model coefficients; `w` is
+genome parameters, inputs, and linear model coefficients; `z` is
 a vector of genome outputs in symbolic form; `y_sym` is the
-symbolic representation of the linear model `dot(b, [1, w...])`;
+symbolic representation of the linear model `dot(z, b)`;
 and `y_num` is the symbolic model with subsitutions `p =
 agent.parameters` and `b = agent.extra` applied, so that only
 `x[j]`s remain.
@@ -149,8 +149,8 @@ function linear_model_symbolic_output(
         g_spec, agent.genome;
         parameter_sym = parameter_sym,
         input_sym = input_sym)
-    b = Symbolics.variables(coefficient_sym, 1:(g_spec.output_size + 1))
-    y_pred_sym = dot(b, [1, z...])
+    b = Symbolics.variables(coefficient_sym, 1:g_spec.output_size)
+    y_pred_sym = dot(z, b)
     y_pred_simp = simplify(y_pred_sym; expand = true)
     p_subs = Dict(p[j] => agent.parameter[j] for j in eachindex(p))
     b_subs = Dict(b[j] => agent.extra[j] for j in eachindex(b))

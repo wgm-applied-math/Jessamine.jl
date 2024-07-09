@@ -75,7 +75,7 @@ function ev_loop(pop_init::Population, num_generations::Int)
     return pop_next
 end
 
-pop_next = ev_loop(pop_init, 100)
+@time @eval pop_next = ev_loop(pop_init, 100)
 println("pop_next = ")
 short_show(pop_next)
 println("end pop_next")
