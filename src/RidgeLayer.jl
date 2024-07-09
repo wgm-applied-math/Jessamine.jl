@@ -151,13 +151,18 @@ function linear_model_symbolic_output(
         input_sym = input_sym)
     b = Symbolics.variables(coefficient_sym, 1:g_spec.output_size)
     y_pred_sym = dot(z, b)
-    y_pred_simp = simplify(y_pred_sym; expand = true)
+    # To handle rational functions that have things like 1/(x/0),
+    # replace Inf with W and do a limit as W -> Inf:
+    @variables W
+    y_W = substitute(y_pred_sym, Dict([Inf => W]))
+    y_lim = Symbolics.limit(y_W.val, W.val, Inf)
+    y_pred_simp = simplify(y_lim; expand = true)
     p_subs = Dict(p[j] => agent.parameter[j] for j in eachindex(p))
     b_subs = Dict(b[j] => agent.extra[j] for j in eachindex(b))
     y_num = simplify(substitute(y_pred_simp, merge(p_subs, b_subs)); expand = true)
-    return (p = p, x = x, z = z, b = b, y_sym = y_pred_simp, y_num = y_num)
+    return (p = p, x = x, z = z, b = b, y_sym = y_pred_sym, y_num = y_num)
 end
-0
+
 """
     linear_model_predict(g_spec::GenomeSpec, agent::Agent, xs::Vector)
 
