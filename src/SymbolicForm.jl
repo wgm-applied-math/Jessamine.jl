@@ -98,5 +98,5 @@ end
 function replace_near_integer(expr::Number; tolerance=1.0e-10)
     k = round(expr)
     result = (abs(expr - k) < tolerance) ? k : expr
-    return result
+    return convert(Num, convert(Int, result))
 end
