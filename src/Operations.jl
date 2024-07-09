@@ -19,8 +19,17 @@ end
 
 "Add operands."
 struct Add <: AbstractGeneOp end
+
 short_show(io::IO, ::Add) = print(io, "add")
+
 op_eval(::Add, operands) = splat_or_default(.+, 0, operands)
+
+function op_eval_add_into!(dest::AbstractVector, ::Add, operands::AbstractVector)
+    for operand in operands
+        dest .= dest .+ operand
+    end
+end
+
 function to_expr(::Add, cs, operands)
     if isempty(operands)
         return 0
@@ -35,7 +44,9 @@ end
 
 "Subtract LISP-style: `0 + x[1] - x[2] - x[3]...`"
 struct Subtract <: AbstractGeneOp end
+
 short_show(io::IO, ::Subtract) = print(io, "sub")
+
 function op_eval(::Subtract, operands)
     if isempty(operands)
         return 0
@@ -43,6 +54,16 @@ function op_eval(::Subtract, operands)
         return operands[1] - sum(operands[2:end])
     end
 end
+
+function op_eval_add_into!(dest::AbstractVector, ::Subtract, operands::AbstractVector)
+    if !isempty(operands)
+        dest .= dest .+ operands[1]
+        for operand in operands[2:end]
+            dest .= dest .- operand
+        end
+    end
+end
+
 function to_expr(::Subtract, cs, operands)
     if isempty(operands)
         return 0

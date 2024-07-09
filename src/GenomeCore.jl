@@ -149,6 +149,22 @@ Return `op` applied to a list of operands.
 function op_eval end
 
 """
+    op_eval_add_into!(dest, op, operands)
+
+Apply the operator `op` to `operands` and add the result elementwise
+in place to dest.  The default is to do
+`dest .= dest .+ op_eval(op, operands)`.
+
+The idea here is that in-place accumulation instead of the
+default implementation can sometimes avoid the allocation of a
+temporary array to hold the result of `op_eval(...)`.
+
+"""
+function op_eval_add_into!(dest::AbstractVector, op::AbstractGeneOp, operands::AbstractVector)
+    dest .= dest .+ op_eval(op, operands)
+end
+
+"""
     short_show([io::IO], x)
 
 Print a short version of `x` to `io`, using `stdout` by default.
@@ -222,7 +238,7 @@ function eval_time_step(
     new_output = map(genome.instruction_blocks[1:length(cell_state.output)]) do block
         val_out = zero_like(cell_state.input[1])
         for instr in block
-            val_out .= val_out .+ op_eval(instr.op, cell_state[instr.operand_ixs])
+            op_eval_add_into!(val_out, instr.op, cell_state[instr.operand_ixs])
         end
         val_out
     end
@@ -231,7 +247,7 @@ function eval_time_step(
     new_scratch = map(genome.instruction_blocks[scratch_first:end]) do block
         val_scr = zero_like(cell_state.input[1])
         for instr in block
-            val_scr .= val_scr .+ op_eval(instr.op, cell_state[instr.operand_ixs])
+            op_eval_add_into!(val_scr, instr.op, cell_state[instr.operand_ixs])
         end
         val_scr
     end
