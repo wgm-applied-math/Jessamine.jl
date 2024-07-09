@@ -1,14 +1,24 @@
+# This file has the code for a from-scratch implementation of
+# ridge regression.  It was written so we could work on the
+# genome and evolution framework before trying to interface with
+# MLJ.jl.
+
 export least_squares_ridge, least_squares_ridge_grow_and_rate
 export linear_model_predict
 export linear_model_symbolic_output
 
-function extend_if_singleton(v, m)
+function extend_if_singleton(v::AbstractVector, m::Int)
     if length(v) == 1
         return fill(v[1], m)
     else
-        @assert length(v) == m
+        @assert length(v) == m "m = $m, v = $v"
         return v
     end
+end
+
+function extend_if_singleton(v::AbstractVector, shape::Tuple{Int})
+    (m,) = shape
+    return extend_if_singleton(v, m)
 end
 
 """
@@ -73,11 +83,11 @@ function least_squares_ridge_grow_and_rate(
         g_spec::GenomeSpec,
         genome::AbstractGenome)::Union{Agent, Nothing}
     u0 = zeros(g_spec.parameter_size)
-    f_opt = OptimizationFunction(_LSRGR_f)
+    optim_fn = OptimizationFunction(_LSRGR_f)
     c = _LSRGR_Context(g_spec, genome, lambda_b, xs, y, lambda_p, nothing, nothing)
-    prob = OptimizationProblem(f_opt, u0, c, sense = MinSense)
+    optim_prob = OptimizationProblem(optim_fn, u0, c, sense = MinSense)
     try
-        sol = solve(prob, NelderMead())
+        sol = solve(optim_prob, NelderMead())
         if SciMLBase.successful_retcode(sol)
             _LSRGR_f(sol.u, c)
             if isnothing(c.b)
@@ -147,9 +157,19 @@ function linear_model_symbolic_output(
         input_sym = input_sym)
     b = Symbolics.variables(coefficient_sym, 1:(g_spec.output_size))
     y_pred_sym = dot(z, b)
+    used_vars = Set(v.name for v in Symbolics.get_variables(y_pred_sym))
     # To handle rational functions that have things like 1/(x/0),
-    # replace Inf with W and do a limit as W -> Inf:
-    @variables W
+    # replace Inf with W and do a limit as W -> Inf.
+    # First, grind through and make sure we have a unique symbol.
+    j = 0
+    local W
+    while true
+        W = Symbolics.variable(:W, j)
+        if !(W in used_vars)
+            break
+        end
+        j += 1
+    end
     y_W = substitute(y_pred_sym, Dict([Inf => W]))
     y_lim = Symbolics.limit(y_W.val, W.val, Inf)
     y_pred_simp = simplify(y_lim; expand = true)

@@ -1,9 +1,12 @@
 # For using MLJ machinery applied to the output of a genome
 
+export LinearModelMachineSpec
+
 using MLJLinearModels
 
 @kwdef struct LinearModelMachineSpec <: AbstractMachineSpec
-    model::Any
+    model::Model
+    lambda_ridge::Real
     lambda_parameter::Real
     lambda_operand::Real
     train_rows::AbstractVector
