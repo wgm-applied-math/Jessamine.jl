@@ -236,6 +236,7 @@ function eval_time_step(
     )::CellState{E} where {E<:AbstractVector}
     local new_output::Vector{E}
     new_output = map(genome.instruction_blocks[1:length(cell_state.output)]) do block
+        local val_out::Vector{eltype(E)}
         val_out = zero_like(cell_state.input[1])
         for instr in block
             op_eval_add_into!(val_out, instr.op, cell_state[instr.operand_ixs])
@@ -245,6 +246,7 @@ function eval_time_step(
     scratch_first = 1 + length(cell_state.output)
     local new_scratch::Vector{E}
     new_scratch = map(genome.instruction_blocks[scratch_first:end]) do block
+        local val_scr::Vector{eltype(E)}
         val_scr = zero_like(cell_state.input[1])
         for instr in block
             op_eval_add_into!(val_scr, instr.op, cell_state[instr.operand_ixs])
