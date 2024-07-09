@@ -69,7 +69,6 @@ function run_genome_symbolic(
     return (p = p, x = x, z = z)
 end
 
-
 """
     replace_near_integer(expr; tolerance=1.0e-10)
 
@@ -77,12 +76,12 @@ Round literal floating-point numbers within a symbolic expression.
 Specifically, if a number `a` differs `round(a)` by less thant `tolerance`,
 it gets replaced by `round(a)`.
 """
-function replace_near_integer(expr::SymbolicUtils.BasicSymbolic; tolerance=1.0e-10)
+function replace_near_integer(expr::SymbolicUtils.BasicSymbolic; tolerance = 1.0e-10)
     # Apparently istree is deprecated but I can't get iscall to work.
     if Symbolics.istree(expr)
         op = Symbolics.operation(expr)
         args = Symbolics.arguments(expr)
-        new_args = map(arg -> replace_near_integer(arg, tolerance=tolerance), args)
+        new_args = map(arg -> replace_near_integer(arg, tolerance = tolerance), args)
         # Apparently similarterm is deprecated, but I can't get maketerm to work.
         # return SymbolicUtils.maketerm(typeof(expr), op, new_args, symtype(expr), metadata(expr))
         return Symbolics.similarterm(expr, op, new_args)
@@ -91,11 +90,11 @@ function replace_near_integer(expr::SymbolicUtils.BasicSymbolic; tolerance=1.0e-
     end
 end
 
-function replace_near_integer(expr::Num; tolerance=1.0e-10)
-    return Num(replace_near_integer(Symbolics.value(expr); tolerance=tolerance))
+function replace_near_integer(expr::Num; tolerance = 1.0e-10)
+    return Num(replace_near_integer(Symbolics.value(expr); tolerance = tolerance))
 end
 
-function replace_near_integer(expr::Number; tolerance=1.0e-10)
+function replace_near_integer(expr::Number; tolerance = 1.0e-10)
     k = round(expr)
     result = (abs(expr - k) < tolerance) ? k : expr
     return convert(Num, convert(Int, result))

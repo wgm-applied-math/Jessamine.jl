@@ -14,7 +14,7 @@ function machine_init end
 The default implementation returns `MLJ.fit!(m, rows = m_spec.train_rows)`.
 """
 function machine_fit!(m_spec::AbstractMachineSpec, m)
-    return MLJ.fit!(m, rows=m_spec.train_rows)
+    return MLJ.fit!(m, rows = m_spec.train_rows)
 end
 
 """
@@ -41,9 +41,9 @@ Norm of residuals.
 The default implementation returns the mean square error.
 """
 function residual_norm(
-    m_spec::AbstractMachineSpec,
-    r::AbstractVector
-    )::Real
+        m_spec::AbstractMachineSpec,
+        r::AbstractVector
+)::Real
     return dot(r, r) / length(r)
 end
 
@@ -55,9 +55,9 @@ implementation returns `machine_spec.lambda_parameter` times the
 squared L2 norm of `p`.
 """
 function genome_parameter_complexity(
-    m_spec::AbstractMachineSpec,
-    p::AbstractVector
-    )::Real
+        m_spec::AbstractMachineSpec,
+        p::AbstractVector
+)::Real
     return m_spec.lambda_parameter * dot(p, p)
 end
 
@@ -69,14 +69,12 @@ returns `machine_spec.lambda_operand` times the number of
 operands in the genome.
 """
 function genome_complexity(
-    m_spec::AbstractMachineSpec,
-    g_spec::GenomeSpec,
-    genome::Genome
-    )::Real
+        m_spec::AbstractMachineSpec,
+        g_spec::GenomeSpec,
+        genome::Genome
+)::Real
     return m_spec.lambda_operand * num_operands(genome)
 end
-
-
 
 """
 Abstract base type for solver specs, used for solving for genome parameter values.
@@ -101,7 +99,8 @@ Build an `OptimizationProblem` around the `OptimizationFunction`.
 The resulting problem object will be passed to `solve`.
 The default implementation returns `OptimizationProblem(optim_fn, zeros(...), sense=MinSense)`.
 """
-function parameter_solver_optimization_problem(::AbstractSolverSpec, g_spec::GenomeSpec, genome::Genome, optim_fn)
+function parameter_solver_optimization_problem(
+        ::AbstractSolverSpec, g_spec::GenomeSpec, genome::Genome, optim_fn)
     return OptimizationProblem(optim_fn, zeros(g_spec.parameter_size), sense = MinSense)
 end
 
@@ -131,15 +130,14 @@ field in the returned `Agent` with these fields:
 - `p_c`: complexity of the parameter vector
 """
 function machine_grow_and_rate(
-    xs::AbstractVector,
-    y::AbstractVector,
-    g_spec::GenomeSpec,
-    genome::Genome,
-    machine_spec::AbstractMachineSpec,
-    sol_spec::AbstractSolverSpec
-    )::Union{Agent, Nothing}
-
-    col_names = map(1:g_spec.output_size) do t
+        xs::AbstractVector,
+        y::AbstractVector,
+        g_spec::GenomeSpec,
+        genome::Genome,
+        machine_spec::AbstractMachineSpec,
+        sol_spec::AbstractSolverSpec
+)::Union{Agent, Nothing}
+    col_names = map(1:(g_spec.output_size)) do t
         "z$t"
     end
 
@@ -151,7 +149,7 @@ function machine_grow_and_rate(
         outputs = map(last_round) do z
             as_vec(z, (g_spec.output_size))
         end
-        Z_df = DataFrame(outputs, col_names, copycols=false)
+        Z_df = DataFrame(outputs, col_names, copycols = false)
         m = machine_init(machine_spec, Z_df, y)
         machine_fit!(machine_spec, m)
         y_hat = machine_predict(machine_spec, m)
@@ -160,7 +158,7 @@ function machine_grow_and_rate(
         m_c = machine_complexity(m)
         p_c = genome_parameter_complexity(machine_spec, genome_paramter)
         # This does update the outer scope `m_save`.
-        m_save = (m=m, r_norm=r_norm, g_c=g_c, m_c=m_c, p_c=p_c)
+        m_save = (m = m, r_norm = r_norm, g_c = g_c, m_c = m_c, p_c = p_c)
         return r_norm + g_c + m_c + p_c
     end
 

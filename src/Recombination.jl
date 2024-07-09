@@ -26,7 +26,7 @@ function recombine(rng::AbstractRNG, g_left::Genome, g_right::Genome)
         l_m = length(head_block)
         m = rand(rng, DiscreteUniform(0, l_m))
         h_frag = head_block[1:m]
-        t_frag = tail_block[1+m:end]
+        t_frag = tail_block[(1 + m):end]
         new_block = vcat(h_frag, t_frag)
         mixed[j] = new_block
     end
@@ -36,7 +36,6 @@ end
 function recombine(rng::AbstractRNG, g_left::CompiledGenome, g_right::CompiledGenome)
     return recombine(rng, g_left.genome, g_right.genome)
 end
-
 
 # function recombine_never_empty(rng::AbstractRNG, g_left::Genome, g_right::Genome)
 #     @assert length(g_left.instruction_blocks) == length(g_right.instruction_blocks)

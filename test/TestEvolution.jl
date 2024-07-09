@@ -44,9 +44,9 @@ z1, z2, z3, z4, p1, x1, x2 = 1:index_max
 # This should output [1, x1, x2, x1 * x2]
 g_check = Genome(
     [[Instruction(Multiply(), Int[])], # creates a 1
-     [Instruction(Add(), [x1])],
-     [Instruction(Multiply(), [x2])],
-     [Instruction(Multiply(), [x1, x2])]])
+    [Instruction(Add(), [x1])],
+    [Instruction(Multiply(), [x2])],
+    [Instruction(Multiply(), [x1, x2])]])
 
 println("This should result in 2 + 3 x1 + 3 x2 - 3 x1 * x2")
 a_check = grow_and_rate(rng, g_spec, g_check)

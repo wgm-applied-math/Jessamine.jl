@@ -14,7 +14,7 @@ ma = -a
 b = 0.3
 input = [0.5, 0.7]
 
-f((x, y)) =@. [1 - a * x^2 + y, b * x]
+f((x, y)) = @. [1 - a * x^2 + y, b * x]
 
 function g((x, y))
     t1 = @. ma * x * x

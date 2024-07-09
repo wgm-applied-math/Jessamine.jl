@@ -11,8 +11,6 @@ function extend_if_singleton(v, m)
     end
 end
 
-
-
 """
     least_squares_ridge(xs, y, lambda, g_spec, genome, parameter)
 
@@ -31,7 +29,7 @@ function least_squares_ridge(
         lambda::Float64,
         g_spec::GenomeSpec,
         genome::AbstractGenome,
-    parameter::AbstractVector)
+        parameter::AbstractVector)
     @assert g_spec.input_size == length(xs)
     num_rows = length(y)
     local outputs::Vector{Vector{Vector{Float64}}}
@@ -99,25 +97,23 @@ function least_squares_ridge_grow_and_rate(
     end
 end
 
-@kwdef mutable struct _LSRGR_Context{TXs,Ty}
+@kwdef mutable struct _LSRGR_Context{TXs, Ty}
     g_spec::GenomeSpec
     genome::AbstractGenome
     lambda_b::Float64
     xs::TXs
     y::Ty
     lambda_p::Float64
-    n::Union{Float64,Nothing}
-    b::Union{Vector{Float64},Nothing}
+    n::Union{Float64, Nothing}
+    b::Union{Vector{Float64}, Nothing}
 end
 
-function _LSRGR_f(u::Vector{Float64}, c::_LSRGR_Context{TXs,Ty}) where {TXs, Ty}
+function _LSRGR_f(u::Vector{Float64}, c::_LSRGR_Context{TXs, Ty}) where {TXs, Ty}
     n, b = least_squares_ridge(c.xs, c.y, c.lambda_b, c.g_spec, c.genome, u)
     c.n = n
     c.b = b
     return n^2 + c.lambda_b * dot(b, b) + c.lambda_p * dot(u, u)
 end
-
-
 
 """
     linear_model_symbolic_output(g_spec, genome; paramter_sym=:p, input_sym=:x, coefficient_sym=:b)
@@ -149,7 +145,7 @@ function linear_model_symbolic_output(
         g_spec, agent.genome;
         parameter_sym = parameter_sym,
         input_sym = input_sym)
-    b = Symbolics.variables(coefficient_sym, 1:g_spec.output_size)
+    b = Symbolics.variables(coefficient_sym, 1:(g_spec.output_size))
     y_pred_sym = dot(z, b)
     # To handle rational functions that have things like 1/(x/0),
     # replace Inf with W and do a limit as W -> Inf:

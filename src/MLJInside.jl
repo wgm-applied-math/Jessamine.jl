@@ -2,9 +2,8 @@
 
 using MLJLinearModels
 
-
 @kwdef struct LinearModelMachineSpec <: AbstractMachineSpec
-    model
+    model::Any
     lambda_parameter::Real
     lambda_operand::Real
     train_rows::AbstractVector

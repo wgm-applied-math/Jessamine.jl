@@ -41,7 +41,6 @@ function to_expr(::Add, cs, operands)
     end
 end
 
-
 "Subtract LISP-style: `0 + x[1] - x[2] - x[3]...`"
 struct Subtract <: AbstractGeneOp end
 
@@ -72,10 +71,10 @@ function to_expr(::Subtract, cs, operands)
         return :($cs.$field[$j])
     else
         field1, j1 = operands[1]
-        return Expr(:call, :.-, :($cs.$field1[$j1]), Expr(:call, :.+, (:($cs.$field[$j]) for (field, j) in operands[2:end])...))
+        return Expr(:call, :.-, :($cs.$field1[$j1]),
+            Expr(:call, :.+, (:($cs.$field[$j]) for (field, j) in operands[2:end])...))
     end
 end
-
 
 "Multiply operands."
 struct Multiply <: AbstractGeneOp end
@@ -103,6 +102,7 @@ function to_expr(::ReciprocalMultiply, w, operands)
         field, j = operands[1]
         return :(1 / $cs.$field[$j])
     else
-        return Expr(:call, :./, 1, Expr(:call, :.*, (:($cs.$field[$j]) for (field, j) in operands)...))
+        return Expr(:call, :./, 1,
+            Expr(:call, :.*, (:($cs.$field[$j]) for (field, j) in operands)...))
     end
 end

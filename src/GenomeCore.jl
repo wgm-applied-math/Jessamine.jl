@@ -31,7 +31,7 @@ A collection of parameters specifying the genome architecture and mutation proce
     num_time_steps::Int
 
     "Table of which field and index therein corresponds to an overall index"
-    index_map::Vector{Tuple{Symbol,Int}}
+    index_map::Vector{Tuple{Symbol, Int}}
 end
 
 function GenomeSpec(output_size, scratch_size, parameter_size, input_size, num_time_steps)
@@ -41,9 +41,9 @@ function GenomeSpec(output_size, scratch_size, parameter_size, input_size, num_t
         [(:parameter, j) for j in 1:parameter_size],
         [(:input, j) for j in 1:input_size]
     )
-    return GenomeSpec(output_size, scratch_size, parameter_size, input_size, num_time_steps, index_map)
+    return GenomeSpec(
+        output_size, scratch_size, parameter_size, input_size, num_time_steps, index_map)
 end
-
 
 """
     workspace_size(g_spec::GenomeSpec)
@@ -51,7 +51,8 @@ end
 Return the number of elements in the workspace vector specified by `g_spec`.
 """
 function workspace_size(g_spec::GenomeSpec)
-    return g_spec.output_size + g_spec.scratch_size + g_spec.parameter_size + g_spec.input_size
+    return g_spec.output_size + g_spec.scratch_size + g_spec.parameter_size +
+           g_spec.input_size
 end
 
 struct CellState{E}
@@ -59,13 +60,12 @@ struct CellState{E}
     scratch::Vector{E}
     parameter::Vector{E}
     input::Vector{E}
-    index_map::Vector{Tuple{Vector{E},Int}}
+    index_map::Vector{Tuple{Vector{E}, Int}}
 end
 
 function v_convert(::Type{<:AbstractArray}, x::AbstractArray)
     return x
 end
-
 
 function v_convert(ref::Type{<:AbstractArray}, x)
     return [convert(eltype(ref), x)]
@@ -81,10 +81,10 @@ function v_unconvert(xv::AbstractVector)
 end
 
 function CellState(
-    output,
-    scratch,
-    parameter,
-    input)
+        output,
+        scratch,
+        parameter,
+        input)
     index_map = vcat(
         [(output, j) for j in 1:length(output)],
         [(scratch, j) for j in 1:length(scratch)],
@@ -120,12 +120,12 @@ end
     operand_ixs::Vector{Int}
 end
 
-function to_expr(g_spec::GenomeSpec, instr::Instruction, cs::Union{Symbol,Expr})
+function to_expr(g_spec::GenomeSpec, instr::Instruction, cs::Union{Symbol, Expr})
     field_fetches = [g_spec.index_map[k] for k in instr.operand_ixs]
     return to_expr(instr.op, cs, field_fetches)
 end
 
-function to_expr(g_spec::GenomeSpec, block::Vector{Instruction}, cs::Union{Symbol,Expr})
+function to_expr(g_spec::GenomeSpec, block::Vector{Instruction}, cs::Union{Symbol, Expr})
     if isempty(block)
         return :0
     elseif length(block) == 1
@@ -135,11 +135,11 @@ function to_expr(g_spec::GenomeSpec, block::Vector{Instruction}, cs::Union{Symbo
     end
 end
 
-function to_expr(g_spec::GenomeSpec, blocks::Vector{Vector{Instruction}}, cs::Union{Symbol,Expr}, e_type::Union{Symbol,Expr})
+function to_expr(g_spec::GenomeSpec, blocks::Vector{Vector{Instruction}},
+        cs::Union{Symbol, Expr}, e_type::Union{Symbol, Expr})
     blocks_syn = [to_expr(g_spec, block, cs) for block in blocks]
-    return :($e_type[ $(blocks_syn...) ])
+    return :($e_type[$(blocks_syn...)])
 end
-
 
 """
     op_eval(op::AbstractGeneOp, operands::AbstractVector)
@@ -160,7 +160,8 @@ default implementation can sometimes avoid the allocation of a
 temporary array to hold the result of `op_eval(...)`.
 
 """
-function op_eval_add_into!(dest::AbstractVector, op::AbstractGeneOp, operands::AbstractVector)
+function op_eval_add_into!(
+        dest::AbstractVector, op::AbstractGeneOp, operands::AbstractVector)
     dest .= dest .+ op_eval(op, operands)
 end
 
@@ -186,9 +187,11 @@ end
 function to_expr(g_spec::GenomeSpec, genome::Genome)
     scratch_begin = 1 + g_spec.output_size
     quote
-        function(cs::CellState{E}) where {E}
-            new_output = $(to_expr(g_spec, genome.instruction_blocks[1:g_spec.output_size], :cs, :E))
-            new_scratch = $(to_expr(g_spec, genome.instruction_blocks[scratch_begin:end], :cs, :E))
+        function (cs::CellState{E}) where {E}
+            new_output = $(to_expr(
+                g_spec, genome.instruction_blocks[1:(g_spec.output_size)], :cs, :E))
+            new_scratch = $(to_expr(
+                g_spec, genome.instruction_blocks[scratch_begin:end], :cs, :E))
             return CellState(new_output, new_scratch, cs.parameter, cs.input)
         end
     end
@@ -231,9 +234,9 @@ function num_operands(xs::AbstractVector)
 end
 
 function eval_time_step(
-    cell_state::CellState{E},
-    genome::Genome
-    )::CellState{E} where {E<:AbstractVector}
+        cell_state::CellState{E},
+        genome::Genome
+)::CellState{E} where {E <: AbstractVector}
     local new_output::Vector{E}
     new_output = map(genome.instruction_blocks[1:length(cell_state.output)]) do block
         local val_out::Vector{eltype(E)}
@@ -262,9 +265,9 @@ function eval_time_step(
 end
 
 function eval_time_step(
-    cell_state::CellState{E},
-    genome::Genome
-    )::CellState{E} where {E<:Number}
+        cell_state::CellState{E},
+        genome::Genome
+)::CellState{E} where {E <: Number}
     local new_output::Vector{E}
     new_output = map(genome.instruction_blocks[1:length(cell_state.output)]) do block
         val_out = zero_like(cell_state.input[1])
@@ -299,7 +302,8 @@ function zero_like(v::V)::Vector{eltype(V)} where {V <: AbstractVector}
     return zeros(eltype(v), size(v))
 end
 
-function zeros_like(v::V, num_elts::Int)::Vector{Vector{eltype(V)}} where {V <: AbstractVector}
+function zeros_like(
+        v::V, num_elts::Int)::Vector{Vector{eltype(V)}} where {V <: AbstractVector}
     return [zero_like(v) for _ in 1:num_elts]
 end
 
@@ -330,9 +334,9 @@ function compile(g_spec::GenomeSpec, cg::CompiledGenome)
 end
 
 function eval_time_step(
-    cell_state::CellState{E},
-    cg::CompiledGenome
-    )::CellState{E} where {E}
+        cell_state::CellState{E},
+        cg::CompiledGenome
+)::CellState{E} where {E}
     return invokelatest(cg.f, cell_state)
 end
 
@@ -356,7 +360,7 @@ function run_genome(
         genome::AbstractGenome,
         parameter::AbstractArray,
         input::AbstractArray
-    )
+)
     @assert length(input) == g_spec.input_size
     @assert length(parameter) == g_spec.parameter_size
     input_v = input
