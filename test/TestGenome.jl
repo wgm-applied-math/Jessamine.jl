@@ -42,25 +42,31 @@ genome = Genome(instruction_blocks)
 
 function h(input)
     output = run_genome(g_spec, genome, parameter, input)
-    return output
+    return output[end]
 end
 
 @show h(input)
 
-@test f(input) == h(input)[end]
+@test f(input) == h(input)
+
+println("Test to_expr")
+cg = compile(g_spec, genome)
+@show cg.expr
+function hc(input)
+    output = run_genome(g_spec, cg, parameter, input)
+    return output[end]
+end
+@test f(input) == hc(input)
 
 println("Test vectorization")
-
-function hv(input)
-    output = run_genome(g_spec, genome, parameter, input)
-    return output
-end
 
 v_input = [[0.5, 0.5, 0.2], [0.7, 0.8, 0.8]]
 
 println("Test vectorization:")
-@show hv(v_input)
-@test f(v_input) == hv(v_input)[end]
+@show h(v_input)
+@show hc(v_input)
+@test f(v_input) == h(v_input)
+@test f(v_input) == hc(v_input)
 
 println("Test RandomDuplicateDelete")
 

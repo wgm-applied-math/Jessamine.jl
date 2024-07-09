@@ -1,7 +1,9 @@
 module Jessamine
 
+using DataFrames
 using Distributions
 using LinearAlgebra
+using MLJ
 using Optim
 using Optimization
 using OptimizationOptimJL
@@ -18,5 +20,7 @@ include("Operations.jl")
 include("Evolution.jl")
 include("SymbolicForm.jl")
 include("RidgeLayer.jl")
+#include("MachineLayer.jl")
+#include("MLJInside.jl")
 
 end

@@ -1,3 +1,4 @@
+using LinearAlgebra
 using Optim
 using Optimization
 using OptimizationOptimJL
