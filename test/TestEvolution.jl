@@ -54,8 +54,9 @@ println("a_check =")
 short_show(a_check)
 println("end a_check")
 println()
-@show round.(a_check.extra)
-@test round.(a_check.extra) == [2, 3, 3, -3]
+@show round.(coefficients(a_check.extra))
+@test round.(coefficients(a_check.extra)) == [2, 3, 3, -3]
+@test intercept(a_check.extra) == 0
 
 pop_init = random_initial_population(rng, g_spec, m_dist, arity_dist, s_spec, grow_and_rate)
 println("pop_init = ")

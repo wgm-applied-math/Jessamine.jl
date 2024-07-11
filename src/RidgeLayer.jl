@@ -4,22 +4,6 @@
 # MLJ.jl.
 
 export least_squares_ridge, least_squares_ridge_grow_and_rate
-export linear_model_predict
-export linear_model_symbolic_output
-
-function extend_if_singleton(v::AbstractVector, m::Int)
-    if length(v) == 1
-        return fill(v[1], m)
-    else
-        @assert length(v)==m "m = $m, v = $v"
-        return v
-    end
-end
-
-function extend_if_singleton(v::AbstractVector, shape::Tuple{Int})
-    (m,) = shape
-    return extend_if_singleton(v, m)
-end
 
 """
     least_squares_ridge(xs, y, lambda, g_spec, genome, parameter)
@@ -73,7 +57,9 @@ The solver starts with `p_init` for the initial value of `p`.
 If `p_init` is `nothing` or not given, a vector of zeros is used.   
 
 If all goes well, return an `Agent`, whose genome is `genome`,
-whose `parameter` is the best `p`, and whose `extra` is `b`.
+whose `parameter` is the best `p`, and whose `extra` is a 
+`BasicLinearModelResult` with coefficient vector `b`.
+
 Otherwise, return `nothing`.
 
 """
@@ -98,7 +84,7 @@ function least_squares_ridge_grow_and_rate(
                 return nothing
             else
                 r = sol.objective + lambda_operand * num_operands(genome)
-                return Agent(r, genome, sol.u, c.b)
+                return Agent(r, genome, sol.u, BasicLinearModelResult(c.b))
             end
         else
             return nothing
@@ -143,72 +129,3 @@ function _LSRGR_f(u::Vector{Float64}, c::_LSRGR_Context{TXs, Ty}) where {TXs, Ty
     return n^2 + c.lambda_b * dot(b, b) + c.lambda_p * dot(u, u)
 end
 
-"""
-    linear_model_symbolic_output(g_spec, genome; paramter_sym=:p, input_sym=:x, coefficient_sym=:b)
-
-Build a symbolic form for the output of the final time step of
-running the `genome`, and applying linear predictor coefficients.
-The parameter vector, input vector, and linear predictor
-coefficients are `Symbolics` objects of the form `p[j]`, `x[j]`,
-and `b[j]`.  The variable names can be specified with the keyword
-arguments.
-
-Return a named tuple with lots of useful fields.
-
-TODO Complete documentation
-
-"""
-function linear_model_symbolic_output(
-        g_spec::GenomeSpec,
-        agent::Agent{<:Number, <:AbstractVector, <:AbstractVector, <:AbstractGenome};
-        parameter_sym = :p,
-        input_sym = :x,
-        coefficient_sym = :b)
-    p, x, z = run_genome_symbolic(
-        g_spec, agent.genome;
-        parameter_sym = parameter_sym,
-        input_sym = input_sym)
-    b = Symbolics.variables(coefficient_sym, 1:(g_spec.output_size))
-    y_sym = dot(z, b)
-    used_vars = Set(v.name for v in Symbolics.get_variables(y_sym))
-    # To handle rational functions that have things like 1/(x/0),
-    # replace Inf with W and do a limit as W -> Inf.
-    # First, grind through and make sure we have a unique symbol.
-    j = 0
-    local W
-    while true
-        W = Symbolics.variable(:W, j)
-        if !(W in used_vars)
-            break
-        end
-        j += 1
-    end
-    y_W = substitute(y_sym, Dict([Inf => W]))
-    y_lim = Symbolics.limit(y_W.val, W.val, Inf)
-    y_simp = simplify(y_lim)
-    p_subs = Dict(p[j] => agent.parameter[j] for j in eachindex(p))
-    b_subs = Dict(b[j] => agent.extra[j] for j in eachindex(b))
-    y_sub = substitute(y_simp, merge(p_subs, b_subs))
-    y_num = simplify(y_sub)
-    return (p = p, x = x, z = z, b = b, p_subs = p_subs, b_subs = b_subs, y_sym = y_sym,
-        y_lim = y_lim, y_simp = y_simp, y_sub = y_sub, y_num = y_num)
-end
-
-"""
-    linear_model_predict(g_spec::GenomeSpec, agent::Agent, xs::Vector)
-
-Run `agent.genome` on inputs `xs` and `agent.parameter`, and
-form the linear combination of the genome's
-outputs using the coefficients `agent.extra`.
-"""
-function linear_model_predict(
-        g_spec::GenomeSpec,
-        agent::Agent{<:Number, <:AbstractVector, <:AbstractVector, <:AbstractGenome},
-        xs::Vector)
-    num_rows = length(xs[1])
-    last_round = run_genome(g_spec, agent.genome, agent.parameter, xs)[end]
-    data_cols = map(u -> extend_if_singleton(u, num_rows), last_round)
-    X = stack(data_cols)
-    y_hat = X * agent.extra
-    return y_hat
-end
