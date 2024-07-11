@@ -31,10 +31,8 @@ end
 
 function model_symbolic_output(
         g_spec::GenomeSpec,
-        agent::Agent{<:Number, <:AbstractGenome, <:AbstractVector, <:AbstractLinearModelResult};
-        parameter_sym = :p,
-        input_sym = :x,
-        coefficient_sym = :b)
+        agent::Agent{<:Number, <:AbstractGenome, <:AbstractVector, <:AbstractLinearModelResult}
+        )
     p, x, z = run_genome_symbolic(
         g_spec, agent.genome;
         parameter_sym = parameter_sym,

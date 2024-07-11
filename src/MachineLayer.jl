@@ -162,7 +162,8 @@ function _MGR_f(genome_parameter::AbstractVector, c::MGRContext)
     return r_norm + m_c + p_c
 end
 
-@kwdef struct MachineResult{Mn} <: AbstractModelResult
+@kwdef struct MachineResult{MnSpec, Mn} <: AbstractModelResult
+    mn_spec::MnSpec
     m::Mn
 end
 
@@ -206,7 +207,7 @@ function machine_grow_and_rate(
             _MGR_f(sol.u, c)
             r = sol.objective + g_c
             @assert !isnothing(c.m_save)
-            return Agent(r, genome, sol.u, MachineResult(c.m_save))
+            return Agent(r, genome, sol.u, MachineResult(mn_spec, c.m_save.m))
         else
             return nothing
         end
@@ -217,4 +218,22 @@ function machine_grow_and_rate(
         end
         rethrow()
     end
+end
+
+function model_predict(mr::MachineResult, input::AbstractMatrix)
+    return machine_predict(mr.mn_spec, mr.m, input)
+end
+
+function model_symbolic_output(
+    g_spec::GenomeSpec,
+    agent::Agent{<:Number, <:AbstractGenome, <:AbstractVector, <:MachineResult}
+    )
+    p, x, z = run_genome_symbolic(
+        g_spec, agent.genome;
+    parameter_sym = parameter_sym,
+    input_sym = input_sym)
+
+    # !!! TODO Implement this
+
+    return nothing
 end
