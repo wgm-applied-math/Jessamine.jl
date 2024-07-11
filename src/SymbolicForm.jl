@@ -96,6 +96,9 @@ end
 
 function replace_near_integer(expr::Number; tolerance = 1.0e-10)
     k = round(expr)
-    result = (abs(expr - k) < tolerance) ? k : expr
-    return convert(Num, convert(Int, result))
+    if k < typemax(Int) && abs(expr - k) < tolerance
+        return convert(Num, convert(Int, k))
+    else
+        return expr
+    end
 end

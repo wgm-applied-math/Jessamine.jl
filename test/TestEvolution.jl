@@ -32,10 +32,16 @@ lambda_p = 1e-6
 lambda_o = 1e-6
 
 # Adapt least_squares_ridge_grow_and_rate so that it can be used by next_generation
-function grow_and_rate(rng, g_spec, genome)
+function grow_and_rate(rng, g_spec, genome, parents = nothing)
+    if isnothing(parents)
+        p_init = nothing
+    else
+        p_init = parents[1].parameter
+    end
+
     return least_squares_ridge_grow_and_rate(
-        RD.xs, RD.y, lambda_b, lambda_p, lambda_o,
-        g_spec, genome)
+            RD.xs, RD.y, lambda_b, lambda_p, lambda_o,
+            g_spec, genome, p_init)
 end
 
 # Indices into the state vector
@@ -85,12 +91,16 @@ println("Symbolic form of best agent")
 
 a_best = pop_next.agents[1]
 
-p, x, w, b, y_sym, y_num = linear_model_symbolic_output(g_spec, a_best)
+sym_res = linear_model_symbolic_output(g_spec, a_best)
+x = sym_res.x
 
 short_show(a_best)
-@show y_sym
+@show sym_res.y_sym
 @show a_best.parameter
 @show a_best.extra
+@show sym_res.y_num
+
+y_num = simplify(sym_res.y_num; expand = true)
 @show y_num
 
 c1 = Symbolics.coeff(y_num)

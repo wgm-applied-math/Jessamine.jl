@@ -11,7 +11,7 @@ function extend_if_singleton(v::AbstractVector, m::Int)
     if length(v) == 1
         return fill(v[1], m)
     else
-        @assert length(v) == m "m = $m, v = $v"
+        @assert length(v)==m "m = $m, v = $v"
         return v
     end
 end
@@ -62,12 +62,15 @@ function least_squares_ridge(
 end
 
 """
-    least_squares_ridge_grow_and_rate(xs, y, lambda_b, lambda_p, lambda_op, g_spec, genome)
+    least_squares_ridge_grow_and_rate(xs, y, lambda_b, lambda_p, lambda_op, g_spec, genome, p_init = zeros(...))
 
 Solve for the parameter vector `p` that minimzes
 `norm(y - y_hat)^2 + lambda_b * norm(b)^2 + lambda_p * norm(p)^2 + lambda_op R`,
 where `y_hat` and `b` are found using `least_squares_ridge`.
 `R` is the total number of operands across all instructions in `genome`.
+
+The solver starts with `p_init` for the initial value of `p`.
+If `p_init` is `nothing` or not given, a vector of zeros is used.   
 
 If all goes well, return an `Agent`, whose genome is `genome`,
 whose `parameter` is the best `p`, and whose `extra` is `b`.
@@ -81,11 +84,12 @@ function least_squares_ridge_grow_and_rate(
         lambda_p::Float64,
         lambda_operand::Float64,
         g_spec::GenomeSpec,
-        genome::AbstractGenome)::Union{Agent, Nothing}
-    u0 = zeros(g_spec.parameter_size)
+        genome::AbstractGenome,
+        p_init::Vector{Float64} = zeros(g_spec.parameter_size)
+)::Union{Agent, Nothing}
     optim_fn = OptimizationFunction(_LSRGR_f)
     c = _LSRGR_Context(g_spec, genome, lambda_b, xs, y, lambda_p, nothing, nothing)
-    optim_prob = OptimizationProblem(optim_fn, u0, c, sense = MinSense)
+    optim_prob = OptimizationProblem(optim_fn, p_init, c, sense = MinSense)
     try
         sol = solve(optim_prob, NelderMead())
         if SciMLBase.successful_retcode(sol)
@@ -93,7 +97,7 @@ function least_squares_ridge_grow_and_rate(
             if isnothing(c.b)
                 return nothing
             else
-                r = sol.objective + lambda_operand * num_operands(genome)
+                r = sol.objective + lambda_operand * (num_operands(genome) + num_instructions(genome))
                 return Agent(r, genome, sol.u, c.b)
             end
         else
@@ -105,6 +109,20 @@ function least_squares_ridge_grow_and_rate(
         end
         rethrow()
     end
+end
+
+function least_squares_ridge_grow_and_rate(
+        xs::Vector{Vector{Float64}},
+        y::Vector{Float64},
+        lambda_b::Float64,
+        lambda_p::Float64,
+        lambda_operand::Float64,
+        g_spec::GenomeSpec,
+        genome::AbstractGenome,
+        p_init::Nothing
+)
+    return least_squares_ridge_grow_and_rate(
+        xs, y, lambda_b, lambda_p, lambda_operand, g_spec, genome)
 end
 
 @kwdef mutable struct _LSRGR_Context{TXs, Ty}
@@ -135,14 +153,9 @@ coefficients are `Symbolics` objects of the form `p[j]`, `x[j]`,
 and `b[j]`.  The variable names can be specified with the keyword
 arguments.
 
-Return a named tuple `(p, x, z, b, y_sym, y_num)` where `p`, `x`,
-and `b` are vectors of `Symbolics` objects used to represent
-genome parameters, inputs, and linear model coefficients; `z` is
-a vector of genome outputs in symbolic form; `y_sym` is the
-symbolic representation of the linear model `dot(z, b)`;
-and `y_num` is the symbolic model with substitutions `p =
-agent.parameters` and `b = agent.extra` applied, so that only
-`x[j]`s remain.
+Return a named tuple with lots of useful fields.
+
+TODO Complete documentation
 
 """
 function linear_model_symbolic_output(
@@ -156,8 +169,8 @@ function linear_model_symbolic_output(
         parameter_sym = parameter_sym,
         input_sym = input_sym)
     b = Symbolics.variables(coefficient_sym, 1:(g_spec.output_size))
-    y_pred_sym = dot(z, b)
-    used_vars = Set(v.name for v in Symbolics.get_variables(y_pred_sym))
+    y_sym = dot(z, b)
+    used_vars = Set(v.name for v in Symbolics.get_variables(y_sym))
     # To handle rational functions that have things like 1/(x/0),
     # replace Inf with W and do a limit as W -> Inf.
     # First, grind through and make sure we have a unique symbol.
@@ -170,13 +183,15 @@ function linear_model_symbolic_output(
         end
         j += 1
     end
-    y_W = substitute(y_pred_sym, Dict([Inf => W]))
+    y_W = substitute(y_sym, Dict([Inf => W]))
     y_lim = Symbolics.limit(y_W.val, W.val, Inf)
-    y_pred_simp = simplify(y_lim; expand = true)
+    y_simp = simplify(y_lim)
     p_subs = Dict(p[j] => agent.parameter[j] for j in eachindex(p))
     b_subs = Dict(b[j] => agent.extra[j] for j in eachindex(b))
-    y_num = simplify(substitute(y_pred_simp, merge(p_subs, b_subs)); expand = true)
-    return (p = p, x = x, z = z, b = b, y_sym = y_pred_sym, y_num = y_num)
+    y_sub = substitute(y_simp, merge(p_subs, b_subs))
+    y_num = simplify(y_sub)
+    return (p = p, x = x, z = z, b = b, p_subs = p_subs, b_subs = b_subs, y_sym = y_sym,
+        y_lim = y_lim, y_simp = y_simp, y_sub = y_sub, y_num = y_num)
 end
 
 """
