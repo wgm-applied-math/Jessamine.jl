@@ -36,7 +36,7 @@ outputs using the coefficients `agent.extra`.
 """
 function model_predict(
         g_spec::GenomeSpec,
-        agent::Agent{<:AbstractModelResult, <:Number, <:AbstractVector, <:AbstractGenome},
+        agent::Agent{<:Number, <:AbstractGenome, <:AbstractVector, <:AbstractModelResult},
         xs::Vector)
     num_rows = length(xs[1])
     last_round = run_genome(g_spec, agent.genome, agent.parameter, xs)[end]

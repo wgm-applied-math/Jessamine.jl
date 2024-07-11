@@ -44,7 +44,7 @@ end
 
 """An agent has a rating, a genome, a parameter vector, and an
 extra bit of data that depends on how rating is done."""
-struct Agent{T, R, VPar <: AbstractVector, G <: AbstractGenome}
+struct Agent{R, G <: AbstractGenome, VPar <: AbstractVector, T}
     rating::R
     genome::G
     parameter::VPar

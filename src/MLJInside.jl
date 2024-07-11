@@ -36,7 +36,7 @@ function machine_complexity(m_spec::LinearModelMachineSpec, m)
     # Hastie et al exclute the bias from the regularization term.
     # That way, addition of a constant to every given y
     # results in that same constant being added to the prediction.
-    #     c += abs(params.bias)^2
+    #     c += abs(params.intercept)^2
 
     for (feature, coef) in params.coefs
         c += abs(coef)^2
