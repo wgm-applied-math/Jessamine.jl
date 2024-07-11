@@ -57,7 +57,7 @@ function test_ridge_grow_and_rate()
     lambda_o = lambda_b
     agent = least_squares_ridge_grow_and_rate(
         RD.xs, RD.y, lambda_b, lambda_p, lambda_o, RG.spec, RG.genome)
-    y_rgr_pred = linear_model_predict(RG.spec, agent, RD.xs)
+    y_rgr_pred = model_predict(RG.spec, agent, RD.xs)
     residuals = RD.y - y_rgr_pred
     return (agent, y_rgr_pred, residuals)
 end

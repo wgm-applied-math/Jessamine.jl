@@ -1,14 +1,13 @@
 export AbstractLinearModelResult
 export BasicLinearModelResult, coefficients, intercept
-export linear_model_predict
-export linear_model_symbolic_output
+
 
 export extend_if_singleton
 
 """
 Abstract base type for the results of fitting linear models.
 """
-abstract type AbstractLinearModelResult end
+abstract type AbstractLinearModelResult <: AbstractModelResult end
 
 """
 A `BasicLinearModelResult` has a vector of coefficients
@@ -30,22 +29,7 @@ function intercept(r::BasicLinearModelResult)
     return r.intercept
 end
 
-"""
-    linear_model_symbolic_output(g_spec, genome; paramter_sym=:p, input_sym=:x, coefficient_sym=:b)
-
-Build a symbolic form for the output of the final time step of
-running the `genome`, and applying linear predictor coefficients.
-The parameter vector, input vector, and linear predictor
-coefficients are `Symbolics` objects of the form `p[j]`, `x[j]`,
-and `b[j]`.  The variable names can be specified with the keyword
-arguments.
-
-Return a named tuple with lots of useful fields.
-
-TODO Complete documentation
-
-"""
-function linear_model_symbolic_output(
+function model_symbolic_output(
         g_spec::GenomeSpec,
         agent::Agent{<:AbstractLinearModelResult, <:Number, <:AbstractVector, <:AbstractGenome};
         parameter_sym = :p,
@@ -87,40 +71,16 @@ function linear_model_symbolic_output(
 end
 
 """
-    linear_model_predict(lmr::AbstractLinearModelResult, X::Matrix)
+    model_predict(lmr::AbstractLinearModelResult, X::Matrix)
 
 Return `X * coefficients(lmr) + intercept(lmr)`
 """
-function linear_model_predict(lmr::AbstractLinearModelResult, X::Matrix)
+function model_predict(lmr::AbstractLinearModelResult, X::Matrix)
     return X * coefficients(lmr) .+ intercept(lmr)
 end
 
-"""
-    linear_model_predict(lmr::AbstractLinearModelResult, xs::AbstractVector{<:AbstractVector})
 
-Return stack the columns `xs` into a matrix `X` and call `linear_model_predict`.
-""" 
-function linear_model_predict(lmr::AbstractLinearModelResult, xs::AbstractVector{<:AbstractVector})
-    X = stack(xs)
-    return linear_model_predict(lmr, X)
-end
 
-"""
-    linear_model_predict(g_spec::GenomeSpec, agent::Agent, xs::Vector{<:AbstractVector})
-
-Run `agent.genome` on inputs `xs` and `agent.parameter`, and
-form the linear combination of the genome's
-outputs using the coefficients `agent.extra`.
-"""
-function linear_model_predict(
-        g_spec::GenomeSpec,
-        agent::Agent{<:AbstractLinearModelResult, <:Number, <:AbstractVector, <:AbstractGenome},
-        xs::Vector)
-    num_rows = length(xs[1])
-    last_round = run_genome(g_spec, agent.genome, agent.parameter, xs)[end]
-    data_cols = map(u -> extend_if_singleton(u, num_rows), last_round)
-    return linear_model_predict(agent.extra, data_cols)
-end
 
 """
     extend_if_singleton(v::AbstractVector, m::Int)

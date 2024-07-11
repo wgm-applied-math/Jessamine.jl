@@ -162,20 +162,18 @@ function _MGR_f(genome_parameter::AbstractVector, c::MGRContext)
     return r_norm + m_c + p_c
 end
 
+@kwdef struct MachineResult{Mn} <: AbstractModelResult
+    m::Mn
+end
+
 """
     machine_grow_and_rate(xs, y, g_spec, genome, mn_spec, sol_spec)
 
 Solve for the parameter values that produce the best machine for
 predicting `y` from the outputs of the `genome` applied to `xs`.
 The resulting parameter vector is stored as the `parameter` field
-in the returned `Agent`.  A named typle is stored as the `extra`
-field in the returned `Agent` with these fields:
-
-- `m`: the machine
-- `r_norm`: the norm of the residuals from using `m` to predict `y`
-- `g_c`: complexity of the `genome`
-- `m_c`: complexity of the machine `m`
-- `p_c`: complexity of the parameter vector
+in the returned `Agent`.  The resulting machine is wrapped in a `MachineResult`
+and stored in the `extra` field of the `Agent`.
 """
 function machine_grow_and_rate(
         xs::AbstractVector,
@@ -208,7 +206,7 @@ function machine_grow_and_rate(
             _MGR_f(sol.u, c)
             r = sol.objective + g_c
             @assert !isnothing(c.m_save)
-            return Agent(r, genome, sol.u, (c.m_save ..., g_c = g_c))
+            return Agent(r, genome, sol.u, MachineResult(c.m_save))
         else
             return nothing
         end

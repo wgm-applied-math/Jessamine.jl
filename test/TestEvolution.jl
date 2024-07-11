@@ -86,7 +86,7 @@ println("Symbolic form of best agent")
 
 a_best = pop_next.agents[1]
 
-sym_res = linear_model_symbolic_output(g_spec, a_best)
+sym_res = model_symbolic_output(g_spec, a_best)
 x = sym_res.x
 
 short_show(a_best)
