@@ -32,16 +32,10 @@ lambda_p = 1e-6
 lambda_o = 1e-6
 
 # Adapt least_squares_ridge_grow_and_rate so that it can be used by next_generation
-function grow_and_rate(rng, g_spec, genome, parents = nothing)
-    if isnothing(parents)
-        p_init = nothing
-    else
-        p_init = parents[1].parameter
-    end
-
+function grow_and_rate(rng, g_spec, genome)
     return least_squares_ridge_grow_and_rate(
             RD.xs, RD.y, lambda_b, lambda_p, lambda_o,
-            g_spec, genome, p_init)
+            g_spec, genome)
 end
 
 # Indices into the state vector

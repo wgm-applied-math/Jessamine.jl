@@ -97,7 +97,7 @@ function least_squares_ridge_grow_and_rate(
             if isnothing(c.b)
                 return nothing
             else
-                r = sol.objective + lambda_operand * (num_operands(genome) + num_instructions(genome))
+                r = sol.objective + lambda_operand * num_operands(genome)
                 return Agent(r, genome, sol.u, c.b)
             end
         else
@@ -160,7 +160,7 @@ TODO Complete documentation
 """
 function linear_model_symbolic_output(
         g_spec::GenomeSpec,
-        agent::Agent;
+        agent::Agent{<:Number, <:AbstractVector, <:AbstractVector, <:AbstractGenome};
         parameter_sym = :p,
         input_sym = :x,
         coefficient_sym = :b)
@@ -198,12 +198,12 @@ end
     linear_model_predict(g_spec::GenomeSpec, agent::Agent, xs::Vector)
 
 Run `agent.genome` on inputs `xs` and `agent.parameter`, and
-form the linear combination of a column of 1s and the genome's
+form the linear combination of the genome's
 outputs using the coefficients `agent.extra`.
 """
 function linear_model_predict(
         g_spec::GenomeSpec,
-        agent::Agent,
+        agent::Agent{<:Number, <:AbstractVector, <:AbstractVector, <:AbstractGenome},
         xs::Vector)
     num_rows = length(xs[1])
     last_round = run_genome(g_spec, agent.genome, agent.parameter, xs)[end]

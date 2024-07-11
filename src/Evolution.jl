@@ -1,4 +1,5 @@
 export SelectionSpec, SelectionDist, Population
+export Agent
 export generation_size
 export random_genome, random_initial_population, next_generation
 
@@ -174,14 +175,14 @@ function new_genome(
         s_dist::SelectionDist,
         m_dist::MutationDist,
         pop::Population
-        )::@NamedTuple{parents::Vector{Agent}, child::Genome}
+        )::Genome
     a1 = pick_parent(rng, s_dist, pop)
     a2 = pick_parent(rng, s_dist, pop)
     gr = recombine(rng, a1.genome, a2.genome)
     # @assert check_genome(gr) "gr"
     grm = mutate(rng, m_dist, gr)
     # @assert check_genome(grm) "grm"
-    return (parents = [a1, a2], child = grm)
+    return grm
 end
 
 """
@@ -189,7 +190,7 @@ end
 
 Produce the next generation of a population by selection and
 mutation.  The offsprings' genomes are produced by `new_genome`,
-and fed to `grow_and_rate(rng, genome, parents or nothing)`, which should "grow" each
+and fed to `grow_and_rate(rng, g_spec, genome)`, which should "grow" each
 organism and return the rating and extra data as an `Agent`,
 which is inserted into the population.  The `sense` parameter
 specifies whether selection should minimize or maximize the
@@ -210,7 +211,7 @@ function next_generation(
         while isnothing(agent)
             ng = new_genome(rng, s_dist, m_dist, pop)
             # cg = compile(g_spec, g)
-            agent = grow_and_rate(rng, g_spec, ng.child, ng.parents)
+            agent = grow_and_rate(rng, g_spec, ng)
         end
         new_agents[j] = agent
     end

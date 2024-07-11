@@ -1,5 +1,6 @@
 export AbstractGeneOp
-export GenomeSpec, CellState, CellState, Instruction, Genome
+export GenomeSpec, CellState, CellState, Instruction
+export AbstractGenome, Genome
 export v_convert, v_unconvert
 export eval_time_step, op_eval, flat_workspace
 export run_genome, num_instructions, num_operands, workspace_size
