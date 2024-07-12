@@ -223,17 +223,3 @@ end
 function model_predict(mr::MachineResult, input::AbstractMatrix)
     return machine_predict(mr.mn_spec, mr.m, input)
 end
-
-function model_symbolic_output(
-    g_spec::GenomeSpec,
-    agent::Agent{<:Number, <:AbstractGenome, <:AbstractVector, <:MachineResult}
-    )
-    p, x, z = run_genome_symbolic(
-        g_spec, agent.genome;
-    parameter_sym = parameter_sym,
-    input_sym = input_sym)
-
-    # !!! TODO Implement this
-
-    return nothing
-end

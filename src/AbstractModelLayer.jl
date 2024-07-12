@@ -45,18 +45,44 @@ function model_predict(
 end
 
 """
-    model_symbolic_output(g_spec, genome; paramter_sym=:p, input_sym=:x, coefficient_sym=:b)
+    model_symbolic_output(g_spec, agent)
 
 Build a symbolic form for the output of the final time step of
-running the `genome`, and applying linear predictor coefficients.
-The parameter vector, input vector, and linear predictor
-coefficients are `Symbolics` objects of the form `p[j]`, `x[j]`,
-and `b[j]`.  The variable names can be specified with the keyword
-arguments.
+running `agent`'s `genome`, and using the model in `agent.extra`
+to make a prediction.
 
 Return a named tuple with lots of useful fields.
 
-TODO Complete documentation
-
 """
 function model_symbolic_output end
+
+function model_symbolic_output(
+    g_spec::GenomeSpec,
+    agent::Agent{<:Number, <:AbstractGenome, <:AbstractVector, <:AbstractModelResult}
+    )
+    p, x, z = run_genome_symbolic(g_spec, agent.genome)
+    z_sym_row_mat = reshape(z, 1, :)
+    y_sym = model_predict(agent.extra, z_sym_row_mat)[1]
+    used_vars = Set(v.name for v in Symbolics.get_variables(y_sym))
+    # To handle rational functions that have things like 1/(x/0),
+    # replace Inf with W and do a limit as W -> Inf.
+    # First, grind through and make sure we have a unique symbol.
+    j = 0
+    local W
+    while true
+        W = Symbolics.variable(:W, j)
+        if !(W in used_vars)
+            break
+        end
+        j += 1
+    end
+    y_W = substitute(y_sym, Dict([Inf => W]))
+    y_lim = Symbolics.limit(y_W.val, W.val, Inf)
+    y_simp = simplify(y_lim)
+    p_subs = Dict(p[j] => agent.parameter[j] for j in eachindex(p))
+    y_sub = substitute(y_simp, p_subs)
+    y_num = simplify(y_sub)
+
+    return (p = p, x = x, z = z, p_subs = p_subs, y_sym = y_sym,
+        y_lim = y_lim, y_simp = y_simp, y_sub = y_sub, y_num = y_num)
+end

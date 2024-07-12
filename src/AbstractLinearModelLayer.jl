@@ -33,10 +33,7 @@ function model_symbolic_output(
         g_spec::GenomeSpec,
         agent::Agent{<:Number, <:AbstractGenome, <:AbstractVector, <:AbstractLinearModelResult}
         )
-    p, x, z = run_genome_symbolic(
-        g_spec, agent.genome;
-        parameter_sym = parameter_sym,
-        input_sym = input_sym)
+    p, x, z = run_genome_symbolic(g_spec, agent.genome)
     # This includes `b[1] =`` $b_0$ as an intercept or bias term.
     # Which throws off the numbering.
     b = Symbolics.variables(coefficient_sym, 0:(g_spec.output_size))
