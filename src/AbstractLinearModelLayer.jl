@@ -31,12 +31,14 @@ end
 
 function model_symbolic_output(
         g_spec::GenomeSpec,
-        agent::Agent{<:Number, <:AbstractGenome, <:AbstractVector, <:AbstractLinearModelResult}
+        genome::AbstractGenome,
+        parameter::AbstractVector,
+        mr::AbstractLinearModelResult
         )
-    p, x, z = run_genome_symbolic(g_spec, agent.genome)
-    # This includes `b[1] =`` $b_0$ as an intercept or bias term.
+    p, x, z = run_genome_symbolic(g_spec, genome)
+    # This includes `b[1] =` $b_0$ as an intercept or bias term.
     # Which throws off the numbering.
-    b = Symbolics.variables(coefficient_sym, 0:(g_spec.output_size))
+    b = Symbolics.variables(:b, 0:(g_spec.output_size))
     y_sym = dot(z, b[2:end]) + b[1]
     used_vars = Set(v.name for v in Symbolics.get_variables(y_sym))
     # To handle rational functions that have things like 1/(x/0),
@@ -54,11 +56,11 @@ function model_symbolic_output(
     y_W = substitute(y_sym, Dict([Inf => W]))
     y_lim = Symbolics.limit(y_W.val, W.val, Inf)
     y_simp = simplify(y_lim)
-    p_subs = Dict(p[j] => agent.parameter[j] for j in eachindex(p))
-    b_num = coefficients(agent.extra)
+    p_subs = Dict(p[j] => parameter[j] for j in eachindex(p))
+    b_num = coefficients(mr)
     b_subs = Dict(b[1+j] => b_num[j] for j in eachindex(b_num))
     # This is really $b_0$:
-    b_subs[b[1]] = intercept(agent.extra)
+    b_subs[b[1]] = intercept(mr)
     y_sub = substitute(y_simp, merge(p_subs, b_subs))
     y_num = simplify(y_sub)
     return (p = p, x = x, z = z, b = b, p_subs = p_subs, b_subs = b_subs, y_sym = y_sym,

@@ -48,8 +48,28 @@ end
     model_symbolic_output(g_spec, agent)
 
 Build a symbolic form for the output of the final time step of
-running `agent`'s `genome`, and using the model in `agent.extra`
-to make a prediction.
+running `agent`'s `genome`
+Then use the `agent`'s `parameter` vector,
+and feed the symbolic output of the genome as input to
+model result in `agent.extra` to make a prediction
+in symbolic form.
+"""
+function model_symbolic_output(g_spec, agent)
+    return model_symbolic_output(g_spec, agent.genome, agent.parameter, agent.extra)
+end
+
+"""
+    model_symbolic_output(g_spec, genome, parameter, model_result)
+
+        model_symbolic_output(g_spec, agent)
+
+Build a symbolic form for the output of the final time step of
+running `genome`
+Then use the `parameter` vector,
+the symbolic output of the genome,
+and feed the symbolic output of the genome as input to
+model result in `agent.extra` to make a prediction
+in symbolic form.
 
 Return a named tuple with lots of useful fields.
 
@@ -58,11 +78,12 @@ function model_symbolic_output end
 
 function model_symbolic_output(
     g_spec::GenomeSpec,
-    agent::Agent{<:Number, <:AbstractGenome, <:AbstractVector, <:AbstractModelResult}
-    )
-    p, x, z = run_genome_symbolic(g_spec, agent.genome)
+    genome::AbstractGenome,
+    parameter::AbstractVector,
+    mr::AbstractModelResult)
+    p, x, z = run_genome_symbolic(g_spec, genome)
     z_sym_row_mat = reshape(z, 1, :)
-    y_sym = model_predict(agent.extra, z_sym_row_mat)[1]
+    y_sym = model_predict(mr, z_sym_row_mat)[1]
     used_vars = Set(v.name for v in Symbolics.get_variables(y_sym))
     # To handle rational functions that have things like 1/(x/0),
     # replace Inf with W and do a limit as W -> Inf.
@@ -79,7 +100,7 @@ function model_symbolic_output(
     y_W = substitute(y_sym, Dict([Inf => W]))
     y_lim = Symbolics.limit(y_W.val, W.val, Inf)
     y_simp = simplify(y_lim)
-    p_subs = Dict(p[j] => agent.parameter[j] for j in eachindex(p))
+    p_subs = Dict(p[j] => parameter[j] for j in eachindex(p))
     y_sub = substitute(y_simp, p_subs)
     y_num = simplify(y_sub)
 
