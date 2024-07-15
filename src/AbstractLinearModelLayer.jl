@@ -1,7 +1,6 @@
 export AbstractLinearModelResult
 export BasicLinearModelResult, coefficients, intercept
 
-
 export extend_if_singleton
 
 """
@@ -34,7 +33,7 @@ function model_symbolic_output(
         genome::AbstractGenome,
         parameter::AbstractVector,
         mr::AbstractLinearModelResult
-        )
+)
     p, x, z = run_genome_symbolic(g_spec, genome)
     # This includes `b[1] =` $b_0$ as an intercept or bias term.
     # Which throws off the numbering.
@@ -58,7 +57,7 @@ function model_symbolic_output(
     y_simp = simplify(y_lim)
     p_subs = Dict(p[j] => parameter[j] for j in eachindex(p))
     b_num = coefficients(mr)
-    b_subs = Dict(b[1+j] => b_num[j] for j in eachindex(b_num))
+    b_subs = Dict(b[1 + j] => b_num[j] for j in eachindex(b_num))
     # This is really $b_0$:
     b_subs[b[1]] = intercept(mr)
     y_sub = substitute(y_simp, merge(p_subs, b_subs))
@@ -75,9 +74,6 @@ Return `X * coefficients(lmr) + intercept(lmr)`
 function model_predict(lmr::AbstractLinearModelResult, X::Matrix)
     return X * coefficients(lmr) .+ intercept(lmr)
 end
-
-
-
 
 """
     extend_if_singleton(v::AbstractVector, m::Int)

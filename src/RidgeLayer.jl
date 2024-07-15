@@ -128,4 +128,3 @@ function _LSRGR_f(u::Vector{Float64}, c::_LSRGR_Context{TXs, Ty}) where {TXs, Ty
     c.b = b
     return n^2 + c.lambda_b * dot(b, b) + c.lambda_p * dot(u, u)
 end
-

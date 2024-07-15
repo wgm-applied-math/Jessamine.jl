@@ -21,7 +21,7 @@ function model_predict end
     model_predict(mr::AbstractModelResult, xs::AbstractVector{<:AbstractVector})
 
 Stack the columns `xs` into a matrix `X` and call `model_predict`.
-""" 
+"""
 function model_predict(mr::AbstractModelResult, xs::AbstractVector{<:AbstractVector})
     X = stack(xs)
     return model_predict(mr, X)
@@ -77,10 +77,10 @@ Return a named tuple with lots of useful fields.
 function model_symbolic_output end
 
 function model_symbolic_output(
-    g_spec::GenomeSpec,
-    genome::AbstractGenome,
-    parameter::AbstractVector,
-    mr::AbstractModelResult)
+        g_spec::GenomeSpec,
+        genome::AbstractGenome,
+        parameter::AbstractVector,
+        mr::AbstractModelResult)
     p, x, z = run_genome_symbolic(g_spec, genome)
     z_sym_row_mat = reshape(z, 1, :)
     y_sym = model_predict(mr, z_sym_row_mat)[1]

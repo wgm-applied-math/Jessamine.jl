@@ -9,7 +9,6 @@ export parameter_solver_solve
 export machine_grow_and_rate
 export MGRContext
 
-
 "Abstract base type for machine specs"
 abstract type AbstractMachineSpec end
 
@@ -51,10 +50,13 @@ function machine_complexity(mn_spec, m)
 end
 
 """
-    residual_norm(mn_spec, y - y_hat)
+    residual_norm(mn_spec, r)
 
-Norm of residuals.
-The default implementation returns the mean square error.
+Return the norm of a vector of residuals `r`.
+
+The default implementation returns the mean square error,
+that is, assuming `r = y - y_hat`, return
+`(1/N) sum (y[j] - y_hat[j])^2`
 """
 function residual_norm(
         mn_spec::AbstractMachineSpec,
@@ -103,7 +105,6 @@ Use this if you want all default solving procedures.
 struct DefaultSolverSpec <: AbstractSolverSpec
 end
 
-
 """
     parameter_solver_optimization_function(sol_spec, f)
 
@@ -124,7 +125,8 @@ The default implementation returns `OptimizationProblem(optim_fn, zeros(...), co
 """
 function parameter_solver_optimization_problem(
         ::AbstractSolverSpec, g_spec::GenomeSpec, optim_fn, context)
-    return OptimizationProblem(optim_fn, zeros(g_spec.parameter_size), context, sense = MinSense)
+    return OptimizationProblem(
+        optim_fn, zeros(g_spec.parameter_size), context, sense = MinSense)
 end
 
 """
@@ -136,7 +138,6 @@ The default implementation returns `solve(optim_prob, NelderMeade())`
 function parameter_solver_solve(::AbstractSolverSpec, optim_prob)
     return solve(optim_prob, NelderMead())
 end
-
 
 @kwdef mutable struct MGRContext{MnSpec, TXs, Ty}
     g_spec::GenomeSpec

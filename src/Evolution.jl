@@ -175,7 +175,7 @@ function new_genome(
         s_dist::SelectionDist,
         m_dist::MutationDist,
         pop::Population
-        )::Genome
+)::Genome
     a1 = pick_parent(rng, s_dist, pop)
     a2 = pick_parent(rng, s_dist, pop)
     gr = recombine(rng, a1.genome, a2.genome)
