@@ -43,8 +43,12 @@ end
     machine_complexity(mn_spec, m)
 
 Numerical complexity of a machine.
+The default is to return 0, which means that machine
+complexity is ignored during evolution.
 """
-function machine_complexity end
+function machine_complexity(mn_spec, m)
+    return 0
+end
 
 """
     residual_norm(mn_spec, y - y_hat)
