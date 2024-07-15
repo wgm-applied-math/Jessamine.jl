@@ -54,8 +54,9 @@ println("a_check =")
 short_show(a_check)
 println("end a_check")
 println()
-@show round.(a_check.extra)
-@test round.(a_check.extra) == [2, 3, 3, -3]
+@show round.(coefficients(a_check.extra))
+@test round.(coefficients(a_check.extra)) == [2, 3, 3, -3]
+@test intercept(a_check.extra) == 0
 
 pop_init = random_initial_population(rng, g_spec, m_dist, arity_dist, s_spec, grow_and_rate)
 println("pop_init = ")
@@ -85,12 +86,16 @@ println("Symbolic form of best agent")
 
 a_best = pop_next.agents[1]
 
-p, x, w, b, y_sym, y_num = linear_model_symbolic_output(g_spec, a_best)
+sym_res = model_symbolic_output(g_spec, a_best)
+x = sym_res.x
 
 short_show(a_best)
-@show y_sym
+@show sym_res.y_sym
 @show a_best.parameter
 @show a_best.extra
+@show sym_res.y_num
+
+y_num = simplify(sym_res.y_num; expand = true)
 @show y_num
 
 c1 = Symbolics.coeff(y_num)

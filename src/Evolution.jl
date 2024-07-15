@@ -1,4 +1,5 @@
 export SelectionSpec, SelectionDist, Population
+export Agent
 export generation_size
 export random_genome, random_initial_population, next_generation
 
@@ -43,7 +44,7 @@ end
 
 """An agent has a rating, a genome, a parameter vector, and an
 extra bit of data that depends on how rating is done."""
-struct Agent{R, T, VPar <: AbstractVector, G <: AbstractGenome}
+struct Agent{R, G <: AbstractGenome, VPar <: AbstractVector, T}
     rating::R
     genome::G
     parameter::VPar
@@ -173,7 +174,8 @@ function new_genome(
         rng::AbstractRNG,
         s_dist::SelectionDist,
         m_dist::MutationDist,
-        pop::Population)::Genome
+        pop::Population
+)::Genome
     a1 = pick_parent(rng, s_dist, pop)
     a2 = pick_parent(rng, s_dist, pop)
     gr = recombine(rng, a1.genome, a2.genome)
@@ -188,7 +190,7 @@ end
 
 Produce the next generation of a population by selection and
 mutation.  The offsprings' genomes are produced by `new_genome`,
-and fed to `grow_and_rate(rng, genome)`, which should "grow" each
+and fed to `grow_and_rate(rng, g_spec, genome)`, which should "grow" each
 organism and return the rating and extra data as an `Agent`,
 which is inserted into the population.  The `sense` parameter
 specifies whether selection should minimize or maximize the
@@ -207,9 +209,9 @@ function next_generation(
     Threads.@threads for j in eachindex(new_agents)
         agent = nothing
         while isnothing(agent)
-            g = new_genome(rng, s_dist, m_dist, pop)
+            ng = new_genome(rng, s_dist, m_dist, pop)
             # cg = compile(g_spec, g)
-            agent = grow_and_rate(rng, g_spec, g)
+            agent = grow_and_rate(rng, g_spec, ng)
         end
         new_agents[j] = agent
     end

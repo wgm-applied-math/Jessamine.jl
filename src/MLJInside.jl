@@ -1,9 +1,12 @@
 # For using MLJ machinery applied to the output of a genome
 
+export LinearModelMachineSpec
+
 using MLJLinearModels
 
 @kwdef struct LinearModelMachineSpec <: AbstractMachineSpec
-    model::Any
+    model::Model
+    lambda_ridge::Real
     lambda_parameter::Real
     lambda_operand::Real
     train_rows::AbstractVector
@@ -33,7 +36,7 @@ function machine_complexity(m_spec::LinearModelMachineSpec, m)
     # Hastie et al exclute the bias from the regularization term.
     # That way, addition of a constant to every given y
     # results in that same constant being added to the prediction.
-    #     c += abs(params.bias)^2
+    #     c += abs(params.intercept)^2
 
     for (feature, coef) in params.coefs
         c += abs(coef)^2

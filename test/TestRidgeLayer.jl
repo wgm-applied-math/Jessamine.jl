@@ -57,11 +57,7 @@ function test_ridge_grow_and_rate()
     lambda_o = lambda_b
     agent = least_squares_ridge_grow_and_rate(
         RD.xs, RD.y, lambda_b, lambda_p, lambda_o, RG.spec, RG.genome)
-    g_res = run_genome(RG.spec, RG.genome, agent.parameter, RD.xs)
-    zs = g_res[end]
-    Z = stack(zs)
-    b = agent.extra
-    y_rgr_pred = Z * b
+    y_rgr_pred = model_predict(RG.spec, agent, RD.xs)
     residuals = RD.y - y_rgr_pred
     return (agent, y_rgr_pred, residuals)
 end
@@ -88,7 +84,7 @@ using ..RG
 x = Symbolics.variables(:x, 1:2)
 
 z_sym = run_genome(RG.spec, RG.genome, Num.(RG.agent.parameter), x)[end]
-b = RG.agent.extra
+b = coefficients(RG.agent.extra)
 y_pred_sym = dot(z_sym, b)
 @show y_pred_sym
 y_pred_simp = simplify(y_pred_sym)

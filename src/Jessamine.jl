@@ -19,8 +19,10 @@ include("Recombination.jl")
 include("Operations.jl")
 include("Evolution.jl")
 include("SymbolicForm.jl")
+include("AbstractModelLayer.jl")
+include("AbstractLinearModelLayer.jl")
 include("RidgeLayer.jl")
-#include("MachineLayer.jl")
-#include("MLJInside.jl")
+include("MachineLayer.jl")
+include("MLJInside.jl")
 
 end

@@ -1,15 +1,9 @@
-export least_squares_ridge, least_squares_ridge_grow_and_rate
-export linear_model_predict
-export linear_model_symbolic_output
+# This file has the code for a from-scratch implementation of
+# ridge regression.  It was written so we could work on the
+# genome and evolution framework before trying to interface with
+# MLJ.jl.
 
-function extend_if_singleton(v, m)
-    if length(v) == 1
-        return fill(v[1], m)
-    else
-        @assert length(v) == m
-        return v
-    end
-end
+export least_squares_ridge, least_squares_ridge_grow_and_rate
 
 """
     least_squares_ridge(xs, y, lambda, g_spec, genome, parameter)
@@ -52,15 +46,20 @@ function least_squares_ridge(
 end
 
 """
-    least_squares_ridge_grow_and_rate(xs, y, lambda_b, lambda_p, lambda_op, g_spec, genome)
+    least_squares_ridge_grow_and_rate(xs, y, lambda_b, lambda_p, lambda_op, g_spec, genome, p_init = zeros(...))
 
 Solve for the parameter vector `p` that minimzes
 `norm(y - y_hat)^2 + lambda_b * norm(b)^2 + lambda_p * norm(p)^2 + lambda_op R`,
 where `y_hat` and `b` are found using `least_squares_ridge`.
 `R` is the total number of operands across all instructions in `genome`.
 
+The solver starts with `p_init` for the initial value of `p`.
+If `p_init` is `nothing` or not given, a vector of zeros is used.   
+
 If all goes well, return an `Agent`, whose genome is `genome`,
-whose `parameter` is the best `p`, and whose `extra` is `b`.
+whose `parameter` is the best `p`, and whose `extra` is a 
+`BasicLinearModelResult` with coefficient vector `b`.
+
 Otherwise, return `nothing`.
 
 """
@@ -71,20 +70,21 @@ function least_squares_ridge_grow_and_rate(
         lambda_p::Float64,
         lambda_operand::Float64,
         g_spec::GenomeSpec,
-        genome::AbstractGenome)::Union{Agent, Nothing}
-    u0 = zeros(g_spec.parameter_size)
-    f_opt = OptimizationFunction(_LSRGR_f)
+        genome::AbstractGenome,
+        p_init::Vector{Float64} = zeros(g_spec.parameter_size)
+)::Union{Agent, Nothing}
+    optim_fn = OptimizationFunction(_LSRGR_f)
     c = _LSRGR_Context(g_spec, genome, lambda_b, xs, y, lambda_p, nothing, nothing)
-    prob = OptimizationProblem(f_opt, u0, c, sense = MinSense)
+    optim_prob = OptimizationProblem(optim_fn, p_init, c, sense = MinSense)
     try
-        sol = solve(prob, NelderMead())
+        sol = solve(optim_prob, NelderMead())
         if SciMLBase.successful_retcode(sol)
             _LSRGR_f(sol.u, c)
             if isnothing(c.b)
                 return nothing
             else
                 r = sol.objective + lambda_operand * num_operands(genome)
-                return Agent(r, genome, sol.u, c.b)
+                return Agent(r, genome, sol.u, BasicLinearModelResult(c.b))
             end
         else
             return nothing
@@ -95,6 +95,20 @@ function least_squares_ridge_grow_and_rate(
         end
         rethrow()
     end
+end
+
+function least_squares_ridge_grow_and_rate(
+        xs::Vector{Vector{Float64}},
+        y::Vector{Float64},
+        lambda_b::Float64,
+        lambda_p::Float64,
+        lambda_operand::Float64,
+        g_spec::GenomeSpec,
+        genome::AbstractGenome,
+        p_init::Nothing
+)
+    return least_squares_ridge_grow_and_rate(
+        xs, y, lambda_b, lambda_p, lambda_operand, g_spec, genome)
 end
 
 @kwdef mutable struct _LSRGR_Context{TXs, Ty}
@@ -113,67 +127,4 @@ function _LSRGR_f(u::Vector{Float64}, c::_LSRGR_Context{TXs, Ty}) where {TXs, Ty
     c.n = n
     c.b = b
     return n^2 + c.lambda_b * dot(b, b) + c.lambda_p * dot(u, u)
-end
-
-"""
-    linear_model_symbolic_output(g_spec, genome; paramter_sym=:p, input_sym=:x, coefficient_sym=:b)
-
-Build a symbolic form for the output of the final time step of
-running the `genome`, and applying linear predictor coefficients.
-The parameter vector, input vector, and linear predictor
-coefficients are `Symbolics` objects of the form `p[j]`, `x[j]`,
-and `b[j]`.  The variable names can be specified with the keyword
-arguments.
-
-Return a named tuple `(p, x, z, b, y_sym, y_num)` where `p`, `x`,
-and `b` are vectors of `Symbolics` objects used to represent
-genome parameters, inputs, and linear model coefficients; `z` is
-a vector of genome outputs in symbolic form; `y_sym` is the
-symbolic representation of the linear model `dot(z, b)`;
-and `y_num` is the symbolic model with substitutions `p =
-agent.parameters` and `b = agent.extra` applied, so that only
-`x[j]`s remain.
-
-"""
-function linear_model_symbolic_output(
-        g_spec::GenomeSpec,
-        agent::Agent;
-        parameter_sym = :p,
-        input_sym = :x,
-        coefficient_sym = :b)
-    p, x, z = run_genome_symbolic(
-        g_spec, agent.genome;
-        parameter_sym = parameter_sym,
-        input_sym = input_sym)
-    b = Symbolics.variables(coefficient_sym, 1:(g_spec.output_size))
-    y_pred_sym = dot(z, b)
-    # To handle rational functions that have things like 1/(x/0),
-    # replace Inf with W and do a limit as W -> Inf:
-    @variables W
-    y_W = substitute(y_pred_sym, Dict([Inf => W]))
-    y_lim = Symbolics.limit(y_W.val, W.val, Inf)
-    y_pred_simp = simplify(y_lim; expand = true)
-    p_subs = Dict(p[j] => agent.parameter[j] for j in eachindex(p))
-    b_subs = Dict(b[j] => agent.extra[j] for j in eachindex(b))
-    y_num = simplify(substitute(y_pred_simp, merge(p_subs, b_subs)); expand = true)
-    return (p = p, x = x, z = z, b = b, y_sym = y_pred_sym, y_num = y_num)
-end
-
-"""
-    linear_model_predict(g_spec::GenomeSpec, agent::Agent, xs::Vector)
-
-Run `agent.genome` on inputs `xs` and `agent.parameter`, and
-form the linear combination of a column of 1s and the genome's
-outputs using the coefficients `agent.extra`.
-"""
-function linear_model_predict(
-        g_spec::GenomeSpec,
-        agent::Agent,
-        xs::Vector)
-    num_rows = length(xs[1])
-    last_round = run_genome(g_spec, agent.genome, agent.parameter, xs)[end]
-    data_cols = map(u -> extend_if_singleton(u, num_rows), last_round)
-    X = stack(data_cols)
-    y_hat = X * agent.extra
-    return y_hat
 end
