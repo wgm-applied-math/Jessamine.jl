@@ -1,6 +1,6 @@
 export AbstractMachineSpec
 export machine_init, machine_fit!, machine_predict
-export machine_complexity, residual_norm, genome_parameter_complexity
+export machine_complexity, prediction_performance, genome_parameter_complexity
 export genome_complexity
 export AbstractSolverSpec, DefaultSolverSpec
 export parameter_solver_optimization_function
@@ -16,8 +16,12 @@ abstract type AbstractMachineSpec end
     machine_init(mn_spec, X, y)
 
 Construct a machine with predictor table X and target y.
+
+The default implementation calls `MLJ.machine(mn_spec.machine, X, y)`
 """
-function machine_init end
+function machine_init(mn_spec::AbstractMachineSpec, X, y)
+    return MLJ.machine(mn_spec.model, X, y)
+end
 
 """
     machine_fit!(mn_spec, m)
@@ -42,27 +46,53 @@ end
     machine_complexity(mn_spec, m)
 
 Numerical complexity of a machine.
-The default is to return 0, which means that machine
-complexity is ignored during evolution.
+
+The default is to return the sum of squares of `MLJ.fitted_params(m)`
+multiplied by `mn_spec.lambda_model`.
 """
-function machine_complexity(mn_spec, m)
-    return 0
+function machine_complexity(mn_spec::AbstractMachineSpec, m)
+    params = MLJ.fitted_params(m)
+
+    # Hastie et al exclude the bias from the regularization term.
+    # That way, addition of a constant to every given y
+    # results in that same constant being added to the prediction.
+    #     c += abs(params.intercept)^2
+    return mn_spec.lambda_model * sum_sq_coefs(params.coefs)
+end
+
+function sum_sq_coefs(coefs::Dict)
+    c = 0.0
+    for (feature, coef) in coefs
+        c += abs(coef)^2
+    end
+    return c
+end
+
+function sum_sq_coefs(coefs::AbstractVector{<:Pair})
+    c = 0.0
+    for (feature, coef) in coefs
+        c += abs(coef)^2
+    end
+    return c
+end
+
+function sum_sq_coefs(coefs::AbstractVector{<:Number})
+    return m_spec.lambda_model * dot(coefs, coefs)
 end
 
 """
-    residual_norm(mn_spec, r)
+    prediction_performance(mn_spec, y_hat, y_ref)
 
-Return the norm of a vector of residuals `r`.
+Return a performance measure of the prediction `y_hat` compared to reference `y_ref`.
 
-The default implementation returns the mean square error,
-that is, assuming `r = y - y_hat`, return
-`(1/N) sum (y[j] - y_hat[j])^2`
+The default implementation applies the callable `mn_spec.performance(y_hat, y_ref)`
 """
-function residual_norm(
+function prediction_performance(
         mn_spec::AbstractMachineSpec,
-        r::AbstractVector
+        y_hat::AbstractVector,
+        y_ref::AbstractVector,
 )::Real
-    return dot(r, r) / length(r)
+    mn_spec.performance(y_hat, y_ref)
 end
 
 """
@@ -159,12 +189,11 @@ function _MGR_f(genome_parameter::AbstractVector, c::MGRContext)
     m = machine_init(c.mn_spec, Z_df, c.y)
     machine_fit!(c.mn_spec, m)
     y_hat = machine_predict(c.mn_spec, m, Z_df)
-    residuals = c.y - y_hat
-    r_norm = residual_norm(c.mn_spec, residuals)
+    performance = prediction_performance(c.mn_spec, y_hat, c.y)
     m_c = machine_complexity(c.mn_spec, m)
     p_c = genome_parameter_complexity(c.mn_spec, genome_parameter)
-    c.m_save = (m = m, r_norm = r_norm, m_c = m_c, p_c = p_c)
-    return r_norm + m_c + p_c
+    c.m_save = (m = m, performance = performance, m_c = m_c, p_c = p_c)
+    return performance + m_c + p_c
 end
 
 @kwdef struct MachineResult{MnSpec, Mn} <: AbstractModelResult
