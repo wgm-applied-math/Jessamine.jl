@@ -34,7 +34,7 @@ end
 
 function to_expr(::Add, cs, operands)
     if isempty(operands)
-        return 0.0
+        return [0.0]
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -67,7 +67,7 @@ end
 
 function to_expr(::Subtract, cs, operands)
     if isempty(operands)
-        return 0.0
+        return [0.0]
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -87,7 +87,7 @@ op_eval(::Multiply, operands) = splat_or_default(.*, 1.0, operands)
 
 function to_expr(::Multiply, cs, operands)
     if isempty(operands)
-        return 1.0
+        return [1.0]
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -105,7 +105,7 @@ op_eval(::ReciprocalMultiply, operands) = 1.0 ./ splat_or_default(.*, 1.0, opera
 
 function to_expr(::ReciprocalMultiply, cs, operands)
     if isempty(operands)
-        return 1.0
+        return [1.0]
     elseif length(operands) == 1
         field, j = operands[1]
         return :(1.0 / $cs.$field[$j])
@@ -124,7 +124,7 @@ op_eval(::FzAnd, operands) = splat_or_default(.*, 1.0, operands)
 
 function to_expr(::FzAnd, cs, operands)
     if isempty(operands)
-        return 1.0
+        return [1.0]
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -171,7 +171,7 @@ end
 
 function to_expr(::FzNor, cs, operands)
     if isempty(operands)
-        return 1.0
+        return [1.0]
     elseif length(operands) == 1
         field, j = operands[1]
         return :(1.0 .- $cs.$field[$j])
@@ -191,7 +191,7 @@ end
 
 function to_expr(::SignAdd, cs, operands)
     if isempty(operands)
-        return 0.0
+        return [0.0]
     elseif length(operands) == 1
         field, j = operands[1]
         return :(sign.($cs.$field[$j]))
@@ -219,7 +219,7 @@ end
 
 function to_expr(::Maximum, cs, operands)
     if isempty(operands)
-        return -Inf
+        return [-Inf]
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -248,7 +248,7 @@ end
 
 function to_expr(::Minimum, cs, operands)
     if isempty(operands)
-        return Inf
+        return [Inf]
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])

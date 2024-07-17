@@ -135,7 +135,7 @@ end
 
 function to_expr(g_spec::GenomeSpec, block::Vector{Instruction}, cs::Union{Symbol, Expr})
     if isempty(block)
-        return :0.0
+        return :[0.0]
     elseif length(block) == 1
         return to_expr(g_spec, block[1], cs)
     else
