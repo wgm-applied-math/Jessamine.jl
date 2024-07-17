@@ -121,6 +121,13 @@ end
     operand_ixs::Vector{Int}
 end
 
+# *sigh*
+function Instruction(op, operands::Vector{Any})
+    @assert isempty(operands)
+
+    return Instruction(op, Int[])
+end
+
 function to_expr(g_spec::GenomeSpec, instr::Instruction, cs::Union{Symbol, Expr})
     field_fetches = [g_spec.index_map[k] for k in instr.operand_ixs]
     return to_expr(instr.op, cs, field_fetches)
@@ -128,7 +135,7 @@ end
 
 function to_expr(g_spec::GenomeSpec, block::Vector{Instruction}, cs::Union{Symbol, Expr})
     if isempty(block)
-        return :0
+        return :0.0
     elseif length(block) == 1
         return to_expr(g_spec, block[1], cs)
     else
