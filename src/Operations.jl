@@ -166,7 +166,7 @@ struct FzNor <: AbstractGeneOp end
 short_show(io::IO, ::FzNor) = print(io, "fzNor")
 
 function op_eval(::FzNor, operands)
-    return splat_or_default(.*, 1.0, 1.0 .- operands)
+    return splat_or_default(.*, 1.0, 1.0 .- operand for operand in operands)
 end
 
 function to_expr(::FzNor, cs, operands)
@@ -213,7 +213,7 @@ function op_eval(::Maximum, operands)
     elseif length(operands) == 1
         return operands[1]
     else
-        return max.(operands)
+        return max.(operands...)
     end
 end
 
@@ -242,7 +242,7 @@ function op_eval(::Minimum, operands)
     elseif length(operands) == 1
         return operands[1]
     else
-        return min.(operands)
+        return min.(operands...)
     end
 end
 
