@@ -51,6 +51,10 @@ struct Agent{R, G <: AbstractGenome, VPar <: AbstractVector, T}
     extra::T
 end
 
+function compile(g_spec, agent)
+    return Agent(agent.rating, compile(g_spec, agent.genome), agent.parameter, agent.extra)
+end
+
 function short_show(io::IO, a::Agent)
     println(io, "rating = $(a.rating)")
     short_show(io, a.genome)
