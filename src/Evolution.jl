@@ -16,7 +16,12 @@ Parameters for tournament selection.
     """When choosing parents, pick two agents and random, and use
     the one with the highest rating with this probability.
     Otherwise, use the other one."""
-    p_take_better::Float64
+    p_take_better::Float64 = 0.6
+
+    """When choosing parents, pick the top-rated individual
+    with this probability first, otherwise proceed to tournament
+    selection."""
+    p_take_very_best::Float64 = 0.0
 end
 
 """
@@ -33,13 +38,15 @@ Distribution object for tournament selection.
 """
 struct SelectionDist
     spec::SelectionSpec
-    d_take_highest::Bernoulli
+    d_take_better::Bernoulli
+    d_take_very_best::Bernoulli
 end
 
 function SelectionDist(s_spec::SelectionSpec)
     return SelectionDist(
         s_spec,
-        Bernoulli(s_spec.p_take_better))
+        Bernoulli(s_spec.p_take_better),
+        Bernoulli(s_spec.p_take_very_best))
 end
 
 """An agent has a rating, a genome, a parameter vector, and an
@@ -159,11 +166,15 @@ end
 Using tournament selection, pick a parent from the population.
 """
 function pick_parent(rng::AbstractRNG, s_dist::SelectionDist, pop::Population)::Agent
-    cs = rand(rng, pop.agents, 2)
-    if rand(rng, s_dist.d_take_highest)
-        return maximum(cs)
+    if s_dist.spec.p_take_very_best > 0 && rand(rng, s_dist.d_take_very_best)
+        return pop.agents[1]
     else
-        return minimum(cs)
+        cs = rand(rng, pop.agents, 2)
+        if rand(rng, s_dist.d_take_better)
+            return maximum(cs)
+        else
+            return minimum(cs)
+        end
     end
 end
 
