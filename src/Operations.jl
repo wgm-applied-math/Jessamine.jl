@@ -1,5 +1,5 @@
 export splat_or_default
-export Add, Multiply, ReciprocalMultiply
+export Add, Multiply, ReciprocalMultiply, ReciprocalAdd
 export Subtract
 export FzAnd, FzOr, FzNand, FzNor
 export SignAdd, Maximum, Minimum
@@ -101,7 +101,7 @@ struct ReciprocalMultiply <: AbstractGeneOp end
 
 short_show(io::IO, ::ReciprocalMultiply) = print(io, "rcpm")
 
-op_eval(::ReciprocalMultiply, operands) = 1.0 ./ splat_or_default(.*, 1.0, operands)
+op_eval(::ReciprocalMultiply, operands) = 1.0 ./ op_eval(Multiply(), operands)
 
 function to_expr(::ReciprocalMultiply, cs, operands)
     if isempty(operands)
@@ -112,6 +112,25 @@ function to_expr(::ReciprocalMultiply, cs, operands)
     else
         return Expr(:call, :./, 1.0,
             Expr(:call, :.*, (:($cs.$field[$j]) for (field, j) in operands)...))
+    end
+end
+
+"Add operands and return the reciprocal."
+struct ReciprocalAdd <: AbstractGeneOp end
+
+short_show(io::IO, ::ReciprocalAdd) = print(io, "rcpa")
+
+op_eval(::ReciprocalAdd, operands) = 1.0 ./ op_eval(Add(), operands)
+
+function to_expr(::ReciprocalAdd, cs, operands)
+    if isempty(operands)
+        return [1.0]
+    elseif length(operands) == 1
+        field, j = operands[1]
+        return :(1.0 / $cs.$field[$j])
+    else
+        return Expr(:call, :./, 1.0,
+            Expr(:call, :.+, (:($cs.$field[$j]) for (field, j) in operands)...))
     end
 end
 
