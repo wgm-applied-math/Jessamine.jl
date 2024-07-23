@@ -47,38 +47,12 @@ end
 
 Numerical complexity of a machine.
 
-The default is to return the sum of squares of `MLJ.fitted_params(m)`
-multiplied by `mn_spec.lambda_model`.
+The default is to return 0.
 """
 function machine_complexity(mn_spec::AbstractMachineSpec, m)
-    params = MLJ.fitted_params(m)
-
-    # Hastie et al exclude the bias from the regularization term.
-    # That way, addition of a constant to every given y
-    # results in that same constant being added to the prediction.
-    #     c += abs(params.intercept)^2
-    return mn_spec.lambda_model * sum_sq_coefs(params.coefs)
+    return 0
 end
 
-function sum_sq_coefs(coefs::Dict)
-    c = 0.0
-    for (feature, coef) in coefs
-        c += abs(coef)^2
-    end
-    return c
-end
-
-function sum_sq_coefs(coefs::AbstractVector{<:Pair})
-    c = 0.0
-    for (feature, coef) in coefs
-        c += abs(coef)^2
-    end
-    return c
-end
-
-function sum_sq_coefs(coefs::AbstractVector{<:Number})
-    return m_spec.lambda_model * dot(coefs, coefs)
-end
 
 """
     prediction_performance(mn_spec, y_hat, y_ref)
@@ -247,10 +221,10 @@ function machine_grow_and_rate(
         end
     catch e
         # if isa(e, ArgumentError) || isa(e, SingularException)
-        if isa(e, SingularException)
-            return nothing
-        end
-        rethrow()
+        # if isa(e, SingularException)
+         return nothing
+        # end
+        # rethrow()
     end
 end
 
