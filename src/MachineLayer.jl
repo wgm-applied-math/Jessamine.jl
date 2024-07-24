@@ -53,7 +53,6 @@ function machine_complexity(mn_spec::AbstractMachineSpec, m)
     return 0
 end
 
-
 """
     prediction_performance(mn_spec, y_hat, y_ref)
 
@@ -64,7 +63,7 @@ The default implementation applies the callable `mn_spec.performance(y_hat, y_re
 function prediction_performance(
         mn_spec::AbstractMachineSpec,
         y_hat::AbstractVector,
-        y_ref::AbstractVector,
+        y_ref::AbstractVector
 )::Real
     mn_spec.performance(y_hat, y_ref)
 end
@@ -222,7 +221,7 @@ function machine_grow_and_rate(
     catch e
         # if isa(e, ArgumentError) || isa(e, SingularException)
         # if isa(e, SingularException)
-         return nothing
+        return nothing
         # end
         # rethrow()
     end

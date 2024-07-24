@@ -159,12 +159,11 @@ short_show(io::IO, ::FzOr) = print(io, "fzOr")
 
 function op_eval(::FzOr, operands)
     return 1.0 .- op_eval(FzNor(), operands)
-end 
+end
 
 function to_expr(::FzOr, cs, operands)
     return Expr(:call, :.-, 1.0, to_expr(FzNor(), cs, operands))
 end
-
 
 "Return fuzzy NAND of the operands."
 struct FzNand <: AbstractGeneOp end
@@ -246,9 +245,8 @@ function to_expr(::Maximum, cs, operands)
         return quote
             max.($((:($cs.$field[$j]) for (field, j) in operands)...))
         end
-    end    
+    end
 end
-
 
 "Return the minimum of the operands."
 struct Minimum <: AbstractGeneOp end
@@ -275,5 +273,5 @@ function to_expr(::Minimum, cs, operands)
         return quote
             min.($((:($cs.$field[$j]) for (field, j) in operands)...))
         end
-    end    
+    end
 end

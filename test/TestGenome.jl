@@ -157,26 +157,28 @@ short_show(genome5)
 
 genome_fzlogic = Genome(
     [
-    [Instruction(FzAnd(), [1,2]), Instruction(FzAnd(), [5]), Instruction(FzAnd(), [])],
-    [Instruction(FzOr(), [1,2]), Instruction(FzOr(), [5]), Instruction(FzOr(), [])],
-    [Instruction(FzNand(), [1,2]), Instruction(FzNand(), [5]), Instruction(FzNand(), [])],
-    [Instruction(FzNor(), [1,2]), Instruction(FzNor(), [5]), Instruction(FzNor(), [])],
+    [Instruction(FzAnd(), [1, 2]), Instruction(FzAnd(), [5]), Instruction(FzAnd(), [])],
+    [Instruction(FzOr(), [1, 2]), Instruction(FzOr(), [5]), Instruction(FzOr(), [])],
+    [Instruction(FzNand(), [1, 2]), Instruction(FzNand(), [5]), Instruction(FzNand(), [])],
+    [Instruction(FzNor(), [1, 2]), Instruction(FzNor(), [5]), Instruction(FzNor(), [])],
     []])
 short_show(genome_fzlogic)
 @show compile(g_spec, genome_fzlogic).expr
 
 genome_min_max = Genome(
     [
-        [Instruction(Minimum(), [1,2]), Instruction(Minimum(), [5]), Instruction(Minimum(), [])],
-        [Instruction(Maximum(), [1,2]), Instruction(Maximum(), [5]), Instruction(Maximum(), [])],
-        [Instruction(SignAdd(), [1,2]), Instruction(SignAdd(), [5]), Instruction(SignAdd(), [])],
-        [],
-        []
-    ]
+    [Instruction(Minimum(), [1, 2]),
+        Instruction(Minimum(), [5]), Instruction(Minimum(), [])],
+    [Instruction(Maximum(), [1, 2]),
+        Instruction(Maximum(), [5]), Instruction(Maximum(), [])],
+    [Instruction(SignAdd(), [1, 2]),
+        Instruction(SignAdd(), [5]), Instruction(SignAdd(), [])],
+    [],
+    []
+]
 )
 short_show(genome_min_max)
 @show compile(g_spec, genome_min_max).expr
-
 
 println("----------")
 
