@@ -1,6 +1,7 @@
 module Jessamine
 
 using DataFrames
+using Dates
 using Distributions
 using LinearAlgebra
 using MLJ
