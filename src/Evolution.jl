@@ -2,6 +2,8 @@ export SelectionSpec, SelectionDist, Population
 export Agent
 export generation_size
 export random_genome, random_initial_population, next_generation
+export EvolutionSpec, evolution_loop
+export vns_evolution_loop
 
 """
 Parameters for tournament selection.
@@ -128,6 +130,47 @@ function random_genome(rng::AbstractRNG, g_spec::GenomeSpec,
 end
 
 """
+Parameters needed to run `random_initial_population` and `evolution_loop`.
+"""
+@kwdef struct EvolutionSpec
+    g_spec::GenomeSpec
+    m_dist::MutationDist
+    s_dist::SelectionDist
+    grow_and_rate::Any
+    num_generations::Integer
+    stop_on_innovation::Bool = false
+end
+
+function EvolutionSpec(
+        g_spec::GenomeSpec,
+        m_spec::MutationSpec,
+        s_spec::SelectionSpec,
+        grow_and_rate,
+        num_generations::Integer,
+        stop_on_innovation::Bool = false
+)
+    src_index_max = workspace_size(g_spec)
+    m_dist = MutationDist(m_spec, src_index_max)
+    s_dist = SelectionDist(s_spec)
+    return EvolutionSpec(
+        g_spec,
+        m_dist,
+        s_dist,
+        grow_and_rate,
+        num_generations,
+        stop_on_innovation
+    )
+end
+
+function is_better(reference, other, sense)
+    if sense == MinSense
+        return other < reference
+    else
+        return other > reference
+    end
+end
+
+"""
     random_initial_population(rng::AbstractRNG, g_spec::GenomeSpec, m_dist::MutationDist, arity_dist::Distribution, s_spec::SelectionSpec, grow_and_rate)
 
 Make a random initial population.  The number of genomes is
@@ -142,7 +185,7 @@ function random_initial_population(
         m_dist::MutationDist,
         arity_dist::Distribution,
         s_spec::SelectionSpec,
-        grow_and_rate,
+        grow_and_rate;
         sense = MinSense)::Population
     pop_size = s_spec.num_to_keep + s_spec.num_to_generate
     agents = Vector(undef, pop_size)
@@ -160,6 +203,22 @@ function random_initial_population(
     return Population(agents)
 end
 
+function random_initial_population(
+        rng::AbstractRNG,
+        e_spec::EvolutionSpec,
+        arity_dist::Distribution,
+        grow_and_rate;
+        sense = MinSense)::Population
+
+    return random_initial_population(
+    rng,
+    e_spec.g_spec,
+    e_spec.m_dist,
+    arity_dist,
+    e_spec.s_dist.spec,
+    grow_and_rate;
+    sense = sense)
+end
 """
     pick_parent(rng::AbstractRNG, s_dist::SelectionDist, pop::Population)::Agent
 
@@ -235,4 +294,200 @@ function next_generation(
     rev = sense == Optimization.MaxSense
     sort!(next_rated_genomes, rev = rev)
     return Population(next_rated_genomes)
+end
+
+
+"""
+    evolution_loop(rng::AbstractRNG, g_spec::GenomeSpec, m_dist::MutationDist, s_dist::SelectionDist, grow_and_rate, num_generations::Integer, sense, pop_init::Population; stop_threshold=nothing, stop_on_innovation=false, generation_mod=10, enable_logging=true)
+
+Advance `pop_init` by `num_generations` and return the new `Population`.
+
+The various spec records and `grow_and_rate` function are passed
+to `next_generation()`.
+
+`sense` should be `MinSense` or `MaxSense` to
+indicate whether the search should minimize or maximize the
+rating.
+
+If `stop_on_innovation` is `true`, the process stops as soon as
+an agent with a better rating than the previous best is
+discovered.
+
+Progress is reported as an `@info` log message when the
+generation number is a multiple of `generation_mod`.  If this
+number is not > 0, this progress report is disabled.
+
+Progress is reported as an `@info` log message when an agent with
+a better rating than the previous best is discovered.
+
+Setting `enable_logging` to `false` disables both the periodic
+progress report and innovation messages.
+
+If `stop_threshold` is a number rather than `nothing`, the
+process stops as soon as an agent with a rating better than
+`stop_threshold` is discovered.
+"""
+
+function evolution_loop(
+        rng::AbstractRNG,
+        g_spec::GenomeSpec,
+        m_dist::MutationDist,
+        s_dist::SelectionDist,
+        grow_and_rate,
+        num_generations::Integer,
+        pop_init::Population;
+        sense = MinSense,
+        stop_threshold = nothing,
+        stop_on_innovation = false,
+        generation_mod = 10,
+        enable_logging = true
+)
+    pop_next = pop_init
+    best_rating = pop_init.agents[1].rating
+    for t in 1:num_generations
+        if !isnothing(stop_threshold) && is_better(stop_threshold, best_rating, sense)
+            break
+        end
+        pop_next = next_generation(
+            rng, g_spec, s_dist, m_dist, pop_next, grow_and_rate)
+        best_in_gen = pop_next.agents[1]
+        if is_better(best_rating, best_in_gen.rating, sense)
+            best_rating = best_in_gen.rating
+            if enable_logging
+                @info "$(now()): Generation $t, new best = $best_rating"
+            end
+            if stop_on_innovation
+                break
+            end
+        end
+        if enable_logging && t > 0 && mod(t, generation_mod) == 0
+            @info "$(now()): Generation $t, best = $best_rating"
+        end
+    end
+    return pop_next
+end
+
+"""
+    evolution_loop(
+    rng::AbstractRNG,
+    e_spec::EvolutionSpec
+    pop_init::Population;
+    sense=MinSense,
+    stop_threshold=nothing,
+    generation_mod=10,
+    enable_logging=true
+    )
+
+Advance `pop_init` and return the new `Population`.
+
+Calls `evolution_loop()` with the specifications unpacked from `e_spec`.
+
+Progress is reported as an `@info` log message when the
+generation number is a multiple of `generation_mod`.  If this
+number is not > 0, this progress report is disabled.
+
+Progress is reported as an `@info` log message when an agent with
+a better rating than the previous best is discovered.
+
+Setting `enable_logging` to `false` disables both the periodic
+progress report and innovation messages.
+"""
+
+function evolution_loop(
+        rng::AbstractRNG,
+        e_spec::EvolutionSpec,
+        pop_init::Population;
+        sense = MinSense,
+        stop_threshold = nothing,
+        generation_mod = 10,
+        enable_logging = true
+)
+    return evolution_loop(
+        rng,
+        e_spec.g_spec,
+        e_spec.m_dist,
+        e_spec.s_dist,
+        e_spec.grow_and_rate,
+        e_spec.num_generations,
+        pop_init,
+        sense = sense,
+        stop_threshold = stop_threshold,
+        stop_on_innovation = e_spec.stop_on_innovation,
+        generation_mod = generation_mod,
+        enable_logging = enable_logging
+    )
+end
+
+"""
+    vns_evolution_loop(
+    rng::AbstractRNG,
+    neighborhoods::AbstractVector{EvolutionSpec},
+    num_epochs::Integer,
+    pop_init::Population;
+    sense=MinSense,
+    stop_threshold=nothing,
+    generation_mod=10,
+    enable_logging=true
+    )
+
+Perform up to `num_epochs` iterations of variable neighborhood search.
+
+Evolution is performed using `neighborhoods[1]` using `evolution_loop`.
+If a new best rating is achieved, continue.
+Otherwise, switch to using `neighborhoods[2]` etc.
+Once a new best rating is achieved, return to `neighborhoods[1]`.
+
+The keyword arguments are passed to `evolution_loop`.
+
+If `enable_logging` is `true`, `@info` log messages are
+produced after each epoch completes.
+"""
+
+function vns_evolution_loop(
+        rng::AbstractRNG,
+        neighborhoods::AbstractVector{EvolutionSpec},
+        num_epochs::Integer,
+        pop_init::Population;
+        sense = MinSense,
+        stop_threshold = nothing,
+        generation_mod = 10,
+        enable_logging = true
+)
+    pop_next = pop_init
+    best_rating = pop_init.agents[1].rating
+    neighborhood_index = 1
+    for e in 1:num_epochs
+        if !isnothing(stop_threshold) && is_better(stop_threshold, best_rating, sense)
+            break
+        end
+        pop_next = evolution_loop(
+            rng,
+            neighborhoods[neighborhood_index],
+            pop_next;
+            sense = sense,
+            stop_threshold = stop_threshold,
+            generation_mod = generation_mod,
+            enable_logging = enable_logging
+        )
+        best_in_epoch = pop_next.agents[1]
+        if is_better(best_rating, best_in_epoch.rating, sense)
+            best_rating = best_in_epoch.rating
+            # Return to neighborhood 1
+            neighborhood_index = 1
+            if enable_logging
+                @info "$(now()): Epoch $e, new best = $best_rating, returning to first neighborhood"
+            end
+        elseif neighborhood_index < length(neighborhoods)
+            # Advance to the next neighborhood
+            neighborhood_index += 1
+            if enable_logging
+                @info "$(now()): Epoch $e completed with no new best rating, advancing to neighborhood $neighborhood_index"
+            end
+        else
+            if enable_logging
+                @info "$(now()): Epoch $e completed with no new best rating, continuing in neighborhood $neighborhood_index"
+            end
+        end
+    end
+    return pop_next
 end
