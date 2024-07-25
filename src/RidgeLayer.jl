@@ -18,17 +18,17 @@ If all goes well, return `(norm(y - y_hat), b)`.
 Otherwise return `nothing`.
 """
 function least_squares_ridge(
-        xs::Vector{Vector{Float64}},
-        y::Vector{Float64},
-        lambda::Float64,
+        xs::AbstractVector{<:AbstractVector},
+        y::AbstractVector,
+        lambda::Number,
         g_spec::GenomeSpec,
         genome::AbstractGenome,
         parameter::AbstractVector)
     @assert g_spec.input_size == length(xs)
     num_rows = length(y)
-    local outputs::Vector{Vector{Vector{Float64}}}
+    # local outputs::Vector{Vector{Vector{Float64}}}
     outputs = run_genome(g_spec, genome, parameter, xs)
-    local last_round::Vector{Vector{Float64}}
+    # local last_round::Vector{Vector{Float64}}
     last_round = outputs[end]
     num_output_cols = length(last_round)
     data_cols = map(u -> extend_if_singleton(u, num_rows), last_round)
@@ -54,24 +54,24 @@ where `y_hat` and `b` are found using `least_squares_ridge`.
 `R` is the total number of operands across all instructions in `genome`.
 
 The solver starts with `p_init` for the initial value of `p`.
-If `p_init` is `nothing` or not given, a vector of zeros is used.   
+If `p_init` is `nothing` or not given, a vector of zeros is used.
 
 If all goes well, return an `Agent`, whose genome is `genome`,
-whose `parameter` is the best `p`, and whose `extra` is a 
+whose `parameter` is the best `p`, and whose `extra` is a
 `BasicLinearModelResult` with coefficient vector `b`.
 
 Otherwise, return `nothing`.
 
 """
 function least_squares_ridge_grow_and_rate(
-        xs::Vector{Vector{Float64}},
-        y::Vector{Float64},
-        lambda_b::Float64,
-        lambda_p::Float64,
-        lambda_operand::Float64,
+        xs::AbstractVector{<:AbstractVector},
+        y::AbstractVector,
+        lambda_b::Number,
+        lambda_p::Number,
+        lambda_operand::Number,
         g_spec::GenomeSpec,
         genome::AbstractGenome,
-        p_init::Vector{Float64} = zeros(g_spec.parameter_size)
+        p_init::AbstractVector = zeros(g_spec.parameter_size)
 )::Union{Agent, Nothing}
     optim_fn = OptimizationFunction(_LSRGR_f)
     c = _LSRGR_Context(g_spec, genome, lambda_b, xs, y, lambda_p, nothing, nothing)
@@ -98,11 +98,11 @@ function least_squares_ridge_grow_and_rate(
 end
 
 function least_squares_ridge_grow_and_rate(
-        xs::Vector{Vector{Float64}},
-        y::Vector{Float64},
-        lambda_b::Float64,
-        lambda_p::Float64,
-        lambda_operand::Float64,
+        xs::AbstractVector{<:AbstractVector},
+        y::AbstractVector,
+        lambda_b::Number,
+        lambda_p::Number,
+        lambda_operand::Number,
         g_spec::GenomeSpec,
         genome::AbstractGenome,
         p_init::Nothing
