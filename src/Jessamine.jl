@@ -5,12 +5,15 @@ using Dates
 using Distributions
 using LinearAlgebra
 using MLJ
+using MLJLinearModels
+using MLJModelInterface
 using Optim
 using Optimization
 using OptimizationOptimJL
 using Random
 using SciMLBase
 using Symbolics
+using Tables
 using Base.Threads
 
 include("GenomeCore.jl")

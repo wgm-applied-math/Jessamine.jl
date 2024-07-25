@@ -1,3 +1,13 @@
+# Make language server happy
+if false
+    using Dates
+    using Distributions
+    include("GenomeCore.jl")
+    include("Operations.jl")
+    include("Recombination.jl")
+    include("Mutation.jl")
+end
+
 export SelectionSpec, SelectionDist, Population
 export Agent
 export generation_size
@@ -26,6 +36,18 @@ Parameters for tournament selection.
     p_take_very_best::Float64 = 0.0
 end
 
+function Base.convert(::Type{SelectionSpec}, s_spec::SelectionSpec)
+    return s_spec
+end
+
+function Base.convert(::Type{SelectionSpec}, x)
+    return SelectionSpec(
+    x.num_to_keep,
+    x.num_to_generate,
+    x.p_take_better,
+    x.p_take_very_best)
+end
+
 """
     generation_size(s_spec::SelectionSpec)
 
@@ -44,9 +66,9 @@ struct SelectionDist
     d_take_very_best::Bernoulli
 end
 
-function SelectionDist(s_spec::SelectionSpec)
+function SelectionDist(s_spec)
     return SelectionDist(
-        s_spec,
+        convert(SelectionSpec, s_spec),
         Bernoulli(s_spec.p_take_better),
         Bernoulli(s_spec.p_take_very_best))
 end
@@ -137,7 +159,7 @@ Parameters needed to run `random_initial_population` and `evolution_loop`.
     m_dist::MutationDist
     s_dist::SelectionDist
     grow_and_rate::Any
-    num_generations::Integer
+    num_generations::Int
     stop_on_innovation::Bool = false
 end
 
@@ -146,7 +168,7 @@ function EvolutionSpec(
         m_spec::MutationSpec,
         s_spec::SelectionSpec,
         grow_and_rate,
-        num_generations::Integer,
+        num_generations::Int,
         stop_on_innovation::Bool = false
 )
     src_index_max = workspace_size(g_spec)
@@ -219,6 +241,7 @@ function random_initial_population(
     grow_and_rate;
     sense = sense)
 end
+
 """
     pick_parent(rng::AbstractRNG, s_dist::SelectionDist, pop::Population)::Agent
 

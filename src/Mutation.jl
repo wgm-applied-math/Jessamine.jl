@@ -1,3 +1,8 @@
+# Make language server happy
+if false
+    include("Operations.jl")
+end
+
 export MutationSpec, MutationDist
 export mutate
 
@@ -6,28 +11,44 @@ A collection of parameters specifying the probabilities of various mutations.
 """
 @kwdef struct MutationSpec
     "Probability that an operation changes"
-    p_mutate_op::Float64 = 1.0e-3
+    p_mutate_op::Float64 = 0.1
 
     "Probability that an index changes"
-    p_mutate_index::Float64 = 1.0e-3
+    p_mutate_index::Float64 =0.1
 
     "Probability that an index is duplicated"
-    p_duplicate_index::Float64 = 1.0e-4
+    p_duplicate_index::Float64 = 0.01
 
     "Probability that an index is deleted"
-    p_delete_index::Float64 = 1.0e-4
+    p_delete_index::Float64 = 0.01
 
     "Probability that an instruction is duplicated"
-    p_duplicate_instruction::Float64 = 1.0e-5
+    p_duplicate_instruction::Float64 = 0.001
 
     "Probability that an instruction is deleted"
-    p_delete_instruction::Float64 = 1.0e-5
+    p_delete_instruction::Float64 = 0.001
 
     "Which operators are available"
-    op_inventory::Vector{AbstractGeneOp} = [Add(), Multiply()]
+    op_inventory::Vector{AbstractGeneOp} = [Add(), Subtract(), Multiply()]
 
     "Probability of choosing each operator; `nothing` means choose uniformly"
     op_probabilities::Union{Vector{Float64}, Nothing} = nothing
+end
+
+function Base.convert(::Type{MutationSpec}, m_spec::MutationSpec)
+    return m_spec
+end
+
+function Base.convert(::Type{MutationSpec}, x)
+    return MutationSpec(
+    x.p_mutate_op,
+    x.p_mutate_index,
+    x.p_duplicate_index,
+    x.p_delete_index,
+    x.p_duplicate_instruction,
+    x.p_delete_instruction,
+    x.op_inventory,
+    x.op_probabilities)
 end
 
 """

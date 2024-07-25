@@ -5,22 +5,52 @@ export sum_sq_coefs
 
 using MLJLinearModels
 
+
 @kwdef struct BasicModelMachineSpec <: AbstractMachineSpec
     model::Model
     lambda_parameter::Float64
     lambda_operand::Float64
-    train_rows::AbstractVector
     performance::Any # callable
 end
+
+
+function Base.convert(::Type{BasicModelMachineSpec}, mn_spec::BasicModelMachineSpec)
+    return mn_spec
+end
+
+
+function Base.convert(::Type{BasicModelMachineSpec}, x)
+    return BasicModelMachineSpec(
+        x.model,
+        x.lambda_parameter,
+        x.lambda_operand,
+        x.performance)
+end
+
 
 @kwdef struct LinearModelMachineSpec <: AbstractMachineSpec
     model::Model
     lambda_model::Float64
     lambda_parameter::Float64
     lambda_operand::Float64
-    train_rows::AbstractVector
     performance::Any # callable
 end
+
+
+function Base.convert(::Type{LinearModelMachineSpec}, mn_spec::LinearModelMachineSpec)
+    return mn_spec
+end
+
+
+function Base.convert(::Type{LinearModelMachineSpec}, x)
+    return LinearModelMachineSpec(
+        x.model,
+        x.lambda_model,
+        x.lambda_parameter,
+        x.lambda_operand,
+        x.performance)
+end
+
 
 """
     machine_complexity(mn_spec, m)

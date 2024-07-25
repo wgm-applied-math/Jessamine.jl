@@ -13,43 +13,43 @@ export MGRContext
 abstract type AbstractMachineSpec end
 
 """
-    machine_init(mn_spec, X, y)
+    machine_init(mn_spec, X, y; kw_args...)
 
 Construct a machine with predictor table X and target y.
 
-The default implementation calls `MLJ.machine(mn_spec.machine, X, y)`
+The default implementation calls `MLJ.machine(mn_spec.machine, X, y; kw_args...)`
 """
-function machine_init(mn_spec::AbstractMachineSpec, X, y)
-    return MLJ.machine(mn_spec.model, X, y)
+function machine_init(mn_spec::AbstractMachineSpec, X, y; kw_args...)
+    return MLJ.machine(mn_spec.model, X, y; kw_args...)
 end
 
 """
-    machine_fit!(mn_spec, m)
+    machine_fit!(mn_spec, m; kw_args...)
 
-The default implementation returns `MLJ.fit!(m, rows = m_spec.train_rows)`.
+The default implementation returns `MLJ.fit!(m; kw_args...)`.
 """
-function machine_fit!(mn_spec::AbstractMachineSpec, m)
-    return MLJ.fit!(m, rows = mn_spec.train_rows)
+function machine_fit!(mn_spec::AbstractMachineSpec, m; kw_args...)
+    return MLJ.fit!(m; kw_args...)
 end
 
 """
-    machine_predict(mn_spec, m, X)
+    machine_predict(mn_spec, m, X; kw_args...)
 
 Produce a prediction `y_hat`.
-The default implementation returns `MLJ.predict(m, X)`.
+The default implementation returns `MLJ.predict(m, X; kw_args...)`.
 """
-function machine_predict(mn_spec::AbstractMachineSpec, m, X)
-    return MLJ.predict(m, X)
+function machine_predict(mn_spec::AbstractMachineSpec, m, X; kw_args...)
+    return MLJ.predict(m, X; kw_args...)
 end
 
 """
-    machine_complexity(mn_spec, m)
+    machine_complexity(mn_spec, m; kw_args...)
 
 Numerical complexity of a machine.
 
 The default is to return 0.
 """
-function machine_complexity(mn_spec::AbstractMachineSpec, m)
+function machine_complexity(mn_spec::AbstractMachineSpec, m; kw_args...)
     return 0
 end
 
@@ -150,6 +150,8 @@ end
     y::Ty
     output_col_names::Vector{String}
     m_save::Any
+    init_kw_args::Any
+    fit_kw_args::Any
 end
 
 function _MGR_f(genome_parameter::AbstractVector, c::MGRContext)
@@ -159,8 +161,8 @@ function _MGR_f(genome_parameter::AbstractVector, c::MGRContext)
         extend_if_singleton(z, num_rows)
     end
     Z_df = DataFrame(outputs, c.output_col_names, copycols = false)
-    m = machine_init(c.mn_spec, Z_df, c.y)
-    machine_fit!(c.mn_spec, m)
+    m = machine_init(c.mn_spec, Z_df, c.y; c.init_kw_args...)
+    machine_fit!(c.mn_spec, m; c.fit_kw_args...)
     y_hat = machine_predict(c.mn_spec, m, Z_df)
     performance = prediction_performance(c.mn_spec, y_hat, c.y)
     m_c = machine_complexity(c.mn_spec, m)
@@ -175,13 +177,19 @@ end
 end
 
 """
-    machine_grow_and_rate(xs, y, g_spec, genome, mn_spec, sol_spec)
+    machine_grow_and_rate(xs, y, g_spec, genome, mn_spec, sol_spec; init_kw_args=Dict(), fit_kw_args=())
 
 Solve for the parameter values that produce the best machine for
 predicting `y` from the outputs of the `genome` applied to `xs`.
 The resulting parameter vector is stored as the `parameter` field
 in the returned `Agent`.  The resulting machine is wrapped in a `MachineResult`
 and stored in the `extra` field of the `Agent`.
+
+Calls to `machine_init` will include `init_kw_args` splatted in.
+Calls to `machine_fit!` will include `fit_kw_args` splatted in.
+
+If any exception is thrown during the solving process,
+the exception is suppressed, and `nothing` is returned.
 """
 function machine_grow_and_rate(
         xs::AbstractVector,
@@ -189,7 +197,9 @@ function machine_grow_and_rate(
         g_spec::GenomeSpec,
         genome::Genome,
         mn_spec::AbstractMachineSpec,
-        sol_spec::AbstractSolverSpec
+        sol_spec::AbstractSolverSpec;
+    init_kw_args::Any=NamedTuple(),
+    fit_kw_args::Any=NamedTuple()
 )::Union{Agent, Nothing}
     output_col_names = map(1:(g_spec.output_size)) do t
         "z$t"
@@ -204,7 +214,9 @@ function machine_grow_and_rate(
         xs,
         y,
         output_col_names,
-        nothing)
+        nothing,
+        init_kw_args,
+        fit_kw_args)
 
     optim_fn = parameter_solver_optimization_function(sol_spec, _MGR_f)
     optim_prob = parameter_solver_optimization_problem(sol_spec, g_spec, optim_fn, c)

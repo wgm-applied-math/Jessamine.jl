@@ -1,5 +1,9 @@
+# Make language server happy
+if false
+end
+
 export AbstractGeneOp
-export GenomeSpec, CellState, CellState, Instruction
+export GenomeSpec, CellState, Instruction
 export AbstractGenome, Genome
 export v_convert, v_unconvert
 export eval_time_step, op_eval, flat_workspace
@@ -45,6 +49,20 @@ function GenomeSpec(output_size, scratch_size, parameter_size, input_size, num_t
     return GenomeSpec(
         output_size, scratch_size, parameter_size, input_size, num_time_steps, index_map)
 end
+
+function Base.convert(::Type{GenomeSpec}, g_spec::GenomeSpec)
+    return g_spec
+end
+
+function Base.convert(::Type{GenomeSpec}, x)
+    return GenomeSpec(
+        x.output_size,
+        x.scratch_size,
+        x.parameter_size,
+        x.input_size,
+        x.num_time_steps)
+end
+
 
 """
     workspace_size(g_spec::GenomeSpec)

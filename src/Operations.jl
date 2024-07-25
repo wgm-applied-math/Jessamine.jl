@@ -1,3 +1,9 @@
+# Make language server happy
+if false
+    include("GenomeCore.jl")
+end
+
+
 export splat_or_default
 export Add, Multiply, ReciprocalMultiply, ReciprocalAdd
 export Subtract
