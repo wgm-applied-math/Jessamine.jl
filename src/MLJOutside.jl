@@ -11,10 +11,10 @@ if false
     include("MachineLayer.jl")
     include("MLJInside.jl")
     include("Mutation.jl")
+    include("SymbolicForm.jl")
 end
 
 export EpochSpec
-export JessamineDeterministicRegressor
 
 # This is kind of a mess because in MLJ, the input size
 # is not really available until the call to machine().
@@ -28,7 +28,7 @@ export JessamineDeterministicRegressor
 # That way we can call convert(MutationSpec, my_epoc_spec) for
 # example.
 
-@kwdef struct EpochSpec
+@kwdef mutable struct EpochSpec
     # MutationSpec
     p_mutate_op::Float64 = 0.1
     p_mutate_index::Float64 = 0.1
@@ -117,52 +117,110 @@ const default_simplifier = EpochSpec(
     num_generations=100
 )
 
-const default_deterministic_regressor_inner_model = RidgeRegressor(lambda = 0.01)
+# I really need something like
+# struct JModel{Super} <: Super   inner_model::Super ... end
+# so that JModel{Deterministic} <: Deterministic.
+# However, this is not possible in Julia's type system.
+# The syntax struct Thing{T} <: T ... end
+# results in Thing{T} <: (T where T),
+# or equivalently Thing{T} <: Any.
+# Thing{T} <: T evaluates to false.
 
-@mlj_model mutable struct JessamineDeterministicRegressor{Inner<:Deterministic}
-    <: Deterministic
-    inner_model::Inner = default_deterministic_regressor_inner_model
+# So we resort to macros.
 
-    rng::AbstractRNG = Random.default_rng()
-    init_arity_dist::Distribution = DiscreteNonParametric([1, 2, 3], [0.25, 0.5, 0.25])
+# Complication: @mlj_model only works on a
+# non-parametric struct.
 
-    # *MachineModelSpec
-    ModelMachineSpec::Type{<:AbstractMachineSpec} = LinearModelMachineSpec
-    lambda_model::Float64 = 0.01::(_ >= 0.0)
-    lambda_parameter::Float64 = 0.01::(_ >= 0.0)
-    lambda_operand::Float64 = 0.01::(_ >= 0)
-    performance::Any = MLJ.l2
+macro declareJessamineModel(model_type, default_inner_model)
+    struct_name = Symbol("Jessamine$(model_type)")
+    return quote
+        export $(esc(struct_name))
+        @mlj_model mutable struct $(esc(struct_name)) <: $model_type
 
-    # GenomeSpec
-    output_size::Int = 6::(_ >= 0)
-    scratch_size::Int = 6::(_ >= 0)
-    parameter_size::Int = 2::(_ >= 0)
-    input_size::Int = 0::(_ >= 0)
-    num_time_steps::Int = 3::(_ >= 0)
+            inner_model::$model_type = $default_inner_model
 
-    neighborhoods::AbstractVector{EpochSpec} = default_neighborhoods::(length(_) >= 1)
-    num_epochs::Int = 10::(_ >= 0)
-    simplifier::Union{Nothing,EpochSpec} = default_simplifier
-    sense::Any = MinSense
-    stop_threshold::Union{Nothing,<:Number} = 0.001
+            rng::AbstractRNG = Random.default_rng()
+            init_arity_dist::Distribution = DiscreteNonParametric(
+                [1, 2, 3], [0.25, 0.5, 0.25])
 
-    log_generation_mod::Int = 10::(_ >= 1)
+            # *MachineModelSpec
+            lambda_model::Float64 = 0.01::(_ >= 0.0)
+            lambda_parameter::Float64 = 0.01::(_ >= 0.0)
+            lambda_operand::Float64 = 0.01::(_ >= 0)
+            performance::Any = MLJ.l2
+
+            # GenomeSpec
+            output_size::Int = 6::(_ >= 0)
+            scratch_size::Int = 6::(_ >= 0)
+            parameter_size::Int = 2::(_ >= 0)
+            input_size::Int = 0::(_ >= 0)
+            num_time_steps::Int = 3::(_ >= 0)
+
+            neighborhoods::AbstractVector{EpochSpec} =
+                default_neighborhoods::(length(_) >= 1)
+            num_epochs::Int = 10::(_ >= 0)
+            simplifier::Union{Nothing, EpochSpec} = default_simplifier
+            sense::Any = MinSense
+            stop_threshold::Union{Nothing, <:Number} = 0.001
+
+            logging_generation_modulus::Int = 10::(_ >= 1)
+        end
+    end
 end
 
+@declareJessamineModel Deterministic RidgeRegressor(lambda = 0.01)
+@declareJessamineModel Probabilistic LogisticClassifier()
+
+"""
+    machine_spec_type(t_MLJ_model::Type)::Type{<:AbstractMachineSpec}
+
+Return the Jessamine type (subtype of `AbstractMachineSpec`)
+corresponding to the given MLJ model type.
+The default is to return `BasicModelMachineSpec`
+"""
+function machine_spec_type(::Type)
+    return BasicModelMachineSpec
+end
+
+"""
+    machine_spec_type(::Type{RidgeRegressor})
+
+Return `LinearModelMachineSpec`
+"""
+function machine_spec_type(::Type{RidgeRegressor})
+    return LinearModelMachineSpec
+end
+
+"""
+    machine_spec_type(::Type{LogisticClassifier})
+
+Return `LinearModelMachineSpec`
+"""
+function machine_spec_type(::Type{LogisticClassifier})
+    return LinearModelMachineSpec
+end
+
+
+
+"""
+A union of `JessamineDeterministic` and `JessamineProbabilistic`
+"""
+
+const JessamineModel = Union{JessamineDeterministic, JessamineProbabilistic}
+
 function build_specs!(
-    jm::JessamineDeterministicRegressor,
+    jm::JessamineModel,
     X,
     y,
-    fit_kw_args)
+    verbosity)
     xs = Tables.columns(X)
     jm.input_size = length(xs)
     g_spec = convert(GenomeSpec, jm)
-    mn_spec = convert(jm.ModelMachineSpec, jm)
+    mn_spec = convert(machine_spec_type(jm.model), jm)
     function grow_and_rate(rng, g_spec, genome)
         return machine_grow_and_rate(
             xs, y, g_spec, genome, mn_spec,
-            DefaultSolverSpec(),
-            fit_kw_args=fit_kw_args)
+            DefaultSolverSpec())
     end
     neighborhoods = map(jm.neighborhoods) do epoch_spec
         m_spec = convert(MutationSpec, epoch_spec)
@@ -178,8 +236,8 @@ function build_specs!(
     end
     simp_spec = EvolutionSpec(
         g_spec,
-        convert(MutationSpec, jm.simplifier)
-        convert(SelectionSpec, jm.simplifier)
+        convert(MutationSpec, jm.simplifier),
+        convert(SelectionSpec, jm.simplifier),
         grow_and_rate,
         jm.simplifier.num_generations
     )
@@ -191,11 +249,11 @@ function build_specs!(
 end
 
 function MLJModelInterface.fit(
-    jm::JessamineDeterministicRegressor,
+    jm::JessamineModel,
     verbosity::Int,
     X,
     y)
-    specs = build_specs!(jm, X, y)
+    specs = build_specs!(jm, X, y, verbosity)
     pop_init = random_initial_population(
         jm.rng,
         specs.neighborhoods[1],
@@ -208,24 +266,26 @@ function MLJModelInterface.fit(
         jm.num_epochs,
         pop_init;
         stop_threshold = jm.stop_threshold,
-        generation_mod = jm.log_generation_mod,
-        enable_logging = (verbosity > 0))
+        generation_mod = jm.logging_generation_modulus,
+        verbosity = verbosity)
     pop_simp = evolution_loop(
         jm.rng,
         specs.simp_spec,
         pop_next;
         sense = jm.sense,
         stop_threshold = jm.stop_threshold,
-        generation_mod = jm.log_generation_mod,
-        enable_logging = (verbosity > 0))
+        generation_mod = jm.logging_generation_modulus,
+        verbosity = verbosity)
     best_agent = pop_simp.agents[1]
-    sym_res = run_genome_symbolic(g_spec, best_agent.genome)
+    symbolic_result = run_genome_symbolic(specs.g_spec, best_agent.genome)
     fit_result = (
-        g_spec = g_spec,
-        best_agent = best_agent)
+        g_spec = specs.g_spec,
+        best_agent = best_agent,
+        inner_fitted_params = MLJ.fitted_params(best_agent.extra.m))
     report = (
         rating = best_agent.rating,
-        sym_res = sym_res)
-    cache = nothing
+        symbolic_result = symbolic_result)
+    # This way you can continue with update() I think...
+    cache = pop_simp
     return (fit_result, report, cache)
 end

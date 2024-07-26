@@ -9,27 +9,16 @@ to data.  This object can then be used for predictions.
 abstract type AbstractModelResult end
 
 """
-    model_predict(mr::AbstractModelResult, X::AbstractMatrix)
+    model_predict(mr::AbstractModelResult, X; kw_args...)
 
-Given the matrix `X` where the columns are inputs (predictors)
+Given the table `X` where the columns are inputs (predictors)
 and the rows are points, use `mr` to predict the target value
 for all the points.
 """
 function model_predict end
 
 """
-    model_predict(mr::AbstractModelResult, xs::AbstractVector{<:AbstractVector}; kw_args...)
-
-Stack the columns `xs` into a matrix `X` and call `model_predict`.
-The `kw_args` are splatted in.
-"""
-function model_predict(mr::AbstractModelResult, xs::AbstractVector{<:AbstractVector}; kw_args...)
-    X = stack(xs)
-    return model_predict(mr, X; kw_args...)
-end
-
-"""
-    model_predict(g_spec::GenomeSpec, agent::Agent, xs::Vector{<:AbstractVector}; kw_args...)
+    model_predict(g_spec::GenomeSpec, agent::Agent, xs; kw_args...)
 
 Run `agent.genome` on inputs `xs` and `agent.parameter`, and
 form the linear combination of the genome's
@@ -38,14 +27,16 @@ outputs using the coefficients `agent.extra`.
 function model_predict(
         g_spec::GenomeSpec,
         agent::Agent{<:Number, <:AbstractGenome, <:AbstractVector, <:AbstractModelResult},
-    xs::Vector;
-    kw_args...
-    )
+        x_table;
+        kw_args...
+            )
+    xs = separate_columns(x_table)
     num_rows = length(xs[1])
     last_round = run_genome(g_spec, agent.genome, agent.parameter, xs)[end]
     data_cols = map(u -> extend_if_singleton(u, num_rows), last_round)
     return model_predict(agent.extra, data_cols; kw_args...)
 end
+
 
 """
     model_symbolic_output(g_spec, agent; kw_args...)

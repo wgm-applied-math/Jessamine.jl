@@ -16,6 +16,7 @@ using Symbolics
 using Tables
 using Base.Threads
 
+include("TablesUtil.jl")
 include("GenomeCore.jl")
 include("RandomDuplicateDelete.jl")
 include("Mutation.jl")
@@ -28,5 +29,6 @@ include("AbstractLinearModelLayer.jl")
 include("RidgeLayer.jl")
 include("MachineLayer.jl")
 include("MLJInside.jl")
+include("MLJOutside.jl")
 
 end

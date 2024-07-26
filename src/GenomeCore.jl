@@ -371,7 +371,7 @@ function num_operands(cg::CompiledGenome)
 end
 
 """
-    run_genome(g_spec::GenomeSpec, genome::Genome, parameter::AbstractVector, input::AbstractVector)::Vector
+    run_genome(g_spec::GenomeSpec, genome::Genome, parameter::AbstractVector, input)::Vector
 
 Build a work space vector using zeros for each output and scratch
 slot, followed by the `parameter` vector, then the `input`
@@ -385,11 +385,11 @@ function run_genome(
         g_spec::GenomeSpec,
         genome::AbstractGenome,
         parameter::AbstractArray,
-        input::AbstractArray
+        input
 )
     @assert length(input) == g_spec.input_size
     @assert length(parameter) == g_spec.parameter_size
-    input_v = input
+    input_v = separate_columns(input)
     parameter_v = v_convert.(eltype(input_v), parameter)
     output_v = zeros_like(input_v[1], g_spec.output_size)
     scratch_v = zeros_like(input_v[1], g_spec.scratch_size)

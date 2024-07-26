@@ -28,12 +28,32 @@ function Base.convert(::Type{BasicModelMachineSpec}, x)
 end
 
 
+"""
+Wrap an MLJ `Model` that uses a linear combination of input
+columns to produce its predictions.
+"""
 @kwdef struct LinearModelMachineSpec <: AbstractMachineSpec
     model::Model
     lambda_model::Float64
     lambda_parameter::Float64
     lambda_operand::Float64
     performance::Any # callable
+end
+
+"""
+    LinearModelMachineSpec(model::Model, lambda_parameter, lambda_operand)
+
+Construct a `LinearModelMachineSpec` using `model.lambda` for `lambda_model`.
+"""
+function LinearModelMachineSpec(
+    model::Model,
+    lambda_parameter,
+    lambda_operand)
+    return LinearModelMachineSpec(
+        model,
+        model.lambda,
+        lambda_parameter,
+        lambda_operand)
 end
 
 
@@ -43,9 +63,16 @@ end
 
 
 function Base.convert(::Type{LinearModelMachineSpec}, x)
+    lambda_model = if hasfield(typeof(x), :lambda_model)
+        x.lambda_model
+    elseif hasfield(typeof(x.model), :lambda)
+        x.model.lambda
+    else
+        error("Unable to determine a value for lambda_model")
+    end
     return LinearModelMachineSpec(
         x.model,
-        x.lambda_model,
+        lambda_model,
         x.lambda_parameter,
         x.lambda_operand,
         x.performance)

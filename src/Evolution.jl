@@ -225,6 +225,16 @@ function random_initial_population(
     return Population(agents)
 end
 
+"""
+    random_initial_population(
+        rng::AbstractRNG,
+        e_spec::EvolutionSpec,
+        arity_dist::Distribution,
+        grow_and_rate;
+        sense = MinSense)
+
+Initialize a random initial population from an `e_spec`.
+"""
 function random_initial_population(
         rng::AbstractRNG,
         e_spec::EvolutionSpec,
@@ -321,7 +331,7 @@ end
 
 
 """
-    evolution_loop(rng::AbstractRNG, g_spec::GenomeSpec, m_dist::MutationDist, s_dist::SelectionDist, grow_and_rate, num_generations::Integer, sense, pop_init::Population; stop_threshold=nothing, stop_on_innovation=false, generation_mod=10, enable_logging=true)
+    evolution_loop(rng::AbstractRNG, g_spec::GenomeSpec, m_dist::MutationDist, s_dist::SelectionDist, grow_and_rate, num_generations::Integer, sense, pop_init::Population; stop_threshold=nothing, stop_on_innovation=false, generation_mod=10, verbosity=1)
 
 Advance `pop_init` by `num_generations` and return the new `Population`.
 
@@ -343,7 +353,7 @@ number is not > 0, this progress report is disabled.
 Progress is reported as an `@info` log message when an agent with
 a better rating than the previous best is discovered.
 
-Setting `enable_logging` to `false` disables both the periodic
+Setting `verbosity` to `0` disables both the periodic
 progress report and innovation messages.
 
 If `stop_threshold` is a number rather than `nothing`, the
@@ -363,7 +373,7 @@ function evolution_loop(
         stop_threshold = nothing,
         stop_on_innovation = false,
         generation_mod = 10,
-        enable_logging = true
+        verbosity = 1
 )
     pop_next = pop_init
     best_rating = pop_init.agents[1].rating
@@ -376,14 +386,14 @@ function evolution_loop(
         best_in_gen = pop_next.agents[1]
         if is_better(best_rating, best_in_gen.rating, sense)
             best_rating = best_in_gen.rating
-            if enable_logging
+            if verbosity > 0
                 @info "$(now()): Generation $t, new best = $best_rating"
             end
             if stop_on_innovation
                 break
             end
         end
-        if enable_logging && t > 0 && mod(t, generation_mod) == 0
+        if verbosity > 0 && t > 0 && mod(t, generation_mod) == 0
             @info "$(now()): Generation $t, best = $best_rating"
         end
     end
@@ -398,7 +408,7 @@ end
     sense=MinSense,
     stop_threshold=nothing,
     generation_mod=10,
-    enable_logging=true
+    verbosity=1
     )
 
 Advance `pop_init` and return the new `Population`.
@@ -412,7 +422,7 @@ number is not > 0, this progress report is disabled.
 Progress is reported as an `@info` log message when an agent with
 a better rating than the previous best is discovered.
 
-Setting `enable_logging` to `false` disables both the periodic
+Setting `verbosity` to `0` disables both the periodic
 progress report and innovation messages.
 """
 
@@ -423,7 +433,7 @@ function evolution_loop(
         sense = MinSense,
         stop_threshold = nothing,
         generation_mod = 10,
-        enable_logging = true
+        verbosity = 1
 )
     return evolution_loop(
         rng,
@@ -437,7 +447,7 @@ function evolution_loop(
         stop_threshold = stop_threshold,
         stop_on_innovation = e_spec.stop_on_innovation,
         generation_mod = generation_mod,
-        enable_logging = enable_logging
+        verbosity = verbosity
     )
 end
 
@@ -450,7 +460,7 @@ end
     sense=MinSense,
     stop_threshold=nothing,
     generation_mod=10,
-    enable_logging=true
+    verbosity=1
     )
 
 Perform up to `num_epochs` iterations of variable neighborhood search.
@@ -462,8 +472,9 @@ Once a new best rating is achieved, return to `neighborhoods[1]`.
 
 The keyword arguments are passed to `evolution_loop`.
 
-If `enable_logging` is `true`, `@info` log messages are
+`@info` log messages are
 produced after each epoch completes.
+Set `verbosity` to `0` to disable these messages.
 """
 
 function vns_evolution_loop(
@@ -474,7 +485,7 @@ function vns_evolution_loop(
         sense = MinSense,
         stop_threshold = nothing,
         generation_mod = 10,
-        enable_logging = true
+        verbosity = 1
 )
     pop_next = pop_init
     best_rating = pop_init.agents[1].rating
@@ -490,24 +501,24 @@ function vns_evolution_loop(
             sense = sense,
             stop_threshold = stop_threshold,
             generation_mod = generation_mod,
-            enable_logging = enable_logging
+            verbosity = verbosity
         )
         best_in_epoch = pop_next.agents[1]
         if is_better(best_rating, best_in_epoch.rating, sense)
             best_rating = best_in_epoch.rating
             # Return to neighborhood 1
             neighborhood_index = 1
-            if enable_logging
+            if verbosity > 0
                 @info "$(now()): Epoch $e, new best = $best_rating, returning to first neighborhood"
             end
         elseif neighborhood_index < length(neighborhoods)
             # Advance to the next neighborhood
             neighborhood_index += 1
-            if enable_logging
+            if verbosity > 0
                 @info "$(now()): Epoch $e completed with no new best rating, advancing to neighborhood $neighborhood_index"
             end
         else
-            if enable_logging
+            if verbosity > 0
                 @info "$(now()): Epoch $e completed with no new best rating, continuing in neighborhood $neighborhood_index"
             end
         end
