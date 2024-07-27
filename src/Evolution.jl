@@ -229,8 +229,7 @@ end
     random_initial_population(
         rng::AbstractRNG,
         e_spec::EvolutionSpec,
-        arity_dist::Distribution,
-        grow_and_rate;
+        arity_dist::Distribution;
         sense = MinSense)
 
 Initialize a random initial population from an `e_spec`.
@@ -238,8 +237,7 @@ Initialize a random initial population from an `e_spec`.
 function random_initial_population(
         rng::AbstractRNG,
         e_spec::EvolutionSpec,
-        arity_dist::Distribution,
-        grow_and_rate;
+        arity_dist::Distribution;
         sense = MinSense)::Population
 
     return random_initial_population(
@@ -248,7 +246,7 @@ function random_initial_population(
     e_spec.m_dist,
     arity_dist,
     e_spec.s_dist.spec,
-    grow_and_rate;
+    e_spec.grow_and_rate;
     sense = sense)
 end
 

@@ -50,6 +50,28 @@ export EpochSpec
     stop_on_innovation::Bool = false
 end
 
+function EpochSpec(
+    m_spec::MutationSpec,
+    s_spec::SelectionSpec,
+    num_generations::Integer,
+    stop_on_innovation = false)
+    return EpochSpec(
+        m_spec.p_mutate_op,
+        m_spec.p_mutate_index,
+        m_spec.p_duplicate_index,
+        m_spec.p_delete_index,
+        m_spec.p_duplicate_instruction,
+        m_spec.p_delete_instruction,
+        m_spec.op_inventory,
+        m_spec.op_probabilities,
+        s_spec.num_to_keep,
+        s_spec.num_to_generate,
+        s_spec.p_take_better,
+        s_spec.p_take_very_best,
+        num_generations,
+        stop_on_innovation
+    )
+end
 
 # Set up default neighborhood structure
 
@@ -134,45 +156,57 @@ const default_simplifier = EpochSpec(
 # Complication: There can't be a field called `model` inside the
 # @mlj_model because of some goofiness with how it's implemented.
 
+# Complication: @mlj_model doesn't work inside another
+# macro because the clean! method comes out with a hygenized
+# type in its definition.
+
 macro declareJessamineModel(model_type, default_model)
     struct_name = Symbol("Jessamine$(model_type)")
     return quote
-        export $(esc(struct_name))
-        @mlj_model mutable struct $(esc(struct_name)) <: $model_type
-
-            inner_model::$model_type = $default_model
+        export $struct_name
+        @kwdef mutable struct $struct_name <: $model_type
+            model::$model_type = $default_model
 
             rng::AbstractRNG = Random.default_rng()
             init_arity_dist::Distribution = DiscreteNonParametric(
                 [1, 2, 3], [0.25, 0.5, 0.25])
 
             # *MachineModelSpec
-            lambda_model::Float64 = 0.01::(_ >= 0.0)
-            lambda_parameter::Float64 = 0.01::(_ >= 0.0)
-            lambda_operand::Float64 = 0.01::(_ >= 0)
+            lambda_model::Float64 = 0.01
+            lambda_parameter::Float64 = 0.01
+            lambda_operand::Float64 = 0.01
             performance::Any = MLJ.l2
 
             # GenomeSpec
-            output_size::Int = 6::(_ >= 0)
-            scratch_size::Int = 6::(_ >= 0)
-            parameter_size::Int = 2::(_ >= 0)
-            input_size::Int = 0::(_ >= 0)
-            num_time_steps::Int = 3::(_ >= 0)
+            output_size::Int = 6
+            scratch_size::Int = 6
+            parameter_size::Int = 2
+            input_size::Int = 0
+            num_time_steps::Int = 3
 
             neighborhoods::AbstractVector{EpochSpec} =
-                default_neighborhoods::(length(_) >= 1)
-            num_epochs::Int = 10::(_ >= 0)
+                default_neighborhoods
+            num_epochs::Int = 10
             simplifier::Union{Nothing, EpochSpec} = default_simplifier
             sense::Any = MinSense
-            stop_threshold::Union{Nothing, <:Number} = 0.001
+            stop_threshold::Union{Nothing,Number} = 0.001
 
-            logging_generation_modulus::Int = 10::(_ >= 1)
+            logging_generation_modulus::Int = 10
         end
     end
 end
 
+
+
+
 @declareJessamineModel Deterministic RidgeRegressor(lambda = 0.01)
 @declareJessamineModel Probabilistic LogisticClassifier()
+"""
+A union of `JessamineDeterministic` and `JessamineProbabilistic`
+"""
+
+const JessamineModel = Union{JessamineDeterministic, JessamineProbabilistic}
+
 
 """
     machine_spec_type(t_MLJ_model::Type)::Type{<:AbstractMachineSpec}
@@ -210,12 +244,6 @@ end
 
 
 
-"""
-A union of `JessamineDeterministic` and `JessamineProbabilistic`
-"""
-
-const JessamineModel = Union{JessamineDeterministic, JessamineProbabilistic}
-
 function build_specs!(
     jm::JessamineModel,
     X,
@@ -224,7 +252,7 @@ function build_specs!(
     xs = Tables.columns(X)
     jm.input_size = length(xs)
     g_spec = convert(GenomeSpec, jm)
-    mn_spec = convert(machine_spec_type(jm.inner_model), jm)
+    mn_spec = convert(machine_spec_type(jm.model), jm)
     function grow_and_rate(rng, g_spec, genome)
         return machine_grow_and_rate(
             xs, y, g_spec, genome, mn_spec,
@@ -262,11 +290,11 @@ function MLJModelInterface.fit(
     X,
     y)
     specs = build_specs!(jm, X, y, verbosity)
+    init_neighborhood = specs.neighborhoods[1]
     pop_init = random_initial_population(
         jm.rng,
-        specs.neighborhoods[1],
+        init_neighborhood,
         jm.init_arity_dist,
-        specs.grow_and_rate;
         sense = jm.sense)
     pop_next = vns_evolution_loop(
         jm.rng,
