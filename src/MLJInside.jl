@@ -20,8 +20,15 @@ end
 
 
 function Base.convert(::Type{BasicModelMachineSpec}, x)
+    model = if hasfield(x, :model)
+        x.model
+    elseif hasfield(x, :inner_model)
+        x.inner_model
+    else
+        error("Unable to find appropriate model field")
+    end
     return BasicModelMachineSpec(
-        x.model,
+        model,
         x.lambda_parameter,
         x.lambda_operand,
         x.performance)

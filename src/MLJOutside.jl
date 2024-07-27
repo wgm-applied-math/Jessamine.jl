@@ -118,7 +118,7 @@ const default_simplifier = EpochSpec(
 )
 
 # I really need something like
-# struct JModel{Super} <: Super   inner_model::Super ... end
+# struct JModel{Super} <: Super   model::Super ... end
 # so that JModel{Deterministic} <: Deterministic.
 # However, this is not possible in Julia's type system.
 # The syntax struct Thing{T} <: T ... end
@@ -131,13 +131,16 @@ const default_simplifier = EpochSpec(
 # Complication: @mlj_model only works on a
 # non-parametric struct.
 
-macro declareJessamineModel(model_type, default_inner_model)
+# Complication: There can't be a field called `model` inside the
+# @mlj_model because of some goofiness with how it's implemented.
+
+macro declareJessamineModel(model_type, default_model)
     struct_name = Symbol("Jessamine$(model_type)")
     return quote
         export $(esc(struct_name))
         @mlj_model mutable struct $(esc(struct_name)) <: $model_type
 
-            inner_model::$model_type = $default_inner_model
+            inner_model::$model_type = $default_model
 
             rng::AbstractRNG = Random.default_rng()
             init_arity_dist::Distribution = DiscreteNonParametric(
@@ -182,6 +185,11 @@ function machine_spec_type(::Type)
     return BasicModelMachineSpec
 end
 
+function machine_spec_type(x)
+    return machine_spec_type(typeof(x))
+end
+
+
 """
     machine_spec_type(::Type{RidgeRegressor})
 
@@ -216,7 +224,7 @@ function build_specs!(
     xs = Tables.columns(X)
     jm.input_size = length(xs)
     g_spec = convert(GenomeSpec, jm)
-    mn_spec = convert(machine_spec_type(jm.model), jm)
+    mn_spec = convert(machine_spec_type(jm.inner_model), jm)
     function grow_and_rate(rng, g_spec, genome)
         return machine_grow_and_rate(
             xs, y, g_spec, genome, mn_spec,

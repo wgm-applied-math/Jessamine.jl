@@ -387,9 +387,9 @@ function run_genome(
         parameter::AbstractArray,
         input
 )
-    @assert length(input) == g_spec.input_size
-    @assert length(parameter) == g_spec.parameter_size
     input_v = separate_columns(input)
+    @assert length(input_v) == g_spec.input_size
+    @assert length(parameter) == g_spec.parameter_size
     parameter_v = v_convert.(eltype(input_v), parameter)
     output_v = zeros_like(input_v[1], g_spec.output_size)
     scratch_v = zeros_like(input_v[1], g_spec.scratch_size)
