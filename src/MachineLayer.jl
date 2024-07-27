@@ -226,11 +226,10 @@ function machine_grow_and_rate(
             return nothing
         end
     catch e
-        # if isa(e, ArgumentError) || isa(e, SingularException)
-        # if isa(e, SingularException)
-        return nothing
-        # end
-        # rethrow()
+        if isa(e, ArgumentError) || isa(e, SingularException)
+          return nothing
+        end
+        rethrow()
     end
 end
 

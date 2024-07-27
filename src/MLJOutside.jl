@@ -325,3 +325,11 @@ function MLJModelInterface.fit(
     cache = pop_simp
     return (fit_result, report, cache)
 end
+
+function MLJ.fitted_params(jm::JessamineModel, fit_result)
+    return fit_result
+end
+
+function MLJModelInterface.predict(jm::JessamineModel, fit_result, X)
+    return model_predict(fit_result.g_spec, fit_result.best_agent, X)
+end
