@@ -14,7 +14,7 @@ A collection of parameters specifying the probabilities of various mutations.
     p_mutate_op::Float64 = 0.1
 
     "Probability that an index changes"
-    p_mutate_index::Float64 =0.1
+    p_mutate_index::Float64 = 0.1
 
     "Probability that an index is duplicated"
     p_duplicate_index::Float64 = 0.01
@@ -41,14 +41,14 @@ end
 
 function Base.convert(::Type{MutationSpec}, x)
     return MutationSpec(
-    x.p_mutate_op,
-    x.p_mutate_index,
-    x.p_duplicate_index,
-    x.p_delete_index,
-    x.p_duplicate_instruction,
-    x.p_delete_instruction,
-    x.op_inventory,
-    x.op_probabilities)
+        x.p_mutate_op,
+        x.p_mutate_index,
+        x.p_duplicate_index,
+        x.p_delete_index,
+        x.p_duplicate_instruction,
+        x.p_delete_instruction,
+        x.op_inventory,
+        x.op_probabilities)
 end
 
 """

@@ -72,7 +72,8 @@ end
 Stack the columns `xs` into a matrix `X` and call `model_predict`.
 The `kw_args` are splatted in.
 """
-function model_predict(mr::AbstractLinearModelResult, xs::AbstractVector{<:AbstractVector}; kw_args...)
+function model_predict(
+        mr::AbstractLinearModelResult, xs::AbstractVector{<:AbstractVector}; kw_args...)
     X = stack(xs)
     return model_predict(mr, X; kw_args...)
 end

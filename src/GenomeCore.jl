@@ -63,7 +63,6 @@ function Base.convert(::Type{GenomeSpec}, x)
         x.num_time_steps)
 end
 
-
 """
     workspace_size(g_spec::GenomeSpec)
 

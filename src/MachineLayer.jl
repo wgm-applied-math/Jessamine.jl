@@ -42,9 +42,6 @@ function machine_predict(mn_spec::AbstractMachineSpec, m, X; kw_args...)
     return MLJ.predict(m, X; kw_args...)
 end
 
-
-
-
 """
     machine_complexity(mn_spec, m; kw_args...)
 
@@ -196,7 +193,7 @@ function machine_grow_and_rate(
         genome::Genome,
         mn_spec::AbstractMachineSpec,
         sol_spec::AbstractSolverSpec
-    )::Union{Agent, Nothing}
+)::Union{Agent, Nothing}
     xs = separate_columns(x_table)
     output_col_names = map(1:(g_spec.output_size)) do t
         "z$t"
@@ -227,13 +224,14 @@ function machine_grow_and_rate(
         end
     catch e
         if isa(e, ArgumentError) || isa(e, SingularException)
-          return nothing
+            return nothing
         end
         rethrow()
     end
 end
 
-function model_predict(mr::MachineResult, input::AbstractVector{<:AbstractVector}; kw_args...)
+function model_predict(
+        mr::MachineResult, input::AbstractVector{<:AbstractVector}; kw_args...)
     return model_predict(mr, DataFrame(input, :auto); kw_args...)
 end
 

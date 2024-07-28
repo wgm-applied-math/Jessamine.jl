@@ -29,14 +29,13 @@ function model_predict(
         agent::Agent{<:Number, <:AbstractGenome, <:AbstractVector, <:AbstractModelResult},
         x_table;
         kw_args...
-            )
+)
     xs = separate_columns(x_table)
     num_rows = length(xs[1])
     last_round = run_genome(g_spec, agent.genome, agent.parameter, xs)[end]
     data_cols = map(u -> extend_if_singleton(u, num_rows), last_round)
     return model_predict(agent.extra, data_cols; kw_args...)
 end
-
 
 """
     model_symbolic_output(g_spec, agent; kw_args...)
@@ -51,7 +50,8 @@ in symbolic form.
 The `kw_args` are eventually splatted into `model_predict`.
 """
 function model_symbolic_output(g_spec, agent; kw_args...)
-    return model_symbolic_output(g_spec, agent.genome, agent.parameter, agent.extra; kw_args...)
+    return model_symbolic_output(
+        g_spec, agent.genome, agent.parameter, agent.extra; kw_args...)
 end
 
 """
@@ -76,11 +76,11 @@ function model_symbolic_output(
         g_spec::GenomeSpec,
         genome::AbstractGenome,
         parameter::AbstractVector,
-    mr::AbstractModelResult;
-    kw_args...)
+        mr::AbstractModelResult;
+        kw_args...)
     p, x, z = run_genome_symbolic(g_spec, genome)
     p_subs = Dict(p[j] => parameter[j] for j in eachindex(p))
-    z_num = map(z)  do zj
+    z_num = map(z) do zj
         substitute(zj, p_subs)
     end
     try
@@ -106,11 +106,10 @@ function model_symbolic_output(
         y_num = simplify(y_sub)
 
         return (p = p, x = x, z = z, p_subs = p_subs, z_num = z_num,
-                y_sym = y_sym,
-                y_lim = y_lim, y_simp = y_simp, y_sub = y_sub, y_num = y_num)
+            y_sym = y_sym,
+            y_lim = y_lim, y_simp = y_simp, y_sub = y_sub, y_num = y_num)
     catch e
         @warn "model_predict failed: $(e)"
         return (p = p, x = x, z = z, p_subs = p_subs, z_num = z_num)
     end
-
-    end
+end

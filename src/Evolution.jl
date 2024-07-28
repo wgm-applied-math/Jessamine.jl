@@ -42,10 +42,10 @@ end
 
 function Base.convert(::Type{SelectionSpec}, x)
     return SelectionSpec(
-    x.num_to_keep,
-    x.num_to_generate,
-    x.p_take_better,
-    x.p_take_very_best)
+        x.num_to_keep,
+        x.num_to_generate,
+        x.p_take_better,
+        x.p_take_very_best)
 end
 
 """
@@ -239,15 +239,14 @@ function random_initial_population(
         e_spec::EvolutionSpec,
         arity_dist::Distribution;
         sense = MinSense)::Population
-
     return random_initial_population(
-    rng,
-    e_spec.g_spec,
-    e_spec.m_dist,
-    arity_dist,
-    e_spec.s_dist.spec,
-    e_spec.grow_and_rate;
-    sense = sense)
+        rng,
+        e_spec.g_spec,
+        e_spec.m_dist,
+        arity_dist,
+        e_spec.s_dist.spec,
+        e_spec.grow_and_rate;
+        sense = sense)
 end
 
 """
@@ -326,7 +325,6 @@ function next_generation(
     sort!(next_rated_genomes, rev = rev)
     return Population(next_rated_genomes)
 end
-
 
 """
     evolution_loop(rng::AbstractRNG, g_spec::GenomeSpec, m_dist::MutationDist, s_dist::SelectionDist, grow_and_rate, num_generations::Integer, sense, pop_init::Population; stop_threshold=nothing, stop_on_innovation=false, generation_mod=10, verbosity=1)

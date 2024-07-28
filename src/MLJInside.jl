@@ -5,7 +5,6 @@ export sum_sq_coefs
 
 using MLJLinearModels
 
-
 @kwdef struct BasicModelMachineSpec <: AbstractMachineSpec
     model::Model
     lambda_parameter::Float64
@@ -13,11 +12,9 @@ using MLJLinearModels
     performance::Any # callable
 end
 
-
 function Base.convert(::Type{BasicModelMachineSpec}, mn_spec::BasicModelMachineSpec)
     return mn_spec
 end
-
 
 function Base.convert(::Type{BasicModelMachineSpec}, x)
     return BasicModelMachineSpec(
@@ -26,7 +23,6 @@ function Base.convert(::Type{BasicModelMachineSpec}, x)
         x.lambda_operand,
         x.performance)
 end
-
 
 """
 Wrap an MLJ `Model` that uses a linear combination of input
@@ -46,9 +42,9 @@ end
 Construct a `LinearModelMachineSpec` using `model.lambda` for `lambda_model`.
 """
 function LinearModelMachineSpec(
-    model::Model,
-    lambda_parameter,
-    lambda_operand)
+        model::Model,
+        lambda_parameter,
+        lambda_operand)
     return LinearModelMachineSpec(
         model,
         model.lambda,
@@ -56,11 +52,9 @@ function LinearModelMachineSpec(
         lambda_operand)
 end
 
-
 function Base.convert(::Type{LinearModelMachineSpec}, mn_spec::LinearModelMachineSpec)
     return mn_spec
 end
-
 
 function Base.convert(::Type{LinearModelMachineSpec}, x)
     lambda_model = if hasfield(typeof(x), :lambda_model)
@@ -77,7 +71,6 @@ function Base.convert(::Type{LinearModelMachineSpec}, x)
         x.lambda_operand,
         x.performance)
 end
-
 
 """
     machine_complexity(mn_spec, m)
