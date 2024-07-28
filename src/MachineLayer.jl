@@ -223,10 +223,8 @@ function machine_grow_and_rate(
             return nothing
         end
     catch e
-        if isa(e, ArgumentError) || isa(e, SingularException)
-            return nothing
-        end
-        rethrow()
+        @warn "$(now()) machine_grow_and_rate: Masking exception $e"
+        return nothing
     end
 end
 
