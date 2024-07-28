@@ -79,28 +79,38 @@ function model_symbolic_output(
     mr::AbstractModelResult;
     kw_args...)
     p, x, z = run_genome_symbolic(g_spec, genome)
-    z_sym_row_mat = reshape(z, 1, :)
-    y_sym = model_predict(mr, z_sym_row_mat; kw_args...)[1]
-    used_vars = Set(v.name for v in Symbolics.get_variables(y_sym))
-    # To handle rational functions that have things like 1/(x/0),
-    # replace Inf with W and do a limit as W -> Inf.
-    # First, grind through and make sure we have a unique symbol.
-    j = 0
-    local W
-    while true
-        W = Symbolics.variable(:W, j)
-        if !(W in used_vars)
-            break
-        end
-        j += 1
-    end
-    y_W = substitute(y_sym, Dict([Inf => W]))
-    y_lim = Symbolics.limit(y_W.val, W.val, Inf)
-    y_simp = simplify(y_lim)
     p_subs = Dict(p[j] => parameter[j] for j in eachindex(p))
-    y_sub = substitute(y_simp, p_subs)
-    y_num = simplify(y_sub)
+    z_num = map(z)  do zj
+        substitute(zj, p_subs)
+    end
+    try
+        z_sym_row_mat = reshape(z, 1, :)
+        y_sym = model_predict(mr, z_sym_row_mat; kw_args...)[1]
+        used_vars = Set(v.name for v in Symbolics.get_variables(y_sym))
+        # To handle rational functions that have things like 1/(x/0),
+        # replace Inf with W and do a limit as W -> Inf.
+        # First, grind through and make sure we have a unique symbol.
+        j = 0
+        local W
+        while true
+            W = Symbolics.variable(:W, j)
+            if !(W in used_vars)
+                break
+            end
+            j += 1
+        end
+        y_W = substitute(y_sym, Dict([Inf => W]))
+        y_lim = Symbolics.limit(y_W.val, W.val, Inf)
+        y_simp = simplify(y_lim)
+        y_sub = substitute(y_simp, p_subs)
+        y_num = simplify(y_sub)
 
-    return (p = p, x = x, z = z, p_subs = p_subs, y_sym = y_sym,
-        y_lim = y_lim, y_simp = y_simp, y_sub = y_sub, y_num = y_num)
-end
+        return (p = p, x = x, z = z, p_subs = p_subs, z_num = z_num,
+                y_sym = y_sym,
+                y_lim = y_lim, y_simp = y_simp, y_sub = y_sub, y_num = y_num)
+    catch e
+        @warn "model_predict failed: $(e)"
+        return (p = p, x = x, z = z, p_subs = p_subs, z_num = z_num)
+    end
+
+    end
