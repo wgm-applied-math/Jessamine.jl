@@ -52,10 +52,10 @@ export area_above_curve
 end
 
 function EpochSpec(
-    m_spec::MutationSpec,
-    s_spec::SelectionSpec,
-    num_generations::Integer,
-    stop_on_innovation = false)
+        m_spec::MutationSpec,
+        s_spec::SelectionSpec,
+        num_generations::Integer,
+        stop_on_innovation = false)
     return EpochSpec(
         m_spec.p_mutate_op,
         m_spec.p_mutate_index,
@@ -78,66 +78,66 @@ end
 
 e_spec_1 = EpochSpec()
 e_spec_2 = EpochSpec(
-    p_mutate_op=0.2,
-    p_mutate_index=0.2,
-    p_duplicate_index=0.02,
-    p_delete_index=0.02,
-    p_duplicate_instruction=0.002,
-    p_delete_instruction=0.002,
-    num_generations=40,
-    stop_on_innovation=true)
+    p_mutate_op = 0.2,
+    p_mutate_index = 0.2,
+    p_duplicate_index = 0.02,
+    p_delete_index = 0.02,
+    p_duplicate_instruction = 0.002,
+    p_delete_instruction = 0.002,
+    num_generations = 40,
+    stop_on_innovation = true)
 e_spec_3 = EpochSpec(
-    p_mutate_op=0.2,
-    p_mutate_index=0.2,
-    p_duplicate_index=0.02,
-    p_delete_index=0.02,
-    p_duplicate_instruction=0.002,
-    p_delete_instruction=0.002,
-    num_to_keep=10,
-    num_to_generate=50,
-    p_take_better=0.6,
-    p_take_very_best=0.0,
-    num_generations=40,
-    stop_on_innovation=true)
+    p_mutate_op = 0.2,
+    p_mutate_index = 0.2,
+    p_duplicate_index = 0.02,
+    p_delete_index = 0.02,
+    p_duplicate_instruction = 0.002,
+    p_delete_instruction = 0.002,
+    num_to_keep = 10,
+    num_to_generate = 50,
+    p_take_better = 0.6,
+    p_take_very_best = 0.0,
+    num_generations = 40,
+    stop_on_innovation = true)
 e_spec_4 = EpochSpec(
-    p_mutate_op=0.3,
-    p_mutate_index=0.3,
-    p_duplicate_index=0.03,
-    p_delete_index=0.03,
-    p_duplicate_instruction=0.003,
-    p_delete_instruction=0.003,
-    num_to_keep=10,
-    num_to_generate=50,
-    p_take_better=0.6,
-    p_take_very_best=0.0,
-    num_generations=40,
-    stop_on_innovation=true)
+    p_mutate_op = 0.3,
+    p_mutate_index = 0.3,
+    p_duplicate_index = 0.03,
+    p_delete_index = 0.03,
+    p_duplicate_instruction = 0.003,
+    p_delete_instruction = 0.003,
+    num_to_keep = 10,
+    num_to_generate = 50,
+    p_take_better = 0.6,
+    p_take_very_best = 0.0,
+    num_generations = 40,
+    stop_on_innovation = true)
 e_spec_5 = EpochSpec(
-    p_mutate_op=0.3,
-    p_mutate_index=0.3,
-    p_duplicate_index=0.03,
-    p_delete_index=0.03,
-    p_duplicate_instruction=0.003,
-    p_delete_instruction=0.003,
-    num_to_keep=10,
-    num_to_generate=50,
-    p_take_better=0.5,
-    p_take_very_best=0.0,
-    num_generations=40,
-    stop_on_innovation=true)
+    p_mutate_op = 0.3,
+    p_mutate_index = 0.3,
+    p_duplicate_index = 0.03,
+    p_delete_index = 0.03,
+    p_duplicate_instruction = 0.003,
+    p_delete_instruction = 0.003,
+    num_to_keep = 10,
+    num_to_generate = 50,
+    p_take_better = 0.5,
+    p_take_very_best = 0.0,
+    num_generations = 40,
+    stop_on_innovation = true)
 
 const default_neighborhoods = [
     e_spec_1, e_spec_2, e_spec_3, e_spec_4, e_spec_5
 ]
 
 const default_simplifier = EpochSpec(
-    p_mutate_op=0.0,
-    p_mutate_index=0.0,
-    p_duplicate_index=0.0,
-    p_delete_index=0.1,
-    p_duplicate_instruction=0.0,
-    p_delete_instruction=0.1,
-    num_generations=100
+    p_mutate_op = 0.0,
+    p_mutate_index = 0.0,
+    p_duplicate_index = 0.0,
+    p_delete_index = 0.1,
+    p_duplicate_instruction = 0.0,
+    p_delete_instruction = 0.1,
+    num_generations = 100
 )
 
 # I really need something like
@@ -185,12 +185,11 @@ macro declareJessamineModel(model_type, default_model, default_performance)
             input_size::Int = 0
             num_time_steps::Int = 3
 
-            neighborhoods::AbstractVector{EpochSpec} =
-                default_neighborhoods
+            neighborhoods::AbstractVector{EpochSpec} = default_neighborhoods
             num_epochs::Int = 10
             simplifier::Union{Nothing, EpochSpec} = default_simplifier
             sense::Any = MinSense
-            stop_threshold::Union{Nothing,Number} = 0.001
+            stop_threshold::Union{Nothing, Number} = 0.001
 
             logging_generation_modulus::Int = 10
         end
@@ -211,7 +210,6 @@ function area_above_curve(y_hat, y_ref)
     return 1.0 - MLJ.area_under_curve(y_hat, y_ref)
 end
 
-
 @declareJessamineModel Deterministic RidgeRegressor(lambda = 0.01) MLJ.l2
 @declareJessamineModel Probabilistic LogisticClassifier() area_above_curve
 """
@@ -219,7 +217,6 @@ A union of `JessamineDeterministic` and `JessamineProbabilistic`
 """
 
 const JessamineModel = Union{JessamineDeterministic, JessamineProbabilistic}
-
 
 """
     machine_spec_type(t_MLJ_model::Type)::Type{<:AbstractMachineSpec}
@@ -235,7 +232,6 @@ end
 function machine_spec_type(x)
     return machine_spec_type(typeof(x))
 end
-
 
 """
     machine_spec_type(::Type{RidgeRegressor})
@@ -264,13 +260,11 @@ function machine_spec_type(::Type{LogisticClassifier})
     return LinearModelMachineSpec
 end
 
-
-
 function build_specs!(
-    jm::JessamineModel,
-    X,
-    y,
-    verbosity)
+        jm::JessamineModel,
+        X,
+        y,
+        verbosity)
     xs = Tables.columns(X)
     jm.input_size = length(xs)
     g_spec = convert(GenomeSpec, jm)
@@ -300,17 +294,17 @@ function build_specs!(
         jm.simplifier.num_generations
     )
 
-    return (g_spec=g_spec,
-            mn_spec=mn_spec,
-            neighborhoods=neighborhoods,
-            simp_spec=simp_spec)
+    return (g_spec = g_spec,
+        mn_spec = mn_spec,
+        neighborhoods = neighborhoods,
+        simp_spec = simp_spec)
 end
 
 function MLJModelInterface.fit(
-    jm::JessamineModel,
-    verbosity::Int,
-    X,
-    y)
+        jm::JessamineModel,
+        verbosity::Int,
+        X,
+        y)
     specs = build_specs!(jm, X, y, verbosity)
     init_neighborhood = specs.neighborhoods[1]
     pop_init = random_initial_population(
@@ -371,14 +365,13 @@ end
 Call `model_symbolic_output` with the `g_spec::GenomeSpec`
 and `best_agent::Agent` found in `fit_result`.
 Return the result.
-""
+"""
 function model_symbolic_output(fit_result::NamedTuple; kw_args...)
     return model_symbolic_output(
         fit_result.g_spec,
         fit_result.best_agent;
         kw_args...)
 end
-
 
 """
     show_symbolic(fit_result::NamedTuple; kw_args...)
