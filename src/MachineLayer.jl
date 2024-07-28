@@ -150,6 +150,7 @@ end
     y::Ty
     output_col_names::Vector{String}
     m_save::Any
+    weight_vector::Union{Nothing, AbstractVector}
 end
 
 function _MGR_f(genome_parameter::AbstractVector, c::MGRContext)
@@ -160,7 +161,11 @@ function _MGR_f(genome_parameter::AbstractVector, c::MGRContext)
     end
     Z_df = DataFrame(outputs, c.output_col_names, copycols = false)
     m = machine_init(c.mn_spec, Z_df, c.y)
-    machine_fit!(c.mn_spec, m)
+    if isnothing(c.weight_vector)
+        machine_fit!(c.mn_spec, m)
+    else
+        machine_fit!(c.mn_spec, m, w = c.weight_vector)
+    end
     y_hat = machine_predict(c.mn_spec, m, Z_df)
     performance = prediction_performance(c.mn_spec, y_hat, c.y)
     m_c = machine_complexity(c.mn_spec, m)
@@ -175,10 +180,11 @@ end
 end
 
 """
-    machine_grow_and_rate(xs, y, g_spec, genome, mn_spec, sol_spec)
+    machine_grow_and_rate(xs, y, g_spec, genome, mn_spec, sol_spec, w = nothing)
 
 Solve for the parameter values that produce the best machine for
 predicting `y` from the outputs of the `genome` applied to `xs`.
+A non-`nothing` value of `w` is passed to the machine as a weight vector.
 The resulting parameter vector is stored as the `parameter` field
 in the returned `Agent`.  The resulting machine is wrapped in a `MachineResult`
 and stored in the `extra` field of the `Agent`.
@@ -192,7 +198,8 @@ function machine_grow_and_rate(
         g_spec::GenomeSpec,
         genome::Genome,
         mn_spec::AbstractMachineSpec,
-        sol_spec::AbstractSolverSpec
+        sol_spec::AbstractSolverSpec,
+        w = nothing
 )::Union{Agent, Nothing}
     xs = separate_columns(x_table)
     output_col_names = map(1:(g_spec.output_size)) do t
@@ -208,8 +215,8 @@ function machine_grow_and_rate(
         xs,
         y,
         output_col_names,
-        nothing)
-
+        nothing,
+        w)
     optim_fn = parameter_solver_optimization_function(sol_spec, _MGR_f)
     optim_prob = parameter_solver_optimization_problem(sol_spec, g_spec, optim_fn, c)
     try

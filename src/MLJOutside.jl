@@ -161,6 +161,9 @@ const default_simplifier = EpochSpec(
 # macro because the clean! method comes out with a hygenized
 # type in its definition.
 
+# Complication: @kwdef barfs if I try to put a type parameter here.
+# As in `@kwdef mutable struct $(struct_name){T}` just won't work.
+
 macro declareJessamineModel(model_type, default_model, default_performance)
     struct_name = Symbol("Jessamine$(model_type)")
     return quote
@@ -219,6 +222,35 @@ A union of `JessamineDeterministic` and `JessamineProbabilistic`
 const JessamineModel = Union{JessamineDeterministic, JessamineProbabilistic}
 
 """
+    supports_weights(::Type{JessamineModel})
+
+Return `true`.  A Jessamine model supports weight vectors for
+training data *if* the inner model does.  Since MLJ determines
+this at the type level, it has to return `true` here to allow a
+weight vector to be passed in.  The `fit` implementation throws
+an exception if a non-`nothing` weight vector is passed in and
+the inner model does not allow a weight vector.
+"""
+function MLJ.supports_weights(::Type{JessamineDeterministic})
+    return true
+end
+
+"""
+    supports_weights(::Type{JessamineModel})
+
+Return `true`.  A Jessamine model supports weight vectors for
+training data *if* the inner model does.  Since MLJ determines
+this at the type level, it has to return `true` here to allow a
+weight vector to be passed in.  The `fit` implementation throws
+an exception if a non-`nothing` weight vector is passed in and
+the inner model does not allow a weight vector.
+"""
+function MLJ.supports_weights(::Type{JessamineProbabilistic})
+    return true
+end
+
+
+"""
     machine_spec_type(t_MLJ_model::Type)::Type{<:AbstractMachineSpec}
 
 Return the Jessamine type (subtype of `AbstractMachineSpec`)
@@ -264,7 +296,8 @@ function build_specs!(
         jm::JessamineModel,
         X,
         y,
-        verbosity)
+        verbosity,
+        w = nothing)
     xs = Tables.columns(X)
     jm.input_size = length(xs)
     g_spec = convert(GenomeSpec, jm)
@@ -272,7 +305,7 @@ function build_specs!(
     function grow_and_rate(rng, g_spec, genome)
         return machine_grow_and_rate(
             xs, y, g_spec, genome, mn_spec,
-            DefaultSolverSpec())
+            DefaultSolverSpec(), w)
     end
     neighborhoods = map(jm.neighborhoods) do epoch_spec
         m_spec = convert(MutationSpec, epoch_spec)
@@ -286,14 +319,17 @@ function build_specs!(
             epoch_spec.stop_on_innovation)
         return e_spec
     end
-    simp_spec = EvolutionSpec(
-        g_spec,
-        convert(MutationSpec, jm.simplifier),
-        convert(SelectionSpec, jm.simplifier),
-        grow_and_rate,
-        jm.simplifier.num_generations
-    )
-
+    if isnothing(jm.simplifier)
+        simp_spec = nothing
+    else
+        simp_spec = EvolutionSpec(
+            g_spec,
+            convert(MutationSpec, jm.simplifier),
+            convert(SelectionSpec, jm.simplifier),
+            grow_and_rate,
+            jm.simplifier.num_generations
+        )
+    end
     return (g_spec = g_spec,
         mn_spec = mn_spec,
         neighborhoods = neighborhoods,
@@ -304,16 +340,39 @@ function MLJModelInterface.fit(
         jm::JessamineModel,
         verbosity::Int,
         X,
-        y)
-    specs = build_specs!(jm, X, y, verbosity)
+        y,
+        w = nothing)
+    # Check whether weights are supported by the inner model:
+    if !isnothing(w)
+        @assert MLJ.supports_weights(typeof(jm.model)) "Inner model does not support a weight vector; use `w = nothing`"
+    end
+    specs = build_specs!(jm, X, y, verbosity, w)
     init_neighborhood = specs.neighborhoods[1]
     pop_init = random_initial_population(
         jm.rng,
         init_neighborhood,
         jm.init_arity_dist,
         sense = jm.sense)
+    return MLJModelInterface.update(
+        jm, verbosity, nothing,
+        (specs = specs, pop = pop_init),
+        X, y, w)
+end
+
+function MLJModelInterface.update(
+        jm::JessamineModel,
+        verbosity::Int,
+        old_fit_result,
+        old_cache,
+        X,
+        y,
+        w = nothing)
+    # This asssumes X and y have already been baked into
+    # old_cache.specs
+    specs = old_cache.specs
+    pop_init = old_cache.pop
     if verbosity > 0
-        @info "$(now()) Begin VNS loop"
+        @info "$(now()): Begin VNS loop"
     end
     pop_next = vns_evolution_loop(
         jm.rng,
@@ -323,21 +382,23 @@ function MLJModelInterface.fit(
         stop_threshold = jm.stop_threshold,
         generation_mod = jm.logging_generation_modulus,
         verbosity = verbosity)
-    if verbosity > 0
-        @info "$(now()) Begin simplification epoch"
+    if !isnothing(specs.simp_spec)
+        if verbosity > 0
+            @info "$(now()): Begin simplification epoch"
+        end
+        pop_next = evolution_loop(
+            jm.rng,
+            specs.simp_spec,
+            pop_next;
+            sense = jm.sense,
+            stop_threshold = jm.stop_threshold,
+            generation_mod = jm.logging_generation_modulus,
+            verbosity = verbosity)
     end
-    pop_simp = evolution_loop(
-        jm.rng,
-        specs.simp_spec,
-        pop_next;
-        sense = jm.sense,
-        stop_threshold = jm.stop_threshold,
-        generation_mod = jm.logging_generation_modulus,
-        verbosity = verbosity)
     if verbosity > 0
-        @info "$(now()) Evolution ended"
+        @info "$(now()): Evolution ended"
     end
-    best_agent = pop_simp.agents[1]
+    best_agent = pop_next.agents[1]
     symbolic_result = run_genome_symbolic(specs.g_spec, best_agent.genome)
     fit_result = (
         g_spec = specs.g_spec,
@@ -346,9 +407,11 @@ function MLJModelInterface.fit(
     report = (
         rating = best_agent.rating,
         symbolic_result = symbolic_result)
-    # This way you can continue with update() I think...
-    cache = pop_simp
-    return (fit_result, report, cache)
+    # Including a non-nothing cache object here gives MLJ.fit! a
+    # way to continue if called again by calling update() I
+    # think...
+    cache = (specs = specs, pop = pop_next)
+    return (fit_result, cache, report)
 end
 
 function MLJ.fitted_params(jm::JessamineModel, fit_result)
