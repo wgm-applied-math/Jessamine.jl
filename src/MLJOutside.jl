@@ -14,7 +14,8 @@ if false
     include("SymbolicForm.jl")
 end
 
-export EpochSpec
+export EpochSpec, JessamineModel
+export area_above_curve
 
 # This is kind of a mess because in MLJ, the input size
 # is not really available until the call to machine().
@@ -37,7 +38,7 @@ export EpochSpec
     p_duplicate_instruction::Float64 = 0.001
     p_delete_instruction::Float64 = 0.001
     op_inventory::Vector{AbstractGeneOp} = [Add(), Subtract(), Multiply()]
-    op_probabilities::Union{Vector{Float64}, Nothing} = [0.25, 0.25, 0.5]
+    op_probabilities::Union{Vector{Float64}, Nothing} = nothing
 
     # SelectionSpec
     num_to_keep::Int = 20
@@ -160,7 +161,7 @@ const default_simplifier = EpochSpec(
 # macro because the clean! method comes out with a hygenized
 # type in its definition.
 
-macro declareJessamineModel(model_type, default_model)
+macro declareJessamineModel(model_type, default_model, default_performance)
     struct_name = Symbol("Jessamine$(model_type)")
     return quote
         export $struct_name
@@ -175,7 +176,7 @@ macro declareJessamineModel(model_type, default_model)
             lambda_model::Float64 = 0.01
             lambda_parameter::Float64 = 0.01
             lambda_operand::Float64 = 0.01
-            performance::Any = MLJ.l2
+            performance::Any = $default_performance
 
             # GenomeSpec
             output_size::Int = 6
@@ -196,11 +197,23 @@ macro declareJessamineModel(model_type, default_model)
     end
 end
 
+"""
+    area_above_curve(y_hat, y_ref)
+
+Return the area *above* the ROC curve for the predictions
+`y_hat` and actual reference values `y_ref`.
+This is 1 minus the area under the curve.
+The vector `y_hat` should consist of Bernoulli distributions,
+as returned by a `LogisticClassifier`, for example.
+The vector `y` should consist of values from those distributions.
+"""
+function area_above_curve(y_hat, y_ref)
+    return 1.0 - MLJ.area_under_curve(y_hat, y_ref)
+end
 
 
-
-@declareJessamineModel Deterministic RidgeRegressor(lambda = 0.01)
-@declareJessamineModel Probabilistic LogisticClassifier()
+@declareJessamineModel Deterministic RidgeRegressor(lambda = 0.01) MLJ.l2
+@declareJessamineModel Probabilistic LogisticClassifier() area_above_curve
 """
 A union of `JessamineDeterministic` and `JessamineProbabilistic`
 """
@@ -230,6 +243,15 @@ end
 Return `LinearModelMachineSpec`
 """
 function machine_spec_type(::Type{RidgeRegressor})
+    return LinearModelMachineSpec
+end
+
+"""
+    machine_spec_type(::Type{LassoRegressor})
+
+Return `LinearModelMachineSpec`
+"""
+function machine_spec_type(::Type{LassoRegressor})
     return LinearModelMachineSpec
 end
 
@@ -296,6 +318,9 @@ function MLJModelInterface.fit(
         init_neighborhood,
         jm.init_arity_dist,
         sense = jm.sense)
+    if verbosity > 0
+        @info "$(now()) Begin VNS loop"
+    end
     pop_next = vns_evolution_loop(
         jm.rng,
         specs.neighborhoods,
@@ -304,6 +329,9 @@ function MLJModelInterface.fit(
         stop_threshold = jm.stop_threshold,
         generation_mod = jm.logging_generation_modulus,
         verbosity = verbosity)
+    if verbosity > 0
+        @info "$(now()) Begin simplification epoch"
+    end
     pop_simp = evolution_loop(
         jm.rng,
         specs.simp_spec,
@@ -312,6 +340,9 @@ function MLJModelInterface.fit(
         stop_threshold = jm.stop_threshold,
         generation_mod = jm.logging_generation_modulus,
         verbosity = verbosity)
+    if verbosity > 0
+        @info "$(now()) Evolution ended"
+    end
     best_agent = pop_simp.agents[1]
     symbolic_result = run_genome_symbolic(specs.g_spec, best_agent.genome)
     fit_result = (
@@ -332,4 +363,33 @@ end
 
 function MLJModelInterface.predict(jm::JessamineModel, fit_result, X)
     return model_predict(fit_result.g_spec, fit_result.best_agent, X)
+end
+
+"""
+    model_symbolic_output(fit_result::NamedTuple; kw_args...)
+
+Call `model_symbolic_output` with the `g_spec::GenomeSpec`
+and `best_agent::Agent` found in `fit_result`.
+Return the result.
+""
+function model_symbolic_output(fit_result::NamedTuple; kw_args...)
+    return model_symbolic_output(
+        fit_result.g_spec,
+        fit_result.best_agent;
+        kw_args...)
+end
+
+
+"""
+    show_symbolic(fit_result::NamedTuple; kw_args...)
+
+Call `show_symbolic` with the `g_spec::GenomeSpec`
+and `best_agent.genome::AbstractGenome` found in `fit_result`.
+Return the result.
+"""
+function show_symbolic(fit_result::NamedTuple; kw_args...)
+    return show_symbolic(
+        fit_result.g_spec,
+        fit_result.best_agent.genome;
+        kw_args...)
 end
