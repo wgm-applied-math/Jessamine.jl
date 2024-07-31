@@ -348,6 +348,7 @@ function MLJModelInterface.fit(
     end
     specs = build_specs!(jm, X, y, verbosity, w)
     init_neighborhood = specs.neighborhoods[1]
+    @info "$(now()): Building initial population"
     pop_init = random_initial_population(
         jm.rng,
         init_neighborhood,
