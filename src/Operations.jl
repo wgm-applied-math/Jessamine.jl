@@ -45,7 +45,7 @@ end
 
 function to_expr(::Add, cs, operands)
     if isempty(operands)
-        return [0.0]
+        return 0.0
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -61,7 +61,7 @@ short_show(io::IO, ::Subtract) = print(io, "sub")
 
 function op_eval(::Subtract, operands)
     if isempty(operands)
-        return [0.0]
+        return 0.0
     else
         return operands[1] .- op_eval(Add(), operands[2:end])
     end
@@ -131,8 +131,8 @@ end
 
 struct Reciprocal <: AbstractUnaryOp end
 short_show(io::IO, ::Reciprocal) = print(io, "rcp")
-un_op_eval(::Reciprocal, t) = @. 1.0 / t
-to_expr(::Reciprocal, expr) = :(@. 1.0 / $expr)
+un_op_eval(::Reciprocal, t) =  1.0 ./ t
+to_expr(::Reciprocal, expr) = :(1.0 ./ $expr)
 
 "Multiply operands and return the reciprocal."
 const ReciprocalMultiply = UnaryComposition{Reciprocal,Multiply}

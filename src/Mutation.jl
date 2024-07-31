@@ -28,6 +28,9 @@ A collection of parameters specifying the probabilities of various mutations.
     "Probability that an instruction is deleted"
     p_delete_instruction::Float64 = 0.001
 
+    "Probability that an instruction hops to another block"
+    p_hop_instruction::Float64 = 0.0
+
     "Which operators are available"
     op_inventory::Vector{AbstractGeneOp} = [Add(), Subtract(), Multiply()]
 
@@ -47,6 +50,7 @@ function Base.convert(::Type{MutationSpec}, x)
         x.p_delete_index,
         x.p_duplicate_instruction,
         x.p_delete_instruction,
+        x.p_hop_instruction,
         x.op_inventory,
         x.op_probabilities)
 end
@@ -62,6 +66,7 @@ A collection of distribution objects built from a `MutationSpec` and used to pro
     d_delete_index::Bernoulli
     d_duplicate_instruction::Bernoulli
     d_delete_instruction::Bernoulli
+    d_hop_instruction::Bernoulli
     d_op::DiscreteNonParametric
     op_inventory::Vector{AbstractGeneOp}
 end
@@ -90,6 +95,7 @@ function MutationDist(m_spec::MutationSpec, src_index_max::Int)
         Bernoulli(m_spec.p_delete_index),
         Bernoulli(m_spec.p_duplicate_instruction),
         Bernoulli(m_spec.p_delete_instruction),
+        Bernoulli(m_spec.p_hop_instruction),
         DiscreteNonParametric(1:length(op_probabilities), op_probabilities),
         m_spec.op_inventory
     )
@@ -156,6 +162,21 @@ function mutate(rng::AbstractRNG, m_dist::MutationDist, g::Genome)
             # end
             # @assert !isempty(new_block)
             return mutate(rng, m_dist, new_block)
+        end
+    end
+    # Hop mutations are tricker
+    for b in eachindex(instruction_blocks)
+        block = instruction_blocks[b]
+        adjustment = 0
+        for j in eachindex(block)
+            if rand(rng, m_dist.d_hop_instruction)
+                dest = rand(rng, instruction_blocks)
+                k = j - adjustment
+                instr = block[k]
+                push!(dest, instr)
+                deleteat!(block, k)
+                adjustment += 1
+            end
         end
     end
     return Genome(instruction_blocks)

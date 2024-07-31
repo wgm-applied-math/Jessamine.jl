@@ -97,6 +97,7 @@ m_spec = MutationSpec(
     p_delete_index = 0.2,
     p_duplicate_instruction = 0.2,
     p_delete_instruction = 0.2,
+    p_hop_instruction = 0.2,
     op_inventory = [Add(), Multiply()])
 
 m_dist = MutationDist(m_spec, 9)

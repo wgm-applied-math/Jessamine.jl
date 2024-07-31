@@ -133,8 +133,8 @@ function flat_workspace(cs::CellState)
     return vcat(cs.output, cs.scratch, cs.parameter, cs.input)
 end
 
-@kwdef struct Instruction{OpType}
-    op::OpType
+@kwdef struct Instruction
+    op::AbstractGeneOp
     operand_ixs::Vector{Int}
 end
 
@@ -304,6 +304,7 @@ function eval_time_step(
     scratch_first = 1 + length(cell_state.output)
     local new_scratch::Vector{E}
     new_scratch = map(genome.instruction_blocks[scratch_first:end]) do block
+        local val_scr::E
         val_scr = zero_like(cell_state.input[1])
         for instr in block
             val_scr = val_scr + op_eval(instr.op, cell_state[instr.operand_ixs])
@@ -318,7 +319,7 @@ function eval_time_step(
     return cell_state_next
 end
 
-function zero_like(ref::T)::T where {T}
+function zero_like(ref::T)::T where {T <: Number}
     return convert(T, 0)
 end
 
