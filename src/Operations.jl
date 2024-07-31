@@ -3,9 +3,15 @@ if false
     include("GenomeCore.jl")
 end
 
+abstract type AbstractUnaryOp <: AbstractGeneOp end
+
+abstract type AbstractMultiOp <: AbstractGeneOp end
+
 export splat_or_default
-export Add, Multiply, ReciprocalMultiply, ReciprocalAdd
-export Subtract
+export AbstractUnaryOp, AbstractMultiOp
+export Add, Multiply, Subtract
+export UnaryComposition
+export ReciprocalMultiply, ReciprocalAdd, ReciprocalSubtract
 export FzAnd, FzOr, FzNand, FzNor
 export SignAdd, Maximum, Minimum
 
@@ -25,7 +31,7 @@ function splat_or_default(op, def, operands)
 end
 
 "Add operands."
-struct Add <: AbstractGeneOp end
+struct Add <: AbstractMultiOp end
 
 short_show(io::IO, ::Add) = print(io, "add")
 
@@ -49,15 +55,15 @@ function to_expr(::Add, cs, operands)
 end
 
 "Subtract LISP-style: `0 + x[1] - x[2] - x[3]...`"
-struct Subtract <: AbstractGeneOp end
+struct Subtract <: AbstractMultiOp end
 
 short_show(io::IO, ::Subtract) = print(io, "sub")
 
 function op_eval(::Subtract, operands)
     if isempty(operands)
-        return 0.0
+        return [0.0]
     else
-        return operands[1] - sum(operands[2:end])
+        return operands[1] .- op_eval(Add(), operands[2:end])
     end
 end
 
@@ -84,7 +90,7 @@ function to_expr(::Subtract, cs, operands)
 end
 
 "Multiply operands."
-struct Multiply <: AbstractGeneOp end
+struct Multiply <: AbstractMultiOp end
 
 short_show(io::IO, ::Multiply) = print(io, "mul")
 
@@ -101,46 +107,45 @@ function to_expr(::Multiply, cs, operands)
     end
 end
 
-"Multiply operands and return the reciprocal."
-struct ReciprocalMultiply <: AbstractGeneOp end
-
-short_show(io::IO, ::ReciprocalMultiply) = print(io, "rcpm")
-
-op_eval(::ReciprocalMultiply, operands) = 1.0 ./ op_eval(Multiply(), operands)
-
-function to_expr(::ReciprocalMultiply, cs, operands)
-    if isempty(operands)
-        return [1.0]
-    elseif length(operands) == 1
-        field, j = operands[1]
-        return :(1.0 / $cs.$field[$j])
-    else
-        return Expr(:call, :./, 1.0,
-            Expr(:call, :.*, (:($cs.$field[$j]) for (field, j) in operands)...))
-    end
+"Do a multi-arity operation and apply a unary operation"
+@kwdef struct UnaryComposition{Un<:AbstractUnaryOp, Multi<:AbstractMultiOp} <: AbstractMultiOp
+    unary::Un = Un()
+    multi::Multi = Multi()
 end
+
+function short_show(io::IO, c::UnaryComposition)
+    short_show(io, c.unary)
+    print(io, "@")
+    short_show(io, c.multi)
+end
+
+function op_eval(c::UnaryComposition, operands)
+    return un_op_eval(c.unary, op_eval(c.multi, operands))
+end
+
+function to_expr(c::UnaryComposition, cs, operands)
+    inner_expr = to_expr(c.multi, cs, operands)
+    outer_expr = to_expr(c.unary, inner_expr)
+    return outer_expr
+end
+
+struct Reciprocal <: AbstractUnaryOp end
+short_show(io::IO, ::Reciprocal) = print(io, "rcp")
+un_op_eval(::Reciprocal, t) = @. 1.0 / t
+to_expr(::Reciprocal, expr) = :(@. 1.0 / $expr)
+
+"Multiply operands and return the reciprocal."
+const ReciprocalMultiply = UnaryComposition{Reciprocal,Multiply}
 
 "Add operands and return the reciprocal."
-struct ReciprocalAdd <: AbstractGeneOp end
+const ReciprocalAdd = UnaryComposition{Reciprocal,Add}
 
-short_show(io::IO, ::ReciprocalAdd) = print(io, "rcpa")
+"Subtract operands and return the reciprocal."
+const ReciprocalSubtract = UnaryComposition{Reciprocal, Subtract}
 
-op_eval(::ReciprocalAdd, operands) = 1.0 ./ op_eval(Add(), operands)
-
-function to_expr(::ReciprocalAdd, cs, operands)
-    if isempty(operands)
-        return [1.0]
-    elseif length(operands) == 1
-        field, j = operands[1]
-        return :(1.0 / $cs.$field[$j])
-    else
-        return Expr(:call, :./, 1.0,
-            Expr(:call, :.+, (:($cs.$field[$j]) for (field, j) in operands)...))
-    end
-end
 
 "Return fuzzy AND of the operands"
-struct FzAnd <: AbstractGeneOp end
+struct FzAnd <: AbstractMultiOp end
 
 short_show(io::IO, ::FzAnd) = print(io, "fzAnd")
 
@@ -158,7 +163,7 @@ function to_expr(::FzAnd, cs, operands)
 end
 
 "Return fuzzy OR of the operands."
-struct FzOr <: AbstractGeneOp end
+struct FzOr <: AbstractMultiOp end
 
 short_show(io::IO, ::FzOr) = print(io, "fzOr")
 
@@ -171,7 +176,7 @@ function to_expr(::FzOr, cs, operands)
 end
 
 "Return fuzzy NAND of the operands."
-struct FzNand <: AbstractGeneOp end
+struct FzNand <: AbstractMultiOp end
 
 short_show(io::IO, ::FzNand) = print(io, "fzNand")
 
@@ -184,7 +189,7 @@ function to_expr(::FzNand, cs, operands)
 end
 
 "Return fuzzy NOR of the operands."
-struct FzNor <: AbstractGeneOp end
+struct FzNor <: AbstractMultiOp end
 
 short_show(io::IO, ::FzNor) = print(io, "fzNor")
 
@@ -204,7 +209,7 @@ function to_expr(::FzNor, cs, operands)
 end
 
 "Return the sign of the sum of the operands"
-struct SignAdd <: AbstractGeneOp end
+struct SignAdd <: AbstractMultiOp end
 
 short_show(io::IO, ::SignAdd) = print(io, "signAdd")
 
@@ -226,7 +231,7 @@ function to_expr(::SignAdd, cs, operands)
 end
 
 "Return the maximum of the operands."
-struct Maximum <: AbstractGeneOp end
+struct Maximum <: AbstractMultiOp end
 
 short_show(io::IO, ::Maximum) = print(io, "max")
 
@@ -254,7 +259,7 @@ function to_expr(::Maximum, cs, operands)
 end
 
 "Return the minimum of the operands."
-struct Minimum <: AbstractGeneOp end
+struct Minimum <: AbstractMultiOp end
 
 short_show(io::IO, ::Minimum) = print(io, "min")
 
