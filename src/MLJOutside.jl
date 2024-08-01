@@ -37,6 +37,7 @@ export area_above_curve
     p_delete_index::Float64 = 0.01
     p_duplicate_instruction::Float64 = 0.001
     p_delete_instruction::Float64 = 0.001
+    p_hop_instruction::Float64 = 0.0
     op_inventory::Vector{AbstractGeneOp} = [Add(), Subtract(), Multiply()]
     op_probabilities::Union{Vector{Float64}, Nothing} = nothing
 
