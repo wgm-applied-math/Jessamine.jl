@@ -3,7 +3,7 @@ if false
     include("GenomeCore.jl")
 end
 
-abstract type AbstractUnaryOp <: AbstractGeneOp end
+abstract type AbstractUnaryOp end
 
 abstract type AbstractMultiOp <: AbstractGeneOp end
 
@@ -208,27 +208,13 @@ function to_expr(::FzNor, cs, operands)
     end
 end
 
+struct Sign <: AbstractUnaryOp end
+short_show(io::IO, ::Sign) = print(io, "sign")
+un_op_eval(::Sign, t) = sign.(t)
+to_expr(::Sign, expr) = :(sign.($expr))
+
 "Return the sign of the sum of the operands"
-struct SignAdd <: AbstractMultiOp end
-
-short_show(io::IO, ::SignAdd) = print(io, "signAdd")
-
-function op_eval(::SignAdd, operands)
-    return sign.(splat_or_default(.+, 0.0, operands))
-end
-
-function to_expr(::SignAdd, cs, operands)
-    if isempty(operands)
-        return [0.0]
-    elseif length(operands) == 1
-        field, j = operands[1]
-        return :(sign.($cs.$field[$j]))
-    else
-        return quote
-            sign.($(to_expr(Add(), cs, operands)))
-        end
-    end
-end
+const SignAdd = UnaryComposition{Sign,Add}
 
 "Return the maximum of the operands."
 struct Maximum <: AbstractMultiOp end
