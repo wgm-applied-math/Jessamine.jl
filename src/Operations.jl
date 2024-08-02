@@ -45,7 +45,7 @@ end
 
 function to_expr(::Add, cs, operands)
     if isempty(operands)
-        return 0.0
+        return [0.0]
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])

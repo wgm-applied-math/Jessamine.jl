@@ -159,7 +159,7 @@ Parameters needed to run `random_initial_population` and `evolution_loop`.
     m_dist::MutationDist
     s_dist::SelectionDist
     grow_and_rate::Any
-    num_generations::Int
+    max_generations::Union{Nothing,Int} = nothing
     stop_on_innovation::Bool = false
 end
 
@@ -168,7 +168,7 @@ function EvolutionSpec(
         m_spec::MutationSpec,
         s_spec::SelectionSpec,
         grow_and_rate,
-        num_generations::Int,
+        max_generations::Int,
         stop_on_innovation::Bool = false
 )
     src_index_max = workspace_size(g_spec)
@@ -179,7 +179,7 @@ function EvolutionSpec(
         m_dist,
         s_dist,
         grow_and_rate,
-        num_generations,
+        max_generations,
         stop_on_innovation
     )
 end
@@ -193,7 +193,14 @@ function is_better(reference, other, sense)
 end
 
 """
-    random_initial_population(rng::AbstractRNG, g_spec::GenomeSpec, m_dist::MutationDist, arity_dist::Distribution, s_spec::SelectionSpec, grow_and_rate)
+    random_initial_population(
+        rng::AbstractRNG,
+        g_spec::GenomeSpec,
+        m_dist::MutationDist,
+        arity_dist::Distribution,
+        s_spec::SelectionSpec,
+        grow_and_rate;
+        sense = MinSense)::Population
 
 Make a random initial population.  The number of genomes is
 specified by adding the number of new genomes per generation and
@@ -290,7 +297,14 @@ function new_genome(
 end
 
 """
-    next_generation(rng::AbstractRNG, g_spec::GenomeSpec, s_dist::SelectionDist, m_dist::MutationDist, pop::Population, grow_and_rate::Function; sense=MinSense)
+    next_generation(
+        rng::AbstractRNG,
+        g_spec::GenomeSpec,
+        s_dist::SelectionDist,
+        m_dist::MutationDist,
+        pop::Population,
+        grow_and_rate;
+        sense = MinSense)
 
 Produce the next generation of a population by selection and
 mutation.  The offsprings' genomes are produced by `new_genome`,
@@ -327,34 +341,61 @@ function next_generation(
 end
 
 """
-    evolution_loop(rng::AbstractRNG, g_spec::GenomeSpec, m_dist::MutationDist, s_dist::SelectionDist, grow_and_rate, num_generations::Integer, sense, pop_init::Population; stop_threshold=nothing, stop_on_innovation=false, generation_mod=10, verbosity=1)
+    evolution_loop(
+        rng::AbstractRNG,
+        g_spec::GenomeSpec,
+        m_dist::MutationDist,
+        s_dist::SelectionDist,
+        grow_and_rate,
+        pop_init::Population;
+        kw_args...)
 
 Advance `pop_init` by `num_generations` and return the new `Population`.
 
 The various spec records and `grow_and_rate` function are passed
 to `next_generation()`.
 
-`sense` should be `MinSense` or `MaxSense` to
+Keyword arguments:
+
+* `sense = MinSense`:
+Should be `MinSense` or `MaxSense` to
 indicate whether the search should minimize or maximize the
 rating.
 
-If `stop_on_innovation` is `true`, the process stops as soon as
+* `max_generations = nothing`:
+If `max_generations` is an integer rather than nothing,
+stop after at most that many generations.
+
+* `stop_on_innovation = false`:
+If set to `true`, the process stops as soon as
 an agent with a better rating than the previous best is
 discovered.
 
+* `verbosity = 1`:
+Setting `verbosity` to `0` disables all `@info` messages.
+Progress is reported as an `@info` log message when an agent with
+a better rating than the previous best is discovered.
+
+* `generation_mod = 10`:
 Progress is reported as an `@info` log message when the
 generation number is a multiple of `generation_mod`.  If this
 number is not > 0, this progress report is disabled.
 
-Progress is reported as an `@info` log message when an agent with
-a better rating than the previous best is discovered.
-
-Setting `verbosity` to `0` disables both the periodic
-progress report and innovation messages.
-
+* `stop_threshold = nothing`:
 If `stop_threshold` is a number rather than `nothing`, the
-process stops as soon as an agent with a rating better than
+loop stops as soon as an agent with a rating better than
 `stop_threshold` is discovered.
+
+* `stop_channel = nothing`:
+If `stop_channel` is a `Channel` rather than nothing,
+the loop checks for a message on `stop_channel` before
+calling `next_generation`.
+If a message is found, the loop stops.
+
+* `stop_deadline = nothing`:
+If `stop_deadline` is a `DateTime` rather than nothing,
+the loop checks whether `now() > stop_deadline` before
+calling `next_generation`, and if so, the loop stops.
 """
 
 function evolution_loop(
@@ -363,22 +404,44 @@ function evolution_loop(
         m_dist::MutationDist,
         s_dist::SelectionDist,
         grow_and_rate,
-        num_generations::Integer,
         pop_init::Population;
-        sense = MinSense,
-        stop_threshold = nothing,
-        stop_on_innovation = false,
+        max_generations::Union{Nothing,Integer},
         generation_mod = 10,
-        verbosity = 1
+        verbosity = 1,
+        sense = MinSense,
+        stop_threshold::Union{Nothing,Number} = nothing,
+        stop_on_innovation = false,
+        stop_channel::Union{Nothing,Channel} = nothing,
+        stop_deadline::Union{Nothing,DateTime} = nothing,
 )
     pop_next = pop_init
     best_rating = pop_init.agents[1].rating
-    for t in 1:num_generations
-        if !isnothing(stop_threshold) && is_better(stop_threshold, best_rating, sense)
+    t = 0
+    while true
+        if !isnothing(max_generations) && t >= max_generations
+            if verbosity > 0
+                @info "$(now()): Stopping: Reached $t generations"
+            end
             break
         end
-        pop_next = next_generation(
-            rng, g_spec, s_dist, m_dist, pop_next, grow_and_rate)
+        if !isnothing(stop_threshold) && is_better(stop_threshold, best_rating, sense)
+            if verbosity > 0
+                @info "$(now()): Stopping: Reached stop threshold"
+            end
+            break
+        end
+        if !isnothing(stop_channel) && isready(stop_channel) && take!(stop_channel)
+            if verbosity > 0
+                @info "$(now()): Stopping: Message received on stop channel"
+            end
+            break
+        end
+        if !isnothing(stop_deadline) && now() > stop_deadline
+            if verbosity > 0
+                @info "$(now()): Stopping: Reached deadline"
+            end
+            break
+        end
         best_in_gen = pop_next.agents[1]
         if is_better(best_rating, best_in_gen.rating, sense)
             best_rating = best_in_gen.rating
@@ -389,7 +452,10 @@ function evolution_loop(
                 break
             end
         end
-        if verbosity > 0 && t > 0 && mod(t, generation_mod) == 0
+        t += 1
+        pop_next = next_generation(
+            rng, g_spec, s_dist, m_dist, pop_next, grow_and_rate)
+        if verbosity > 0 && mod(t, generation_mod) == 0
             @info "$(now()): Generation $t, best = $best_rating"
         end
     end
@@ -401,35 +467,22 @@ end
     rng::AbstractRNG,
     e_spec::EvolutionSpec
     pop_init::Population;
-    sense=MinSense,
-    stop_threshold=nothing,
-    generation_mod=10,
-    verbosity=1
+    kw_args...
     )
 
 Advance `pop_init` and return the new `Population`.
 
 Calls `evolution_loop()` with the specifications unpacked from `e_spec`.
 
-Progress is reported as an `@info` log message when the
-generation number is a multiple of `generation_mod`.  If this
-number is not > 0, this progress report is disabled.
-
-Progress is reported as an `@info` log message when an agent with
-a better rating than the previous best is discovered.
-
-Setting `verbosity` to `0` disables both the periodic
-progress report and innovation messages.
+Keyword arguments are passed to the next implementation of
+`evolution_loop()`.
 """
 
 function evolution_loop(
         rng::AbstractRNG,
         e_spec::EvolutionSpec,
         pop_init::Population;
-        sense = MinSense,
-        stop_threshold = nothing,
-        generation_mod = 10,
-        verbosity = 1
+        kw_args...
 )
     return evolution_loop(
         rng,
@@ -437,14 +490,10 @@ function evolution_loop(
         e_spec.m_dist,
         e_spec.s_dist,
         e_spec.grow_and_rate,
-        e_spec.num_generations,
-        pop_init,
-        sense = sense,
-        stop_threshold = stop_threshold,
+        pop_init;
+        max_generations = e_spec.max_generations,
         stop_on_innovation = e_spec.stop_on_innovation,
-        generation_mod = generation_mod,
-        verbosity = verbosity
-    )
+        kw_args...)
 end
 
 """
@@ -453,51 +502,100 @@ end
     neighborhoods::AbstractVector{EvolutionSpec},
     num_epochs::Integer,
     pop_init::Population;
-    sense=MinSense,
-    stop_threshold=nothing,
-    generation_mod=10,
-    verbosity=1
+    kw_args...
     )
 
-Perform up to `num_epochs` iterations of variable neighborhood search.
+Perform variable neighborhood search.
 
-Evolution is performed using `neighborhoods[1]` using `evolution_loop`.
-If a new best rating is achieved, continue.
-Otherwise, switch to using `neighborhoods[2]` etc.
-Once a new best rating is achieved, return to `neighborhoods[1]`.
+Evolution is performed using `neighborhoods[1]` using
+`evolution_loop`.  That's the first epoch.  If a new best rating
+is achieved, continue with that neighborhood in the second epoch.
+Otherwise, switch to using `neighborhoods[2]` etc.  Once a new
+best rating is achieved, return to `neighborhoods[1]`.
 
-The keyword arguments are passed to `evolution_loop`.
+Fields from the neighborhoods and relevant keyword arguments are
+passed as keyword arguments to `evolution_loop`.
 
+Other keyword arguments:
+
+* `verbosity = 1`:
+Set `verbosity` to `0` to disable `@info` messages.
 `@info` log messages are
 produced after each epoch completes.
-Set `verbosity` to `0` to disable these messages.
+
+* `max_epochs = nothing`:
+If `max_epochs` is an integer rather than `nothing`, the loop ends
+after at most that many epochs.
+
+* `stop_threshold = nothing`:
+If `stop_threshold` is a number rather than `nothing`, the
+loop stops as soon as an agent with a rating better than
+`stop_threshold` is discovered.
+
+* `stop_channel = nothing`:
+If `stop_channel` is a `Channel` rather than nothing,
+the loop checks for a message on `stop_channel` before
+calling `next_generation`.
+If a message is found, the loop stops.
+
+* `stop_deadline = nothing`:
+If `stop_deadline` is a `DateTime` rather than nothing,
+the loop checks whether `now() > stop_deadline` before
+calling `next_generation`, and if so, the loop stops.
 """
 
 function vns_evolution_loop(
         rng::AbstractRNG,
         neighborhoods::AbstractVector{EvolutionSpec},
-        num_epochs::Integer,
         pop_init::Population;
-        sense = MinSense,
-        stop_threshold = nothing,
+        max_epochs::Union{Nothing,Integer} = nothing,
         generation_mod = 10,
-        verbosity = 1
+        verbosity = 1,
+        sense = MinSense,
+        stop_threshold::Union{Nothing,Number} = nothing,
+        stop_channel::Union{Nothing,Channel} = nothing,
+        stop_deadline::Union{Nothing,DateTime} = nothing,
 )
     pop_next = pop_init
     best_rating = pop_init.agents[1].rating
     neighborhood_index = 1
-    for e in 1:num_epochs
-        if !isnothing(stop_threshold) && is_better(stop_threshold, best_rating, sense)
+    e = 0
+    while true
+        if !isnothing(max_epochs) && e >= max_epochs
+            if verbosity > 0
+                @info "$(now()): Stopping VNS: Reached $e epochs"
+            end
             break
         end
+        if !isnothing(stop_threshold) && is_better(stop_threshold, best_rating, sense)
+            if verbosity > 0
+                @info "$(now()): Stoping VNS: Reached stop threshold"
+            end
+            break
+        end
+        if !isnothing(stop_channel) && isready(stop_channel) && take!(stop_channel)
+            if verbosity > 0
+                @info "$(now()): Stopping VNS: Message received on stop channel"
+            end
+            break
+        end
+        if !isnothing(stop_deadline) && now() > stop_deadline
+            if verbosity > 0
+                @info "$(now()): Stopping VNS: Reached deadline"
+            end
+            break
+        end
+        e += 1
         pop_next = evolution_loop(
             rng,
             neighborhoods[neighborhood_index],
             pop_next;
+            generation_mod = generation_mod,
+            verbosity = verbosity,
             sense = sense,
             stop_threshold = stop_threshold,
-            generation_mod = generation_mod,
-            verbosity = verbosity
+            stop_channel = stop_channel,
+            stop_deadline = stop_deadline
         )
         best_in_epoch = pop_next.agents[1]
         if is_better(best_rating, best_in_epoch.rating, sense)
@@ -505,17 +603,17 @@ function vns_evolution_loop(
             # Return to neighborhood 1
             neighborhood_index = 1
             if verbosity > 0
-                @info "$(now()): Epoch $e, new best = $best_rating, returning to first neighborhood"
+                @info "$(now()): Epoch $e: New best = $best_rating, returning to first neighborhood"
             end
         elseif neighborhood_index < length(neighborhoods)
             # Advance to the next neighborhood
             neighborhood_index += 1
             if verbosity > 0
-                @info "$(now()): Epoch $e completed with no new best rating, advancing to neighborhood $neighborhood_index"
+                @info "$(now()): Epoch $e: Completed with no new best rating, advancing to neighborhood $neighborhood_index"
             end
         else
             if verbosity > 0
-                @info "$(now()): Epoch $e completed with no new best rating, continuing in neighborhood $neighborhood_index"
+                @info "$(now()): Epoch $e: Completed with no new best rating, continuing in neighborhood $neighborhood_index"
             end
         end
     end

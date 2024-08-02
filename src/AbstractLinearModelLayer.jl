@@ -1,3 +1,8 @@
+# Make language server happy
+if false
+    using Symbolics
+end
+
 export AbstractLinearModelResult
 export BasicLinearModelResult, coefficients, intercept
 
@@ -52,16 +57,16 @@ function model_symbolic_output(
         end
         j += 1
     end
-    y_W = substitute(y_sym, Dict([Inf => W]))
+    y_W = Symbolics.substitute(y_sym, Dict([Inf => W]))
     y_lim = Symbolics.limit(y_W.val, W.val, Inf)
-    y_simp = simplify(y_lim)
+    y_simp = Symbolics.simplify(y_lim)
     p_subs = Dict(p[j] => parameter[j] for j in eachindex(p))
     b_num = coefficients(mr)
     b_subs = Dict(b[1 + j] => b_num[j] for j in eachindex(b_num))
     # This is really $b_0$:
     b_subs[b[1]] = intercept(mr)
-    y_sub = substitute(y_simp, merge(p_subs, b_subs))
-    y_num = simplify(y_sub)
+    y_sub = Symbolics.substitute(y_simp, merge(p_subs, b_subs))
+    y_num = Symbolics.simplify(y_sub)
     return (p = p, x = x, z = z, b = b, p_subs = p_subs, b_subs = b_subs, y_sym = y_sym,
         y_lim = y_lim, y_simp = y_simp, y_sub = y_sub, y_num = y_num)
 end

@@ -13,6 +13,7 @@ using OptimizationOptimJL
 using Random
 using SciMLBase
 using Symbolics
+using SymPy
 using Tables
 using Base.Threads
 
@@ -24,6 +25,7 @@ include("Recombination.jl")
 include("Operations.jl")
 include("Evolution.jl")
 include("SymbolicForm.jl")
+include("SymPyForm.jl")
 include("AbstractModelLayer.jl")
 include("AbstractLinearModelLayer.jl")
 include("RidgeLayer.jl")

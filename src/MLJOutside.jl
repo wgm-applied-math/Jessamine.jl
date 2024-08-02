@@ -1,5 +1,6 @@
 # Make language server happy
 if false
+    using Base: nothing_sentinel
     using MLJ
     using MLJModelInterface
     using Optimization
@@ -48,15 +49,15 @@ export area_above_curve
     p_take_very_best::Float64 = 0.25
 
     # EvolutionSpec
-    num_generations::Int = 10
+    max_generations::Int = 10
     stop_on_innovation::Bool = false
 end
 
 function EpochSpec(
         m_spec::MutationSpec,
         s_spec::SelectionSpec,
-        num_generations::Integer,
-        stop_on_innovation = false)
+        max_generations::Integer,
+        stop_on_innovation::Bool = false)
     return EpochSpec(
         m_spec.p_mutate_op,
         m_spec.p_mutate_index,
@@ -64,13 +65,14 @@ function EpochSpec(
         m_spec.p_delete_index,
         m_spec.p_duplicate_instruction,
         m_spec.p_delete_instruction,
+        m_spec.p_hop_instruction,
         m_spec.op_inventory,
         m_spec.op_probabilities,
         s_spec.num_to_keep,
         s_spec.num_to_generate,
         s_spec.p_take_better,
         s_spec.p_take_very_best,
-        num_generations,
+        max_generations,
         stop_on_innovation
     )
 end
@@ -85,7 +87,7 @@ e_spec_2 = EpochSpec(
     p_delete_index = 0.02,
     p_duplicate_instruction = 0.002,
     p_delete_instruction = 0.002,
-    num_generations = 40,
+    max_generations = 40,
     stop_on_innovation = true)
 e_spec_3 = EpochSpec(
     p_mutate_op = 0.2,
@@ -98,7 +100,7 @@ e_spec_3 = EpochSpec(
     num_to_generate = 50,
     p_take_better = 0.6,
     p_take_very_best = 0.0,
-    num_generations = 40,
+    max_generations = 40,
     stop_on_innovation = true)
 e_spec_4 = EpochSpec(
     p_mutate_op = 0.3,
@@ -111,7 +113,7 @@ e_spec_4 = EpochSpec(
     num_to_generate = 50,
     p_take_better = 0.6,
     p_take_very_best = 0.0,
-    num_generations = 40,
+    max_generations = 40,
     stop_on_innovation = true)
 e_spec_5 = EpochSpec(
     p_mutate_op = 0.3,
@@ -124,7 +126,7 @@ e_spec_5 = EpochSpec(
     num_to_generate = 50,
     p_take_better = 0.5,
     p_take_very_best = 0.0,
-    num_generations = 40,
+    max_generations = 40,
     stop_on_innovation = true)
 
 const default_neighborhoods = [
@@ -138,7 +140,7 @@ const default_simplifier = EpochSpec(
     p_delete_index = 0.1,
     p_duplicate_instruction = 0.0,
     p_delete_instruction = 0.1,
-    num_generations = 100
+    max_generations = 100
 )
 
 # I really need something like
@@ -190,10 +192,12 @@ macro declareJessamineModel(model_type, default_model, default_performance)
             num_time_steps::Int = 3
 
             neighborhoods::AbstractVector{EpochSpec} = default_neighborhoods
-            num_epochs::Int = 10
+            max_epochs::Int = 10
             simplifier::Union{Nothing, EpochSpec} = default_simplifier
             sense::Any = MinSense
             stop_threshold::Union{Nothing, Number} = 0.001
+            stop_channel::Union{Nothing, Channel} = nothing
+            stop_deadline::Union{Nothing, DateTime} = nothing
 
             logging_generation_modulus::Int = 10
         end
@@ -250,7 +254,6 @@ function MLJ.supports_weights(::Type{JessamineProbabilistic})
     return true
 end
 
-
 """
     machine_spec_type(t_MLJ_model::Type)::Type{<:AbstractMachineSpec}
 
@@ -297,7 +300,6 @@ function build_specs!(
         jm::JessamineModel,
         X,
         y,
-        verbosity,
         w = nothing)
     xs = Tables.columns(X)
     jm.input_size = length(xs)
@@ -316,7 +318,7 @@ function build_specs!(
             m_spec,
             s_spec,
             grow_and_rate,
-            epoch_spec.num_generations,
+            epoch_spec.max_generations,
             epoch_spec.stop_on_innovation)
         return e_spec
     end
@@ -328,7 +330,7 @@ function build_specs!(
             convert(MutationSpec, jm.simplifier),
             convert(SelectionSpec, jm.simplifier),
             grow_and_rate,
-            jm.simplifier.num_generations
+            jm.simplifier.max_generations
         )
     end
     return (g_spec = g_spec,
@@ -347,7 +349,7 @@ function MLJModelInterface.fit(
     if !isnothing(w)
         @assert MLJ.supports_weights(typeof(jm.model)) "Inner model does not support a weight vector; use `w = nothing`"
     end
-    specs = build_specs!(jm, X, y, verbosity, w)
+    specs = build_specs!(jm, X, y, w)
     init_neighborhood = specs.neighborhoods[1]
     @info "$(now()): Building initial population"
     pop_init = random_initial_population(
@@ -376,26 +378,51 @@ function MLJModelInterface.update(
     if verbosity > 0
         @info "$(now()): Begin VNS loop"
     end
+    max_epochs = jm.max_epochs
+    stop_threshold = jm.stop_threshold
+    stop_channel = jm.stop_channel
+    stop_deadline = jm.stop_deadline
     pop_next = vns_evolution_loop(
         jm.rng,
         specs.neighborhoods,
-        jm.num_epochs,
         pop_init;
-        stop_threshold = jm.stop_threshold,
         generation_mod = jm.logging_generation_modulus,
-        verbosity = verbosity)
-    if !isnothing(specs.simp_spec)
-        if verbosity > 0
-            @info "$(now()): Begin simplification epoch"
+        verbosity = verbosity,
+        max_epochs = max_epochs,
+        stop_threshold = stop_threshold,
+        stop_channel = stop_channel,
+        stop_deadline = stop_deadline)
+    best_agent = pop_next.agents[1]
+    best_rating = best_agent.rating
+    if !isnothing(jm.simplifier)
+        if !isnothing(stop_threshold) && is_better(stop_threshold, best_rating, jm.sense)
+            if verbosity > 0
+                @info "$(now()): Skipping simplification: Reached stop threshold"
+            end
+        elseif !isnothing(stop_channel) && isready(stop_channel) && take!(stop_channel)
+            if verbosity > 0
+                @info "$(now()): Skipping simplification: Message received on stop channel"
+            end
+        elseif !isnothing(stop_deadline) && now() > stop_deadline
+            if verbosity > 0
+                @info "$(now()): Skpping simplification: Reached deadline"
+            end
+        else
+            if verbosity > 0
+                @info "$(now()): Begin simplification epoch"
+            end
+            pop_next = evolution_loop(
+                jm.rng,
+                specs.simp_spec,
+                pop_next;
+                verbosity = verbosity,
+                generation_mod = jm.logging_generation_modulus,
+                sense = jm.sense,
+                stop_threshold = stop_threshold,
+                stop_channel = stop_channel,
+                stop_deadline = stop_deadline
+            )
         end
-        pop_next = evolution_loop(
-            jm.rng,
-            specs.simp_spec,
-            pop_next;
-            sense = jm.sense,
-            stop_threshold = jm.stop_threshold,
-            generation_mod = jm.logging_generation_modulus,
-            verbosity = verbosity)
     end
     if verbosity > 0
         @info "$(now()): Evolution ended"

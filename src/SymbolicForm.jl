@@ -1,3 +1,8 @@
+# Make language server happy
+if false
+    using Symbolics
+end
+
 export eval_time_step_symbolic, show_symbolic, run_genome_symbolic
 export replace_near_integer
 
