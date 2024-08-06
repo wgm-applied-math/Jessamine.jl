@@ -271,6 +271,7 @@ function eval_time_step(
         end
         val_out
     end
+    @assert length(new_output) == length(cell_state.output)
     scratch_first = 1 + length(cell_state.output)
     local new_scratch::Vector{E}
     new_scratch = map(genome.instruction_blocks[scratch_first:end]) do block
@@ -281,6 +282,7 @@ function eval_time_step(
         end
         val_scr
     end
+    @assert length(new_scratch) == length(cell_state.scratch)
     cell_state_next = CellState(
         new_output,
         new_scratch,
