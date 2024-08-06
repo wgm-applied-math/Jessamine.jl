@@ -1,9 +1,6 @@
-println("Test ridge regression layer")
-
 module RD
 using Distributions
 using Random
-
 rng = Xoshiro(161004)
 
 num_points = 30
@@ -18,7 +15,7 @@ y = @. 2 + 3 * (x2 + x1 * (1 - x2))
 xs = [x1, x2]
 end # module RD
 
-module RG
+module TestRidge
 using LinearAlgebra
 using Test
 using Jessamine
@@ -30,67 +27,90 @@ genome = Genome(
     [[Instruction(Add(), [x2, t3])],
     [Instruction(Multiply(), [pm1, x2])],
     [Instruction(Add(), [p1, t1])],
-    [Instruction(Multiply(), [x1, t2])]
+    [Instruction(Multiply(), [x1, t2])],
+    [Instruction(Multiply(), [])]
 ]
 )
 
 parameter = [1.0, -1.0]
 
-spec = GenomeSpec(2, 3, 2, 2, 4)
+g_spec = GenomeSpec(2, 3, 2, 2, 4)
 
-g_res = run_genome(spec, genome, parameter, RD.xs)
+g_res = run_genome(g_spec, genome, parameter, RD.xs)
 y = g_res[end][1]
 
-function test_ridge()
-    @show least_squares_ridge(RD.xs, RD.y, 0.0, RG.spec, RG.genome, parameter)
-    @show least_squares_ridge(RD.xs, RD.y, 1e-6, RG.spec, RG.genome, parameter)
-    @show least_squares_ridge(RD.xs, RD.y, 0.1, RG.spec, RG.genome, parameter)
-    @show least_squares_ridge(RD.xs, RD.y, 0.5, RG.spec, RG.genome, parameter)
-    @show least_squares_ridge(RD.xs, RD.y, 1.0, RG.spec, RG.genome, parameter)
+function main()
+    @show least_squares_ridge(RD.xs, RD.y, 0.0, g_spec, genome, parameter)
+    @show least_squares_ridge(RD.xs, RD.y, 1e-6, g_spec, genome, parameter)
+    @show least_squares_ridge(RD.xs, RD.y, 0.1, g_spec, genome, parameter)
+    @show least_squares_ridge(RD.xs, RD.y, 0.5, g_spec, genome, parameter)
+    @show least_squares_ridge(RD.xs, RD.y, 1.0, g_spec, genome, parameter)
+
+    global lambda_b = 1e-6
+    global lambda_p = lambda_b
+    global lambda_o = lambda_b
+    global agent = least_squares_ridge_grow_and_rate(
+        RD.xs, RD.y, lambda_b, lambda_p, lambda_o, g_spec, genome)
+    global y_rgr_pred = model_predict(g_spec, agent, RD.xs)
+    global residuals = RD.y - y_rgr_pred
+
+    @show agent.parameter
+    @show agent.extra
+    @show y_rgr_pred
 end
 
-test_ridge()
+end # module TestRidge
 
-function test_ridge_grow_and_rate()
-    lambda_b = 1e-6
-    lambda_p = lambda_b
-    lambda_o = lambda_b
-    agent = least_squares_ridge_grow_and_rate(
-        RD.xs, RD.y, lambda_b, lambda_p, lambda_o, RG.spec, RG.genome)
-    y_rgr_pred = model_predict(RG.spec, agent, RD.xs)
-    residuals = RD.y - y_rgr_pred
-    return (agent, y_rgr_pred, residuals)
-end
+module TestSymbolics
 
-agent, y_rgr_pred, rgr_residuals = test_ridge_grow_and_rate()
-
-@show agent.parameter
-@show agent.extra
-@show y_rgr_pred
-
-end # module RG
-
-println("Test symbolics")
-
-module RS
 using LinearAlgebra
 using Symbolics
 using Jessamine
 using ..RD
-using ..RG
+using ..TestRidge
 
-# Things work best if we use an array of Symbolic objects
-# instead of a Symbolic array object.
-x = Symbolics.variables(:x, 1:2)
+function main()
+    # Things work best if we use an array of Symbolic objects
+    # instead of a Symbolic array object.
+    x = Symbolics.variables(:x, 1:2)
 
-z_sym = run_genome(RG.spec, RG.genome, Num.(RG.agent.parameter), x)[end]
-b = coefficients(RG.agent.extra)
-y_pred_sym = dot(z_sym, b)
-@show y_pred_sym
-y_pred_simp = simplify(y_pred_sym)
-@show y_pred_simp
+    global z_sym = run_genome(
+        TestRidge.g_spec, TestRidge.genome, Num.(TestRidge.agent.parameter), x)[end]
+    global b = coefficients(TestRidge.agent.extra)
+    global y_pred_sym = dot(z_sym, b)
+    @show y_pred_sym
+    global y_pred_simp = simplify(y_pred_sym)
+    @show y_pred_simp
+end
 
-end # module RS
+end # module TestSymbolics
 
-println("End Test ridge regression layer")
-println("----------")
+module TestSymPy
+using LinearAlgebra
+using SymPy
+using Jessamine
+using ..RD
+using ..TestRidge
+
+function main()
+    println("Part 1")
+    global x = [symbols("x$j", extended_real = true)
+                for j in 1:(TestRidge.g_spec.input_size)]
+
+    global z_sym = run_genome(
+        TestRidge.g_spec, TestRidge.genome, map(Sym, TestRidge.agent.parameter), x)[end]
+    global b = coefficients(TestRidge.agent.extra)
+    global y_pred_sym = dot(z_sym, b)
+    @show y_pred_sym
+    global y_pred_simp = sympy.expand(y_pred_sym)
+    @show y_pred_simp
+
+    println("Part 2")
+
+    global show_sympy_res = show_sympy(TestRidge.g_spec, TestRidge.genome)
+    @show show_sympy_res
+
+    sym_res = run_genome_sympy(TestRidge.g_spec, TestRidge.genome)
+    @show sym_res
+end
+end # module TestSymPy
