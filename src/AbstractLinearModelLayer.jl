@@ -1,6 +1,8 @@
 # Make language server happy
 if false
     using Symbolics
+    using SymPy
+    include("SymPyForm.jl")
 end
 
 export AbstractLinearModelResult
@@ -67,6 +69,48 @@ function model_symbolic_output(
     b_subs[b[1]] = intercept(mr)
     y_sub = Symbolics.substitute(y_simp, merge(p_subs, b_subs))
     y_num = Symbolics.simplify(y_sub)
+    return (p = p, x = x, z = z, b = b, p_subs = p_subs, b_subs = b_subs, y_sym = y_sym,
+        y_lim = y_lim, y_simp = y_simp, y_sub = y_sub, y_num = y_num)
+end
+
+function model_sympy_output(
+        g_spec::GenomeSpec,
+        genome::AbstractGenome,
+        parameter::AbstractVector,
+        mr::AbstractLinearModelResult;
+        assumptions = Dict(:extended_real => true)
+)
+    p, x, z = run_genome_sympy(g_spec, genome; assumptions = assumptions)
+    # This includes `b[1] =` $b_0$ as an intercept or bias term.
+    # Which throws off the numbering.
+    b = [symbols("b$j"; assumptions...) for j in 0:(g_spec.output_size)]
+    y_sym = dot(z, b[2:end]) + b[1]
+    used_vars = y_sym.free_symbols
+    # To handle rational functions that have things like 1/(x/0),
+    # replace Inf with W and do a limit as W -> Inf.
+    # First, grind through and make sure we have a unique symbol.
+    j = 0
+    local W
+    while true
+        W = symbols("W$j"; assumptions...)
+        if !(W in used_vars)
+            break
+        end
+        j += 1
+    end
+    # Replace all infinities with W.  The complex infinited zoo
+    # is not really correct but this is the best we can do at
+    # this point.
+    y_W = y_sym.subs(sympy.oo, W).subs(-sympy.oo, -W).subs(sympy.zoo, W)
+    y_lim = y_W.limit(W, sympy.oo)
+    y_simp = SymPy.simplify(y_lim)
+    p_subs = Dict(p[j] => parameter[j] for j in eachindex(p))
+    b_num = coefficients(mr)
+    b_subs = Dict(b[1 + j] => b_num[j] for j in eachindex(b_num))
+    # This is really $b_0$:
+    b_subs[b[1]] = intercept(mr)
+    y_sub = y_simp(merge(p_subs, b_subs))
+    y_num = SymPy.simplify(y_sub)
     return (p = p, x = x, z = z, b = b, p_subs = p_subs, b_subs = b_subs, y_sym = y_sym,
         y_lim = y_lim, y_simp = y_simp, y_sub = y_sub, y_num = y_num)
 end
