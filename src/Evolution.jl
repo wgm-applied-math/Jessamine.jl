@@ -10,6 +10,9 @@ end
 
 export SelectionSpec, SelectionDist, Population
 export Agent
+export AbstractPopulationCondition, InitialPopulation, InProgress
+export DiscoveredInnovation, ReachedStopThreshold, ReachedDeadline
+export ReachedMaxGenerations, ReachedMaxEpochs
 export generation_size
 export random_genome, random_initial_population, next_generation
 export EvolutionSpec, evolution_loop
@@ -101,11 +104,59 @@ This definition allows a population to be sorted.
 """
 Base.isless(x::Agent, y::Agent) = isless(x.rating, y.rating)
 
+"""Base type of conditions for a population.  These indicate
+whether the population is a work in progress, or why its
+evolution was stopped."""
+abstract type AbstractPopulationCondition end
+
+struct InitialPopulation <: AbstractPopulationCondition end
+
+struct InProgress <: AbstractPopulationCondition end
+
+struct DiscoveredInnovation <: AbstractPopulationCondition end
+
+struct ReachedStopThreshold <: AbstractPopulationCondition end
+
+struct ReachedMaxGenerations <: AbstractPopulationCondition end
+
+struct ReachedDeadline <: AbstractPopulationCondition end
+
+struct ReachedMaxEpochs <: AbstractPopulationCondition end
+
+struct ReceivedStopMessage <: AbstractPopulationCondition end
+
+"""
+    describe_condition(::AbstractPopulationCondition)
+
+Return a short string describing the population condition.
+"""
+describe_condition(::AbstractPopulationCondition) = "unknown"
+describe_condition(::InitialPopulation) = "initial population"
+describe_condition(::InProgress) = "in progress"
+describe_condition(::ReachedStopThreshold) = "reached stop threshold"
+describe_condition(::ReachedMaxGenerations) = "reached max generations"
+describe_condition(::ReachedDeadline) = "reached deadline"
+describe_condition(::ReachedMaxEpochs) = "reached max epochs"
+describe_condition(::ReceivedStopMessage) = "received stop message"
+
+"""
+    vns_keep_going(::AbstractPopulationCondition)
+
+Return whether VNS should continue to another epoch.
+Utility function.
+"""
+vns_keep_going(::AbstractPopulationCondition) = true
+vns_keep_going(::ReachedDeadline) = false
+vns_keep_going(::ReachedMaxEpochs) = false
+vns_keep_going(::ReceivedStopMessage) = false
+vns_keep_going(::ReachedStopThreshold) = false
+
 """
 A population is a single generation of living `Agent`s.
 """
 struct Population
     agents::Vector{Agent}
+    condition::AbstractPopulationCondition
 end
 
 function short_show(io::IO, p::Population)
@@ -229,7 +280,7 @@ function random_initial_population(
     end
     rev = sense == Optimization.MaxSense
     sort!(agents, rev = rev)
-    return Population(agents)
+    return Population(agents, InitialPopulation())
 end
 
 """
@@ -337,7 +388,7 @@ function next_generation(
     next_rated_genomes = vcat(new_agents, keepers)
     rev = sense == Optimization.MaxSense
     sort!(next_rated_genomes, rev = rev)
-    return Population(next_rated_genomes)
+    return Population(next_rated_genomes, InProgress())
 end
 
 """
@@ -415,36 +466,31 @@ function evolution_loop(
         stop_deadline::Union{Nothing,DateTime} = nothing,
 )
     pop_next = pop_init
-    best_rating = pop_init.agents[1].rating
+    best_in_gen = pop_next.agents[1]
+    best_rating = best_in_gen.rating
+    condition = InProgress()
     t = 0
     while true
         if !isnothing(max_generations) && t >= max_generations
-            if verbosity > 0
-                @info "$(now()): Stopping: Reached $t generations"
-            end
+            condition = ReachedMaxGenerations()
             break
         end
         if !isnothing(stop_threshold) && is_better(stop_threshold, best_rating, sense)
-            if verbosity > 0
-                @info "$(now()): Stopping: Reached stop threshold"
-            end
+            condition = ReachedStopThreshold()
             break
         end
         if !isnothing(stop_channel) && isready(stop_channel) && take!(stop_channel)
-            if verbosity > 0
-                @info "$(now()): Stopping: Message received on stop channel"
-            end
+            condition = ReceivedStopMessage()
             break
         end
         if !isnothing(stop_deadline) && now() > stop_deadline
-            if verbosity > 0
-                @info "$(now()): Stopping: Reached deadline"
-            end
+            condition = ReachedDeadline()
             break
         end
         best_in_gen = pop_next.agents[1]
         if is_better(best_rating, best_in_gen.rating, sense)
             best_rating = best_in_gen.rating
+            condition = DiscoveredInnovation()
             if verbosity > 0
                 @info "$(now()): Generation $t, new best = $best_rating"
             end
@@ -459,7 +505,10 @@ function evolution_loop(
             @info "$(now()): Generation $t, best = $best_rating"
         end
     end
-    return pop_next
+    if verbosity > 0
+        @info "$(now()): Stopping: $(describe_condition(condition))"
+    end
+    return Population(pop_next.agents, condition)
 end
 
 """
@@ -557,32 +606,14 @@ function vns_evolution_loop(
         stop_deadline::Union{Nothing,DateTime} = nothing,
 )
     pop_next = pop_init
-    best_rating = pop_init.agents[1].rating
     neighborhood_index = 1
+    condition = InProgress()
     e = 0
-    while true
+    best_in_gen = pop_next.agents[1]
+    best_rating = best_in_gen.rating
+    while vns_keep_going(condition)
         if !isnothing(max_epochs) && e >= max_epochs
-            if verbosity > 0
-                @info "$(now()): Stopping VNS: Reached $e epochs"
-            end
-            break
-        end
-        if !isnothing(stop_threshold) && is_better(stop_threshold, best_rating, sense)
-            if verbosity > 0
-                @info "$(now()): Stoping VNS: Reached stop threshold"
-            end
-            break
-        end
-        if !isnothing(stop_channel) && isready(stop_channel) && take!(stop_channel)
-            if verbosity > 0
-                @info "$(now()): Stopping VNS: Message received on stop channel"
-            end
-            break
-        end
-        if !isnothing(stop_deadline) && now() > stop_deadline
-            if verbosity > 0
-                @info "$(now()): Stopping VNS: Reached deadline"
-            end
+            condition = ReachedMaxEpochs()
             break
         end
         e += 1
@@ -597,25 +628,30 @@ function vns_evolution_loop(
             stop_channel = stop_channel,
             stop_deadline = stop_deadline
         )
-        best_in_epoch = pop_next.agents[1]
-        if is_better(best_rating, best_in_epoch.rating, sense)
-            best_rating = best_in_epoch.rating
+        best_in_gen = pop_next.agents[1]
+        condition = pop_next.condition
+        if (condition == DiscoveredInnovation()
+            || is_better(best_rating, best_in_gen.rating, sense))
+            best_rating = best_in_gen.rating
             # Return to neighborhood 1
             neighborhood_index = 1
             if verbosity > 0
-                @info "$(now()): Epoch $e: New best = $best_rating, returning to first neighborhood"
+                @info "$(now()): Epoch $e: Discovered innovation, returning to first neighborhood"
             end
         elseif neighborhood_index < length(neighborhoods)
             # Advance to the next neighborhood
             neighborhood_index += 1
             if verbosity > 0
-                @info "$(now()): Epoch $e: Completed with no new best rating, advancing to neighborhood $neighborhood_index"
+                @info "$(now()): Epoch $e: Completed with no innovation, advancing to neighborhood $neighborhood_index"
             end
         else
             if verbosity > 0
-                @info "$(now()): Epoch $e: Completed with no new best rating, continuing in neighborhood $neighborhood_index"
+                @info "$(now()): Epoch $e: Completed with no innovation, continuing in neighborhood $neighborhood_index"
             end
         end
     end
-    return pop_next
+    if verbosity > 0
+        @info "$(now()): Stopping VNS: $(describe_condition(condition))"
+    end
+    return Population(pop_next.agents, condition)
 end

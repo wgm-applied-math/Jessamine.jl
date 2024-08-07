@@ -363,6 +363,17 @@ function MLJModelInterface.fit(
         X, y, w)
 end
 
+"""
+    do_simplification(::AbstractPopulationCondition)
+
+Return whether to perform the simplification epoch.
+Utility function.
+"""
+do_simplification(::AbstractPopulationCondition) = true
+do_simplification(::ReachedDeadline) = false
+do_simplification(::ReceivedStopMessage) = false
+
+
 function MLJModelInterface.update(
         jm::JessamineModel,
         verbosity::Int,
@@ -378,39 +389,22 @@ function MLJModelInterface.update(
     if verbosity > 0
         @info "$(now()): Begin VNS loop"
     end
-    max_epochs = jm.max_epochs
-    stop_threshold = jm.stop_threshold
-    stop_channel = jm.stop_channel
-    stop_deadline = jm.stop_deadline
     pop_next = vns_evolution_loop(
         jm.rng,
         specs.neighborhoods,
         pop_init;
         generation_mod = jm.logging_generation_modulus,
         verbosity = verbosity,
-        max_epochs = max_epochs,
-        stop_threshold = stop_threshold,
-        stop_channel = stop_channel,
-        stop_deadline = stop_deadline)
-    best_agent = pop_next.agents[1]
-    best_rating = best_agent.rating
+        max_epochs = jm.max_epochs,
+        stop_threshold = jm.stop_threshold,
+        stop_channel = jm.stop_channel,
+        stop_deadline = jm.stop_deadline)
     if !isnothing(jm.simplifier)
-        if !isnothing(stop_threshold) && is_better(stop_threshold, best_rating, jm.sense)
-            if verbosity > 0
-                @info "$(now()): Skipping simplification: Reached stop threshold"
-            end
-        elseif !isnothing(stop_channel) && isready(stop_channel) && take!(stop_channel)
-            if verbosity > 0
-                @info "$(now()): Skipping simplification: Message received on stop channel"
-            end
-        elseif !isnothing(stop_deadline) && now() > stop_deadline
-            if verbosity > 0
-                @info "$(now()): Skpping simplification: Reached deadline"
-            end
-        else
+        if do_simplification(pop_next.condition)
             if verbosity > 0
                 @info "$(now()): Begin simplification epoch"
             end
+            pre_simp_condition = pop_next.condition
             pop_next = evolution_loop(
                 jm.rng,
                 specs.simp_spec,
@@ -418,23 +412,29 @@ function MLJModelInterface.update(
                 verbosity = verbosity,
                 generation_mod = jm.logging_generation_modulus,
                 sense = jm.sense,
-                stop_threshold = stop_threshold,
-                stop_channel = stop_channel,
-                stop_deadline = stop_deadline
+                stop_threshold = jm.stop_threshold,
+                stop_channel = jm.stop_channel,
+                stop_deadline = jm.stop_deadline
             )
+            if pop_next.condition == InProgress()
+                pop_next = Population(pop_next, pre_simp_condition)
+            end
+        elseif verbosity > 0
+            @info "$(now()): Skipping simplification: $(describe_condition(pop_next.condition))"
         end
     end
     if verbosity > 0
         @info "$(now()): Evolution ended"
     end
     best_agent = pop_next.agents[1]
+    best_rating = best_agent.rating
     symbolic_result = run_genome_symbolic(specs.g_spec, best_agent.genome)
     fit_result = (
         g_spec = specs.g_spec,
         best_agent = best_agent,
         inner_fitted_params = MLJ.fitted_params(best_agent.extra.m))
     report = (
-        rating = best_agent.rating,
+        rating = best_rating,
         symbolic_result = symbolic_result)
     # Including a non-nothing cache object here gives MLJ.fit! a
     # way to continue if called again by calling update() I
