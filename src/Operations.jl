@@ -13,8 +13,9 @@ export Add, Multiply, Subtract
 export UnaryComposition
 export ReciprocalMultiply, ReciprocalAdd, ReciprocalSubtract
 export FzAnd, FzOr, FzNand, FzNor
-export Sign, Maximum, Minimum
-export SignAdd
+export Maximum, Minimum
+export Sign, SignAdd, SignSubtract
+export Sigmoid, SigmoidAdd, SigmoidSubtract
 
 """
     splat_or_default(op, def, operands)
@@ -109,7 +110,8 @@ function to_expr(::Multiply, cs, operands)
 end
 
 "Do a multi-arity operation and apply a unary operation"
-@kwdef struct UnaryComposition{Un<:AbstractUnaryOp, Multi<:AbstractMultiOp} <: AbstractMultiOp
+@kwdef struct UnaryComposition{Un <: AbstractUnaryOp, Multi <: AbstractMultiOp} <:
+              AbstractMultiOp
     unary::Un = Un()
     multi::Multi = Multi()
 end
@@ -132,18 +134,17 @@ end
 
 struct Reciprocal <: AbstractUnaryOp end
 short_show(io::IO, ::Reciprocal) = print(io, "rcp")
-un_op_eval(::Reciprocal, t) =  1.0 ./ t
+un_op_eval(::Reciprocal, t) = 1.0 ./ t
 to_expr(::Reciprocal, expr) = :(1.0 ./ $expr)
 
 "Multiply operands and return the reciprocal."
-const ReciprocalMultiply = UnaryComposition{Reciprocal,Multiply}
+const ReciprocalMultiply = UnaryComposition{Reciprocal, Multiply}
 
 "Add operands and return the reciprocal."
-const ReciprocalAdd = UnaryComposition{Reciprocal,Add}
+const ReciprocalAdd = UnaryComposition{Reciprocal, Add}
 
 "Subtract operands and return the reciprocal."
 const ReciprocalSubtract = UnaryComposition{Reciprocal, Subtract}
-
 
 "Return fuzzy AND of the operands"
 struct FzAnd <: AbstractMultiOp end
@@ -209,13 +210,29 @@ function to_expr(::FzNor, cs, operands)
     end
 end
 
+"Return the sign of the operand"
 struct Sign <: AbstractUnaryOp end
 short_show(io::IO, ::Sign) = print(io, "sign")
 un_op_eval(::Sign, t) = sign.(t)
 to_expr(::Sign, expr) = :(sign.($expr))
 
 "Return the sign of the sum of the operands"
-const SignAdd = UnaryComposition{Sign,Add}
+const SignAdd = UnaryComposition{Sign, Add}
+
+"Return the sign of the difference of the operands"
+const SignSubtract = UnaryComposition{Sign, Subtract}
+
+"Apply the exponential sigmoid to the operand"
+struct Sigmoid <: AbstractUnaryOp end
+short_show(io::IO, ::Sign) = print(io, "sigmoid")
+un_op_eval(::Sigmoid, t) = 1 ./ (1 .+ exp.(-t))
+to_expr(::Sigmoid, expr) = :(1 ./ (1 .+ exp.(-$expr)))
+
+"Apply the exponential sigmoid to the sum of the operands"
+const SigmoidAdd = UnaryComposition{Sigmoid, Add}
+
+"Apply the exponential sigmoid to the difference of the operands"
+const SigmoidSubtract = UnaryComposition{Sigmoid, Subtract}
 
 "Return the maximum of the operands."
 struct Maximum <: AbstractMultiOp end
