@@ -13,7 +13,8 @@ export Add, Multiply, Subtract
 export UnaryComposition
 export ReciprocalMultiply, ReciprocalAdd, ReciprocalSubtract
 export FzAnd, FzOr, FzNand, FzNor
-export SignAdd, Maximum, Minimum
+export Sign, Maximum, Minimum
+export SignAdd
 
 """
     splat_or_default(op, def, operands)
