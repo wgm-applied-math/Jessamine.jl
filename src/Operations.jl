@@ -224,7 +224,7 @@ const SignSubtract = UnaryComposition{Sign, Subtract}
 
 "Apply the exponential sigmoid to the operand"
 struct Sigmoid <: AbstractUnaryOp end
-short_show(io::IO, ::Sign) = print(io, "sigmoid")
+short_show(io::IO, ::Sigmoid) = print(io, "sigmoid")
 un_op_eval(::Sigmoid, t) = 1 ./ (1 .+ exp.(-t))
 to_expr(::Sigmoid, expr) = :(1 ./ (1 .+ exp.(-$expr)))
 
