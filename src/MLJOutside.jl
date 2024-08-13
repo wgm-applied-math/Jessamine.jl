@@ -466,6 +466,21 @@ function model_symbolic_output(fit_result::NamedTuple; kw_args...)
 end
 
 """
+    model_sympy_output(fit_result::NamedTuple; kw_args...)
+
+Call `model_sympy_output` with the `g_spec::GenomeSpec`
+and `best_agent::Agent` found in `fit_result`.
+Return the result.
+"""
+function model_sympy_output(fit_result::NamedTuple; kw_args...)
+    return model_sympy_output(
+        fit_result.g_spec,
+        fit_result.best_agent;
+        kw_args...)
+end
+
+
+"""
     show_symbolic(fit_result::NamedTuple; kw_args...)
 
 Call `show_symbolic` with the `g_spec::GenomeSpec`
@@ -474,6 +489,20 @@ Return the result.
 """
 function show_symbolic(fit_result::NamedTuple; kw_args...)
     return show_symbolic(
+        fit_result.g_spec,
+        fit_result.best_agent.genome;
+        kw_args...)
+end
+
+"""
+    show_sympy(fit_result::NamedTuple; kw_args...)
+
+Call `show_sympy` with the `g_spec::GenomeSpec`
+and `best_agent.genome::AbstractGenome` found in `fit_result`.
+Return the result.
+"""
+function show_sympy(fit_result::NamedTuple; kw_args...)
+    return show_sympy(
         fit_result.g_spec,
         fit_result.best_agent.genome;
         kw_args...)
