@@ -16,6 +16,7 @@ export FzAnd, FzOr, FzNand, FzNor
 export Maximum, Minimum
 export Sign, SignAdd, SignSubtract
 export Sigmoid, SigmoidAdd, SigmoidSubtract
+export define_unary_op
 
 """
     splat_or_default(op, def, operands)
@@ -289,3 +290,28 @@ function to_expr(::Minimum, cs, operands)
         end
     end
 end
+
+macro define_unary_op(struct_name, function_name)
+    return quote
+        @doc "Return " * string($function_name) * " of the operand"
+        struct $struct_name <: AbstractUnaryOp end
+        short_show(io::IO, ::($struct_name)) = print(io, string($function_name))
+        un_op_eval(::($struct_name), t) = ($function_name).(t)
+        to_expr(::($struct_name), expr) = :($($function_name).($expr))
+    end
+end
+
+@define_unary_op Exp exp
+@define_unary_op Log log
+@define_unary_op Sin sin
+@define_unary_op Cos cos
+@define_unary_op Tan tan
+@define_unary_op ASin asin
+@define_unary_op ACos acos
+@define_unary_op ATan atan
+@define_unary_op Sinh sinh
+@define_unary_op Cosh cosh
+@define_unary_op Tanh tanh
+@define_unary_op ASinh asinh
+@define_unary_op ACosh acosh
+@define_unary_op ATanh atanh
