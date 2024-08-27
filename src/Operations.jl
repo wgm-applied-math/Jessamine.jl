@@ -1,6 +1,6 @@
 # Make language server happy
 if false
-    include("GenomeCore.jl")
+    # include("GenomeCore.jl")
 end
 
 abstract type AbstractUnaryOp end
@@ -11,7 +11,7 @@ export splat_or_default
 export AbstractUnaryOp, AbstractMultiOp
 export Add, Multiply, Subtract
 export UnaryComposition
-export ReciprocalMultiply, ReciprocalAdd, ReciprocalSubtract
+export Reciprocal, ReciprocalMultiply, ReciprocalAdd, ReciprocalSubtract
 export FzAnd, FzOr, FzNand, FzNor
 export Maximum, Minimum
 export Sign, SignAdd, SignSubtract
@@ -293,14 +293,30 @@ end
 
 macro define_unary_op(struct_name, function_name)
     return quote
-        @doc "Return " * string($function_name) * " of the operand"
+        export $struct_name
+        export $(Symbol(string(struct_name) * "Add"))
+        export $(Symbol(string(struct_name) * "Subtract"))
+        export $(Symbol(string(struct_name) * "Multiply"))
+        @doc "Return "*string($function_name)*" of the operand"
         struct $struct_name <: AbstractUnaryOp end
+        global short_show
         short_show(io::IO, ::($struct_name)) = print(io, string($function_name))
+        global un_op_eval
         un_op_eval(::($struct_name), t) = ($function_name).(t)
+        global to_expr
         to_expr(::($struct_name), expr) = :($($function_name).($expr))
+        @doc "Return "*string($function_name)*" applied to the sum of the operands"
+        const $(Symbol(string(struct_name) * "Add")) = UnaryComposition{$struct_name, Add}
+        @doc "Return "*string($function_name)*" applied to the result of subtraction of the operands"
+        const $(Symbol(string(struct_name) * "Subtract")) = UnaryComposition{
+            $struct_name, Subtract}
+        @doc "Return "*string($function_name)*" applied to the product of the operands"
+        const $(Symbol(string(struct_name) * "Multiply")) = UnaryComposition{
+            $struct_name, Multiply}
     end
 end
 
+@define_unary_op Sqrt sqrt
 @define_unary_op Exp exp
 @define_unary_op Log log
 @define_unary_op Sin sin
@@ -315,3 +331,31 @@ end
 @define_unary_op ASinh asinh
 @define_unary_op ACosh acosh
 @define_unary_op ATanh atanh
+
+export PolynomialInventory
+const PolynomialInventory = [Add(), Subtract(), Multiply()]
+
+export RationalFunctionInventory
+const RationalFunctionInventory = vcat(
+    PolynomialInventory, [ReciprocalAdd(), ReciprocalSubtract(), ReciprocalMultiply()])
+
+export ExpLogInventory
+const ExpLogInventory = vcat(RationalFunctionInventory,
+    reshape(
+        [UnaryComposition{un_op, bin_op}()
+         for un_op in [Sqrt, Exp, Log], bin_op in [Add, Subtract, Multiply]],
+        :))
+
+export TrigInventory
+const TrigInventory = vcat(ExpLogInventory,
+    reshape(
+        [UnaryComposition{un_op, bin_op}()
+         for un_op in [Sin, Cos, Tan, ASin, ACos, ATan], bin_op in [Add, Subtract, Multiply]],
+        :))
+
+export HyperbolicInventory
+const HyperbolicInventory = vcat(ExpLogInventory,
+        reshape(
+            [UnaryComposition{un_op, bin_op}()
+             for un_op in [Sinh, Cosh, Tanh, ASinh, ACosh, ATanh], bin_op in [Add, Subtract, Multiply]],
+            :))
