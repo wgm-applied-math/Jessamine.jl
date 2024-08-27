@@ -549,7 +549,6 @@ end
     vns_evolution_loop(
     rng::AbstractRNG,
     neighborhoods::AbstractVector{EvolutionSpec},
-    num_epochs::Integer,
     pop_init::Population;
     kw_args...
     )
