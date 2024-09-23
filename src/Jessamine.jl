@@ -10,10 +10,12 @@ using MLJModelInterface
 using Optim
 using Optimization
 using OptimizationOptimJL
+using PyCall
 using Random
 using SciMLBase
 using Symbolics
 using SymPy
+using SymPyCore
 using Tables
 using Base.Threads
 
@@ -32,5 +34,7 @@ include("RidgeLayer.jl")
 include("MachineLayer.jl")
 include("MLJInside.jl")
 include("MLJOutside.jl")
+
+include("Precompile.jl")
 
 end
