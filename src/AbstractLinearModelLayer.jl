@@ -38,7 +38,7 @@ end
 function model_symbolic_output(
         g_spec::GenomeSpec,
         genome::AbstractGenome,
-        parameter::AbstractVector,
+        parameter::AbstractArray,
         mr::AbstractLinearModelResult
 )
     p, x, z = run_genome_symbolic(g_spec, genome)
@@ -76,7 +76,7 @@ end
 function model_sympy_output(
         g_spec::GenomeSpec,
         genome::AbstractGenome,
-        parameter::AbstractVector,
+        parameter::AbstractArray,
         mr::AbstractLinearModelResult;
         assumptions = Dict(:extended_real => true)
 )
@@ -116,13 +116,13 @@ function model_sympy_output(
 end
 
 """
-    model_predict(mr::AbstractLinearModelResult, xs::AbstractVector{<:AbstractVector}; kw_args...)
+    model_predict(mr::AbstractLinearModelResult, xs::AbstractArray{<:AbstractArray}; kw_args...)
 
 Stack the columns `xs` into a matrix `X` and call `model_predict`.
 The `kw_args` are splatted in.
 """
 function model_predict(
-        mr::AbstractLinearModelResult, xs::AbstractVector{<:AbstractVector}; kw_args...)
+        mr::AbstractLinearModelResult, xs::AbstractArray{<:AbstractArray}; kw_args...)
     X = stack(xs)
     return model_predict(mr, X; kw_args...)
 end
@@ -137,14 +137,14 @@ function model_predict(lmr::AbstractLinearModelResult, X::Matrix)
 end
 
 """
-    extend_if_singleton(v::AbstractVector, m::Int)
+    extend_if_singleton(v::AbstractArray, m::Int)
 
 If `v` is a singleton, as in `v = [x]`,
 return `[x, x, ...]`, that is, a vector of `m` copies of `x`.
 Otherwise, assert that `length(v) == m` and return `v`.
 So the result is always a vector of length `m`.
 """
-function extend_if_singleton(v::AbstractVector, m::Int)
+function extend_if_singleton(v::AbstractArray, m::Int)
     if length(v) == 1
         return fill(v[1], m)
     else
@@ -153,7 +153,7 @@ function extend_if_singleton(v::AbstractVector, m::Int)
     end
 end
 
-function extend_if_singleton(v::AbstractVector, shape::Tuple{Int})
+function extend_if_singleton(v::AbstractArray, shape::Tuple{Int})
     (m,) = shape
     return extend_if_singleton(v, m)
 end

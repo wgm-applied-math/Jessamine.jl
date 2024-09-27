@@ -40,9 +40,9 @@ short_show(io::IO, ::Add) = print(io, "add")
 
 op_eval(::Add, operands) = splat_or_default(.+, 0.0, operands)
 
-function op_eval_add_into!(dest::AbstractVector, ::Add, operands::AbstractVector)
+function op_eval_add_into!(dest::AbstractArray, ::Add, operands::AbstractArray)
     for operand in operands
-        dest .= dest .+ operand
+        dest .+= operand
     end
 end
 
@@ -70,11 +70,11 @@ function op_eval(::Subtract, operands)
     end
 end
 
-function op_eval_add_into!(dest::AbstractVector, ::Subtract, operands::AbstractVector)
+function op_eval_add_into!(dest::AbstractArray, ::Subtract, operands::AbstractArray)
     if !isempty(operands)
-        dest .= dest .+ operands[1]
+        dest .+= operands[1]
         for operand in operands[2:end]
-            dest .= dest .- operand
+            dest .-= operand
         end
     end
 end

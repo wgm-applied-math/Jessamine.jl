@@ -27,7 +27,7 @@ outputs using the coefficients `agent.extra`.
 """
 function model_predict(
         g_spec::GenomeSpec,
-        agent::Agent{<:Number, <:AbstractGenome, <:AbstractVector, <:AbstractModelResult},
+        agent::Agent{<:Number, <:AbstractGenome, <:AbstractArray, <:AbstractModelResult},
         x_table;
         kw_args...
 )
@@ -74,7 +74,7 @@ Return a named tuple with lots of useful fields.
 function model_symbolic_output(
         g_spec::GenomeSpec,
         genome::AbstractGenome,
-        parameter::AbstractVector,
+        parameter::AbstractArray,
         mr::AbstractModelResult;
         kw_args...)
     p, x, z = run_genome_symbolic(g_spec, genome)
@@ -159,7 +159,7 @@ Return a named tuple with lots of useful fields.
 function model_sympy_output(
         g_spec::GenomeSpec,
         genome::AbstractGenome,
-        parameter::AbstractVector,
+        parameter::AbstractArray,
         mr::AbstractModelResult;
         assumptions = Dict(:extended_real => true),
         kw_args...)

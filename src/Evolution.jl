@@ -78,7 +78,7 @@ end
 
 """An agent has a rating, a genome, a parameter vector, and an
 extra bit of data that depends on how rating is done."""
-struct Agent{R, G <: AbstractGenome, VPar <: AbstractVector, T}
+struct Agent{R, G <: AbstractGenome, VPar <: AbstractArray, T}
     rating::R
     genome::G
     parameter::VPar
@@ -548,7 +548,7 @@ end
 """
     vns_evolution_loop(
     rng::AbstractRNG,
-    neighborhoods::AbstractVector{EvolutionSpec},
+    neighborhoods::AbstractArray{EvolutionSpec},
     pop_init::Population;
     kw_args...
     )
@@ -594,7 +594,7 @@ calling `next_generation`, and if so, the loop stops.
 
 function vns_evolution_loop(
         rng::AbstractRNG,
-        neighborhoods::AbstractVector{EvolutionSpec},
+        neighborhoods::AbstractArray{EvolutionSpec},
         pop_init::Population;
         max_epochs::Union{Nothing,Integer} = nothing,
         generation_mod = 10,

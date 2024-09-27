@@ -18,12 +18,12 @@ If all goes well, return `(norm(y - y_hat), b)`.
 Otherwise return `nothing`.
 """
 function least_squares_ridge(
-        xs::AbstractVector{<:AbstractVector},
-        y::AbstractVector,
+        xs::AbstractArray{<:AbstractArray},
+        y::AbstractArray,
         lambda::Number,
         g_spec::GenomeSpec,
         genome::AbstractGenome,
-        parameter::AbstractVector)
+        parameter::AbstractArray)
     @assert g_spec.input_size == length(xs)
     num_rows = length(y)
     # local outputs::Vector{Vector{Vector{Float64}}}
@@ -64,14 +64,14 @@ Otherwise, return `nothing`.
 
 """
 function least_squares_ridge_grow_and_rate(
-        xs::AbstractVector{<:AbstractVector},
-        y::AbstractVector,
+        xs::AbstractArray{<:AbstractArray},
+        y::AbstractArray,
         lambda_b::Number,
         lambda_p::Number,
         lambda_operand::Number,
         g_spec::GenomeSpec,
         genome::AbstractGenome,
-        p_init::AbstractVector = zeros(g_spec.parameter_size)
+        p_init::AbstractArray = zeros(g_spec.parameter_size)
 )::Union{Agent, Nothing}
     optim_fn = OptimizationFunction(_LSRGR_f)
     c = _LSRGR_Context(g_spec, genome, lambda_b, xs, y, lambda_p, nothing, nothing)
@@ -98,8 +98,8 @@ function least_squares_ridge_grow_and_rate(
 end
 
 function least_squares_ridge_grow_and_rate(
-        xs::AbstractVector{<:AbstractVector},
-        y::AbstractVector,
+        xs::AbstractArray{<:AbstractArray},
+        y::AbstractArray,
         lambda_b::Number,
         lambda_p::Number,
         lambda_operand::Number,

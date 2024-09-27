@@ -141,7 +141,7 @@ function mutate(rng::AbstractRNG, m_dist::MutationDist, inst::Instruction)
     end
 end
 
-function mutate(rng::AbstractRNG, m_dist::MutationDist, v::AbstractVector)
+function mutate(rng::AbstractRNG, m_dist::MutationDist, v::AbstractArray)
     return map(x -> mutate(rng, m_dist, x), v)
 end
 

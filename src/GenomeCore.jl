@@ -86,14 +86,15 @@ function v_convert(::Type{<:AbstractArray}, x::AbstractArray)
 end
 
 function v_convert(ref::Type{<:AbstractArray}, x)
-    return [convert(eltype(ref), x)]
+    singleton = [convert(eltype(ref), x)]
+    return convert(ref, singleton)
 end
 
 function v_convert(ref::Type, x)
     return convert(ref, x)
 end
 
-function v_unconvert(xv::AbstractVector)
+function v_unconvert(xv::AbstractArray)
     @assert length(xv) == 1
     return xv[1]
 end
@@ -117,7 +118,7 @@ function Base.getindex(cs::CellState, i::Int)
     return v[j]
 end
 
-function Base.getindex(cs::CellState, ix::AbstractVector)
+function Base.getindex(cs::CellState, ix::AbstractArray)
     return [Base.getindex(cs, j) for j in ix]
 end
 
@@ -167,7 +168,7 @@ function to_expr(g_spec::GenomeSpec, blocks::Vector{Vector{Instruction}},
 end
 
 """
-    op_eval(op::AbstractGeneOp, operands::AbstractVector)
+    op_eval(op::AbstractGeneOp, operands::AbstractArray)
 
 Return `op` applied to a list of operands.
 """
@@ -186,7 +187,7 @@ temporary array to hold the result of `op_eval(...)`.
 
 """
 function op_eval_add_into!(
-        dest::AbstractVector, op::AbstractGeneOp, operands::AbstractVector)
+        dest::AbstractArray, op::AbstractGeneOp, operands::AbstractArray)
     dest .= dest .+ op_eval(op, operands)
 end
 
@@ -250,21 +251,21 @@ function num_operands(instruction::Instruction)
 end
 
 """
-    num_operands(xs::AbstractVector)
+    num_operands(xs::AbstractArray)
 
 Return the total number of instruction operands in `xs`.
 """
-function num_operands(xs::AbstractVector)
+function num_operands(xs::AbstractArray)
     return sum(num_operands.(xs))
 end
 
 function eval_time_step(
         cell_state::CellState{E},
         genome::Genome
-)::CellState{E} where {E <: AbstractVector}
-    local new_output::Vector{E}
+)::CellState{E} where {E <: AbstractArray}
+    # local new_output::Vector{E}
     new_output = map(genome.instruction_blocks[1:length(cell_state.output)]) do block
-        local val_out::Vector{eltype(E)}
+        # local val_out::Vector{eltype(E)}
         val_out = zero_like(cell_state.input[1])
         for instr in block
             op_eval_add_into!(val_out, instr.op, cell_state[instr.operand_ixs])
@@ -273,9 +274,9 @@ function eval_time_step(
     end
     @assert length(new_output) == length(cell_state.output)
     scratch_first = 1 + length(cell_state.output)
-    local new_scratch::Vector{E}
+    # local new_scratch::Vector{E}
     new_scratch = map(genome.instruction_blocks[scratch_first:end]) do block
-        local val_scr::Vector{eltype(E)}
+        # local val_scr::Vector{eltype(E)}
         val_scr = zero_like(cell_state.input[1])
         for instr in block
             op_eval_add_into!(val_scr, instr.op, cell_state[instr.operand_ixs])
@@ -299,7 +300,7 @@ function eval_time_step(
     new_output = map(genome.instruction_blocks[1:length(cell_state.output)]) do block
         val_out = zero_like(cell_state.input[1])
         for instr in block
-            val_out = val_out + op_eval(instr.op, cell_state[instr.operand_ixs])
+            val_out += op_eval(instr.op, cell_state[instr.operand_ixs])
         end
         val_out
     end
@@ -309,7 +310,7 @@ function eval_time_step(
         local val_scr::E
         val_scr = zero_like(cell_state.input[1])
         for instr in block
-            val_scr = val_scr + op_eval(instr.op, cell_state[instr.operand_ixs])
+            val_scr += op_eval(instr.op, cell_state[instr.operand_ixs])
         end
         val_scr
     end
@@ -326,12 +327,17 @@ function zero_like(ref::T)::T where {T <: Number}
 end
 
 # vector case
-function zero_like(v::V)::Vector{eltype(V)} where {V <: AbstractVector}
+# This is a fallback implementation that works for GPU arrays and other oddities
+function zero_like(v::V)::V where {V <: AbstractArray}
+    return v .* 0
+end
+
+function zero_like(v::Array)::Array
     return zeros(eltype(v), size(v))
 end
 
 function zeros_like(
-        v::V, num_elts::Int)::Vector{Vector{eltype(V)}} where {V <: AbstractVector}
+        v::V, num_elts::Int)::Vector{V} where {V <: AbstractArray}
     return [zero_like(v) for _ in 1:num_elts]
 end
 
@@ -373,7 +379,7 @@ function num_operands(cg::CompiledGenome)
 end
 
 """
-    run_genome(g_spec::GenomeSpec, genome::Genome, parameter::AbstractVector, input)::Vector
+    run_genome(g_spec::GenomeSpec, genome::Genome, parameter::AbstractArray, input)::Vector
 
 Build a work space vector using zeros for each output and scratch
 slot, followed by the `parameter` vector, then the `input`

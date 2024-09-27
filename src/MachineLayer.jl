@@ -62,8 +62,8 @@ The default implementation applies the callable `mn_spec.performance(y_hat, y_re
 """
 function prediction_performance(
         mn_spec::AbstractMachineSpec,
-        y_hat::AbstractVector,
-        y_ref::AbstractVector
+        y_hat::AbstractArray,
+        y_ref::AbstractArray
 )::Real
     mn_spec.performance(y_hat, y_ref)
 end
@@ -77,7 +77,7 @@ squared L2 norm of `p`.
 """
 function genome_parameter_complexity(
         mn_spec::AbstractMachineSpec,
-        p::AbstractVector
+        p::AbstractArray
 )::Real
     return mn_spec.lambda_parameter * dot(p, p)
 end
@@ -150,10 +150,10 @@ end
     y::Ty
     output_col_names::Vector{String}
     m_save::Any
-    weight_vector::Union{Nothing, AbstractVector}
+    weight_vector::Union{Nothing, AbstractArray}
 end
 
-function _MGR_f(genome_parameter::AbstractVector, c::MGRContext)
+function _MGR_f(genome_parameter::AbstractArray, c::MGRContext)
     num_rows = length(c.xs[1])
     last_round = run_genome(c.g_spec, c.genome, genome_parameter, c.xs)[end]
     outputs = map(last_round) do z
@@ -236,7 +236,7 @@ function machine_grow_and_rate(
 end
 
 function model_predict(
-        mr::MachineResult, input::AbstractVector{<:AbstractVector}; kw_args...)
+        mr::MachineResult, input::AbstractArray{<:AbstractArray}; kw_args...)
     return model_predict(mr, DataFrame(input, :auto); kw_args...)
 end
 
