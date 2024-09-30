@@ -15,7 +15,7 @@ Gather a column of 1s and the output columns as a matrix `X`.
 The prediction values are `y_hat = X * b`, where `b` is a column of (unknown) coefficients.
 Solve for the `b` that minimizes `norm(y - y_hat)^2 + lambda * norm(b)^2`.
 If all goes well, return `(norm(y - y_hat), b)`.
-Otherwise return `nothing`.
+Otherwise return `(Inf, nothing)`.
 """
 function least_squares_ridge(
         xs::AbstractArray{<:AbstractArray},
@@ -106,7 +106,7 @@ function least_squares_ridge_grow_and_rate(
         g_spec::GenomeSpec,
         genome::AbstractGenome,
         p_init::Nothing
-)
+)::Union{Agent, Nothing}
     return least_squares_ridge_grow_and_rate(
         xs, y, lambda_b, lambda_p, lambda_operand, g_spec, genome)
 end
@@ -124,7 +124,14 @@ end
 
 function _LSRGR_f(u::Vector{Float64}, c::_LSRGR_Context{TXs, Ty}) where {TXs, Ty}
     n, b = least_squares_ridge(c.xs, c.y, c.lambda_b, c.g_spec, c.genome, u)
-    c.n = n
-    c.b = b
-    return n^2 + c.lambda_b * dot(b, b) + c.lambda_p * dot(u, u)
+    if isnothing(b)
+        # Ridge regression failed.
+        # This should be some form of infinity.
+        return n
+    else
+        # Ridge regression succeeded.
+        c.n = n
+        c.b = b
+        return n^2 + c.lambda_b * dot(b, b) + c.lambda_p * dot(u, u)
+    end
 end
