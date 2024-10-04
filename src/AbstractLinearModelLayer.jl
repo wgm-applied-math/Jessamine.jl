@@ -84,7 +84,10 @@ function model_sympy_output(
     # This includes `b[1] =` $b_0$ as an intercept or bias term.
     # Which throws off the numbering.
     b = [symbols("b$j"; assumptions...) for j in 0:(g_spec.output_size)]
-    y_sym = dot(z, b[2:end]) + b[1]
+    # This has to be dot(b[..], z) because SymPy computes dot products
+    # as u dot v = ajoint(u) v, and you end up with stray complex conjugates
+    # all over everything.
+    y_sym = dot(b[2:end], z) + b[1]
     used_vars = y_sym.free_symbols
     # To handle rational functions that have things like 1/(x/0),
     # replace Inf with W and do a limit as W -> Inf.
