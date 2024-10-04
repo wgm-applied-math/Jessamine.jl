@@ -1,3 +1,6 @@
+# !!! TODO Look into NaNMath.jl which returns NaN instead of throwing an error for things 
+# like sqrt(negative)
+
 # Make language server happy
 if false
     # include("GenomeCore.jl")
