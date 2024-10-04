@@ -230,8 +230,10 @@ function machine_grow_and_rate(
             return nothing
         end
     catch e
-        @warn "$(now()) machine_grow_and_rate: Masking exception $e"
-        return nothing
+        if( isa(e, DomainError) )
+            @warn "$(now()) machine_grow_and_rate: Masking exception $e"
+            return nothing
+        end
     end
 end
 
