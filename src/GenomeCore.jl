@@ -32,6 +32,9 @@ A collection of parameters specifying the genome architecture and mutation proce
     "How many input slots are in the state array"
     input_size::Int
 
+    "How many lag steps are kept"
+    lag_steps::Int
+
     "How many time steps in an evaluation cycle"
     num_time_steps::Int
 
@@ -39,15 +42,17 @@ A collection of parameters specifying the genome architecture and mutation proce
     index_map::Vector{Tuple{Symbol, Int}}
 end
 
-function GenomeSpec(output_size, scratch_size, parameter_size, input_size, num_time_steps)
+function GenomeSpec(
+        output_size, scratch_size, parameter_size, input_size, lag_steps, num_time_steps)
     index_map = vcat(
         [(:output, j) for j in 1:output_size],
         [(:scratch, j) for j in 1:scratch_size],
         [(:parameter, j) for j in 1:parameter_size],
-        [(:input, j) for j in 1:input_size]
+        [(:input, j) for j in 1:input_size],
+        [(:lag_steps, j) for j in 1:(output_size * lag_steps)]
     )
     return GenomeSpec(
-        output_size, scratch_size, parameter_size, input_size, num_time_steps, index_map)
+        output_size, scratch_size, parameter_size, input_size, lag_steps, num_time_steps, index_map)
 end
 
 function Base.convert(::Type{GenomeSpec}, g_spec::GenomeSpec)
@@ -60,6 +65,7 @@ function Base.convert(::Type{GenomeSpec}, x)
         x.scratch_size,
         x.parameter_size,
         x.input_size,
+        x.lag_steps,
         x.num_time_steps)
 end
 
@@ -69,7 +75,8 @@ end
 Return the number of elements in the workspace vector specified by `g_spec`.
 """
 function workspace_size(g_spec::GenomeSpec)
-    return g_spec.output_size + g_spec.scratch_size + g_spec.parameter_size +
+    return g_spec.output_size * (1 + g_spec.lag_steps) + g_spec.scratch_size +
+           g_spec.parameter_size +
            g_spec.input_size
 end
 
@@ -78,6 +85,7 @@ struct CellState{E}
     scratch::Vector{E}
     parameter::Vector{E}
     input::Vector{E}
+    lag::Vector{E}
     index_map::Vector{Tuple{Vector{E}, Int}}
 end
 
@@ -103,14 +111,16 @@ function CellState(
         output,
         scratch,
         parameter,
-        input)
+        input,
+        lag)
     index_map = vcat(
         [(output, j) for j in 1:length(output)],
         [(scratch, j) for j in 1:length(scratch)],
         [(parameter, j) for j in 1:length(parameter)],
-        [(input, j) for j in 1:length(input)]
+        [(input, j) for j in 1:length(input)],
+        [(lag, j) for j in 1:length(lag)]
     )
-    return CellState(output, scratch, parameter, input, index_map)
+    return CellState(output, scratch, parameter, input, lag, index_map)
 end
 
 function Base.getindex(cs::CellState, i::Int)
@@ -123,7 +133,8 @@ function Base.getindex(cs::CellState, ix::AbstractArray)
 end
 
 function Base.length(cs::CellState)
-    return length(cs.output) + length(cs.scratch) + length(cs.parameter) + length(cs.input)
+    return length(cs.output) + length(cs.scratch) + length(cs.parameter) +
+           length(cs.input) + length(cs.lag)
 end
 
 function cell_output(cs::CellState)
@@ -131,7 +142,7 @@ function cell_output(cs::CellState)
 end
 
 function flat_workspace(cs::CellState)
-    return vcat(cs.output, cs.scratch, cs.parameter, cs.input)
+    return vcat(cs.output, cs.scratch, cs.parameter, cs.input, cs.lag)
 end
 
 @kwdef struct Instruction
@@ -218,7 +229,16 @@ function to_expr(g_spec::GenomeSpec, genome::Genome)
                 g_spec, genome.instruction_blocks[1:(g_spec.output_size)], :cs, :E))
             new_scratch = $(to_expr(
                 g_spec, genome.instruction_blocks[scratch_begin:end], :cs, :E))
-            return CellState(new_output, new_scratch, cs.parameter, cs.input)
+            $(if g_spec.lag_steps > 0
+                  quote
+                      new_lag = vcat(cs.output, cs.lag[$(g_spec.output_size + 1):end])
+                  end
+              else
+                  quote
+	              new_lag = cs.lag
+                  end
+              end)
+            return CellState(new_output, new_scratch, cs.parameter, cs.input, new_lag)
         end
     end
 end
@@ -263,8 +283,10 @@ function eval_time_step(
         cell_state::CellState{E},
         genome::Genome
 )::CellState{E} where {E <: AbstractArray}
+
     # local new_output::Vector{E}
-    new_output = map(genome.instruction_blocks[1:length(cell_state.output)]) do block
+    output_size = length(cell_state.output)
+    new_output = map(genome.instruction_blocks[1:output_size]) do block
         # local val_out::Vector{eltype(E)}
         val_out = zero_like(cell_state.input[1])
         for instr in block
@@ -272,9 +294,10 @@ function eval_time_step(
         end
         val_out
     end
-    @assert length(new_output) == length(cell_state.output)
-    scratch_first = 1 + length(cell_state.output)
+    @assert length(new_output) == output_size
+
     # local new_scratch::Vector{E}
+    scratch_first = 1 + output_size
     new_scratch = map(genome.instruction_blocks[scratch_first:end]) do block
         # local val_scr::Vector{eltype(E)}
         val_scr = zero_like(cell_state.input[1])
@@ -284,11 +307,23 @@ function eval_time_step(
         val_scr
     end
     @assert length(new_scratch) == length(cell_state.scratch)
+
+    # Push the previous output onto the front of the lag array
+    # and drop the oldest bunch of output
+    lag_steps = length(cell_state.lag) / output_size
+    if lag_steps > 0
+        new_lag = vcat(cell_state.output, cell_state.lag[(output_size + 1):end])
+    else
+        new_lag = cell_state.lag
+    end
+    @assert length(new_lag) == length(cell_state.lag)
+
     cell_state_next = CellState(
         new_output,
         new_scratch,
         cell_state.parameter,
-        cell_state.input)
+        cell_state.input,
+        new_lag)
     return cell_state_next
 end
 
@@ -296,16 +331,19 @@ function eval_time_step(
         cell_state::CellState{E},
         genome::Genome
 )::CellState{E} where {E <: Number}
-    local new_output::Vector{E}
-    new_output = map(genome.instruction_blocks[1:length(cell_state.output)]) do block
+    # local new_output::Vector{E}
+    output_size = length(cell_state.output)
+    new_output = map(genome.instruction_blocks[1:output_size]) do block
         val_out = zero_like(cell_state.input[1])
         for instr in block
             val_out += op_eval(instr.op, cell_state[instr.operand_ixs])
         end
         val_out
     end
-    scratch_first = 1 + length(cell_state.output)
-    local new_scratch::Vector{E}
+    @assert length(new_output) == output_size
+
+    # local new_scratch::Vector{E}
+    scratch_first = 1 + output_size
     new_scratch = map(genome.instruction_blocks[scratch_first:end]) do block
         local val_scr::E
         val_scr = zero_like(cell_state.input[1])
@@ -314,11 +352,24 @@ function eval_time_step(
         end
         val_scr
     end
+    @assert length(new_scratch) == length(cell_state.scratch)
+
+    # Push the previous output onto the front of the lag array
+    # and drop the oldest bunch of output
+    lag_steps = length(cell_state.lag) / output_size
+    if lag_steps > 0
+        new_lag = vcat(cell_state.output, cell_state.lag[(output_size + 1):end])
+    else
+        new_lag = cell_state.lag
+    end
+    @assert length(new_lag) == length(cell_state.lag)
+
     cell_state_next = CellState(
         new_output,
         new_scratch,
         cell_state.parameter,
-        cell_state.input)
+        cell_state.input,
+        new_lag)
     return cell_state_next
 end
 
@@ -393,7 +444,7 @@ function run_genome(
         g_spec::GenomeSpec,
         genome::AbstractGenome,
         parameter::AbstractArray,
-        input
+        input::AbstractArray
 )
     input_v = separate_columns(input)
     @assert length(input_v) == g_spec.input_size
@@ -401,7 +452,8 @@ function run_genome(
     parameter_v = v_convert.(eltype(input_v), parameter)
     output_v = zeros_like(input_v[1], g_spec.output_size)
     scratch_v = zeros_like(input_v[1], g_spec.scratch_size)
-    current_state = CellState(output_v, scratch_v, parameter_v, input_v)
+    lag_v = zeros_like(input_v[1], g_spec.output_size * g_spec.lag_steps)
+    current_state = CellState(output_v, scratch_v, parameter_v, input_v, lag_v)
     outputs = Vector(undef, g_spec.num_time_steps)
     for t in 1:(g_spec.num_time_steps)
         future_state = eval_time_step(current_state, genome)
