@@ -26,7 +26,7 @@ function main()
 
     @test f(input) == g(input)
 
-    g_spec = GenomeSpec(2, 1, 3, 2, 2)
+    g_spec = GenomeSpec(2, 1, 3, 2, 0, 2)
 
     # Map from variables to indices
     x1, y1, t1, p1, pma, pb, x0, y0 = 1:8
