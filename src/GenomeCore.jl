@@ -328,7 +328,7 @@ end
 
 # vector case
 # This is a fallback implementation that works for GPU arrays and other oddities
-function zero_like(v::V)::V where {V <: AbstractArray}
+function zero_like(v::V)::AbstractArray where {V <: AbstractArray}
     return v .* 0
 end
 
@@ -337,7 +337,7 @@ function zero_like(v::Array)::Array
 end
 
 function zeros_like(
-        v::V, num_elts::Int)::Vector{V} where {V <: AbstractArray}
+        v::AbstractArray, num_elts::Int)
     return [zero_like(v) for _ in 1:num_elts]
 end
 
