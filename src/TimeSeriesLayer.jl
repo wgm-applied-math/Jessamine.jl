@@ -22,7 +22,6 @@ function run_genome_time_series(
         point = input_series[t]
         # Pull one point from time series and append the memory vector
         input_v = vcat(point, memory_v)
-        @show input_v
         # Feed [point memory_v] as input to the genome
         outputs = run_genome(g_spec, genome, parameter, input_v)
         last_output = outputs[end]
