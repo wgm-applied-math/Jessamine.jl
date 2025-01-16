@@ -34,6 +34,7 @@ include("RidgeLayer.jl")
 include("MachineLayer.jl")
 include("MLJInside.jl")
 include("MLJOutside.jl")
+include("TimeSeriesLayer.jl")
 
 include("Precompile.jl")
 
