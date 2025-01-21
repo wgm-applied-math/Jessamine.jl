@@ -48,7 +48,7 @@ end
 """
     least_squares_ridge_grow_and_rate(xs, y, lambda_b, lambda_p, lambda_op, g_spec, genome, p_init = zeros(...))
 
-Solve for the parameter vector `p` that minimzes
+Solve for the parameter vector `p` that minimizes
 `norm(y - y_hat)^2 + lambda_b * norm(b)^2 + lambda_p * norm(p)^2 + lambda_op R`,
 where `y_hat` and `b` are found using `least_squares_ridge`.
 `R` is the total number of operands across all instructions in `genome`.
@@ -70,7 +70,7 @@ function least_squares_ridge_grow_and_rate(
         lambda_p::Number,
         lambda_operand::Number,
         g_spec::GenomeSpec,
-        genome::AbstractGenome,
+        genome::AbstractGenome;
         p_init::AbstractArray = zeros(g_spec.parameter_size)
 )::Union{Agent, Nothing}
     optim_fn = OptimizationFunction(_LSRGR_f)
