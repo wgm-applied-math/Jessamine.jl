@@ -70,7 +70,7 @@ function least_squares_ridge_grow_and_rate(
         lambda_p::Number,
         lambda_operand::Number,
         g_spec::GenomeSpec,
-        genome::AbstractGenome;
+        genome::AbstractGenome,
         p_init::AbstractArray = zeros(g_spec.parameter_size)
 )::Union{Agent, Nothing}
     optim_fn = OptimizationFunction(_LSRGR_f)
