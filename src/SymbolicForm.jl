@@ -1,6 +1,7 @@
 # Make language server happy
 if false
     using Symbolics
+    using TermInterface
 end
 
 export eval_time_step_symbolic, show_symbolic, run_genome_symbolic
@@ -33,7 +34,7 @@ end
 
 Return a matrix with three columns.
 The first is row indices 1, 2, etc.
-The second is the inital worspace vector in symbolic form.
+The second is the initial workspace vector in symbolic form.
 The third is the future workspace state in symbolic form.
 """
 function show_symbolic(g_spec::GenomeSpec, genome::Genome;
@@ -50,7 +51,7 @@ function show_symbolic(g_spec::GenomeSpec, genome::Genome;
 end
 
 """
-    run_genome_symbolic(g_spec, genome; paramter_sym=:p, input_sym=:x)
+    run_genome_symbolic(g_spec, genome; parameter_sym=:p, input_sym=:x)
 
 Build a symbolic form for the output of the final time step of
 running `genome`.  The parameter vector and input vector are
@@ -82,14 +83,11 @@ Specifically, if a number `a` differs `round(a)` by less thant `tolerance`,
 it gets replaced by `round(a)`.
 """
 function replace_near_integer(expr::SymbolicUtils.BasicSymbolic; tolerance = 1.0e-10)
-    # Apparently istree is deprecated but I can't get iscall to work.
-    if Symbolics.istree(expr)
-        op = Symbolics.operation(expr)
-        args = Symbolics.arguments(expr)
+    if TermInterface.iscall(expr)
+        op = TermInterface.operation(expr)
+        args = TermInterface.arguments(expr)
         new_args = map(arg -> replace_near_integer(arg, tolerance = tolerance), args)
-        # Apparently similarterm is deprecated, but I can't get maketerm to work.
-        # return SymbolicUtils.maketerm(typeof(expr), op, new_args, symtype(expr), metadata(expr))
-        return Symbolics.similarterm(expr, op, new_args)
+        return TermInterface.maketerm(typeof(expr), op, new_args, TermInterface.metadata(expr))
     else  # This should handle symbols and other atomic expressions
         return expr
     end

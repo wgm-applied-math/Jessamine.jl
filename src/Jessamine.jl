@@ -17,6 +17,7 @@ using Symbolics
 using SymPy
 using SymPyCore
 using Tables
+using TermInterface
 using Base.Threads
 
 include("TablesUtil.jl")
