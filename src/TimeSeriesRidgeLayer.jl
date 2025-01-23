@@ -24,18 +24,16 @@ function time_series_least_squares_ridge(
         lambda::Number,
         g_spec::GenomeSpec,
         genome::AbstractGenome,
-        parameter::AbstractArray,
+        parameter::AbstractArray;
         memory_steps = 1)
-    @assert g_spec.input_size == length(xs)
+    @assert g_spec.input_size == length(xs[1]) + memory_steps * g_spec.output_size
     num_rows = length(y)
     # local outputs::Vector{Vector{Vector{Float64}}}
     outputs = run_genome_time_series(g_spec, genome, parameter, xs, memory_steps = memory_steps)
     # local last_round::Vector{Vector{Float64}}
-    last_round = outputs[end]
-    num_output_cols = length(last_round)
-    data_cols = map(u -> extend_if_singleton(u, num_rows), last_round)
-    X = stack(data_cols)
-    @assert num_output_cols == size(X, 2)
+    X = stack(outputs, dims=1)
+    @assert length(outputs[1]) == size(X, 2)
+    @assert num_rows == size(X, 1)
     b = (X' * X + lambda * I) \ (X' * y)
     y_hat = X * b
     r = y - y_hat
@@ -66,17 +64,17 @@ Otherwise, return `nothing`.
 
 """
 function time_series_least_squares_ridge_grow_and_rate(
-        xs::AbstractArray{<:AbstractArray},
-        y::AbstractArray,
+        xs,
+        y,
         lambda_b::Number,
         lambda_p::Number,
         lambda_operand::Number,
         g_spec::GenomeSpec,
-        genome::AbstractGenome,
+        genome::AbstractGenome;
         memory_steps = 1,
         p_init::AbstractArray = zeros(g_spec.parameter_size)
 )::Union{Agent, Nothing}
-    optim_fn = OptimizationFunction(_LSRGR_f)
+    optim_fn = OptimizationFunction(_TSLSRGR_f)
     c = _TSLSRGR_Context(g_spec, genome, memory_steps, lambda_b, xs, y, lambda_p, nothing, nothing)
     optim_prob = OptimizationProblem(optim_fn, p_init, c, sense = MinSense)
     try
@@ -87,7 +85,8 @@ function time_series_least_squares_ridge_grow_and_rate(
                 return nothing
             else
                 r = sol.objective + lambda_operand * num_operands(genome)
-                return Agent(r, genome, sol.u, BasicLinearModelResult(c.b))
+                # TODO Need to update BasicLinearModelResult and replace the c.b here:
+                return Agent(r, genome, sol.u, c.b)
             end
         else
             return nothing
@@ -100,6 +99,7 @@ function time_series_least_squares_ridge_grow_and_rate(
     end
 end
 
+#=
 function time_series_least_squares_ridge_grow_and_rate(
         xs::AbstractArray{<:AbstractArray},
         y::AbstractArray,
@@ -108,13 +108,14 @@ function time_series_least_squares_ridge_grow_and_rate(
         lambda_operand::Number,
         g_spec::GenomeSpec,
         genome::AbstractGenome,
-        memory_steps = 1,
-        p_init::AbstractArray = zeros(g_spec.parameter_size)
+        p_init::Nothing,
+        memory_steps = 1
 )::Union{Agent, Nothing}
     return time_series_least_squares_ridge_grow_and_rate(
         xs, y, lambda_b, lambda_p, lambda_operand, g_spec, genome,
-        memory_steps = memory_steps, p_init = p_init)
+        memory_steps = memory_steps)
 end
+=#
 
 @kwdef mutable struct _TSLSRGR_Context{TXs, Ty}
     g_spec::GenomeSpec
