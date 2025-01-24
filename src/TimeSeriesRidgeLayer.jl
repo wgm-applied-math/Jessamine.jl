@@ -85,8 +85,7 @@ function time_series_least_squares_ridge_grow_and_rate(
                 return nothing
             else
                 r = sol.objective + lambda_operand * num_operands(genome)
-                # TODO Need to update BasicLinearModelResult and replace the c.b here:
-                return Agent(r, genome, sol.u, c.b)
+                return Agent(r, genome, sol.u, BasicLinearModelResult(c.b))
             end
         else
             return nothing
