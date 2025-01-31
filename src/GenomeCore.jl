@@ -264,26 +264,22 @@ function eval_time_step(
         genome::Genome
 )::CellState{E} where {E <: AbstractArray}
     # local new_output::Vector{E}
-    new_output = map(genome.instruction_blocks[1:length(cell_state.output)]) do block
-        # local val_out::Vector{eltype(E)}
-        val_out = zero_like(cell_state.input[1])
+    n_output = length(cell_state.output)
+    new_output = [zero_like(cell_state.input[1]) for j in 1:n_output]
+    for j in 1:n_output
+        block = genome.instruction_blocks[j]
         for instr in block
-            op_eval_add_into!(val_out, instr.op, cell_state[instr.operand_ixs])
+            op_eval_add_into!(new_output[j], instr.op, cell_state[instr.operand_ixs])
         end
-        val_out
     end
-    @assert length(new_output) == length(cell_state.output)
-    scratch_first = 1 + length(cell_state.output)
-    # local new_scratch::Vector{E}
-    new_scratch = map(genome.instruction_blocks[scratch_first:end]) do block
-        # local val_scr::Vector{eltype(E)}
-        val_scr = zero_like(cell_state.input[1])
+    n_scratch = length(cell_state.scratch)
+    new_scratch = [zero_like(cell_state.input[1]) for j in 1:n_scratch]
+    for j in 1:n_scratch
+        block = genome.instruction_blocks[n_output + j]
         for instr in block
-            op_eval_add_into!(val_scr, instr.op, cell_state[instr.operand_ixs])
+            op_eval_add_into!(new_scratch[j], instr.op, cell_state[instr.operand_ixs])
         end
-        val_scr
     end
-    @assert length(new_scratch) == length(cell_state.scratch)
     cell_state_next = CellState(
         new_output,
         new_scratch,
