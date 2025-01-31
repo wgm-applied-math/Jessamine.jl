@@ -296,23 +296,24 @@ function eval_time_step(
         cell_state::CellState{E},
         genome::Genome
 )::CellState{E} where {E <: Number}
-    local new_output::Vector{E}
-    new_output = map(genome.instruction_blocks[1:length(cell_state.output)]) do block
-        val_out = zero_like(cell_state.input[1])
+    # local new_output::Vector{E}
+    new_output = zero_like(cell_state.output)
+    n_output = length(new_output)
+    for j in 1:n_output
+        block = genome.instruction_blocks[j]
         for instr in block
-            val_out += op_eval(instr.op, cell_state[instr.operand_ixs])
+            new_output[j] += op_eval(instr.op, cell_state[instr.operand_ixs])
         end
-        val_out
     end
     scratch_first = 1 + length(cell_state.output)
-    local new_scratch::Vector{E}
-    new_scratch = map(genome.instruction_blocks[scratch_first:end]) do block
-        local val_scr::E
-        val_scr = zero_like(cell_state.input[1])
+    # local new_scratch::Vector{E}
+    new_scratch = zero_like(cell_state.scratch)
+    n_scratch = length(new_scratch)
+    for j in 1:length(new_scratch)
+        block = genome.instruction_blocks[n_output + j]
         for instr in block
-            val_scr += op_eval(instr.op, cell_state[instr.operand_ixs])
+            new_scratch[j] += op_eval(instr.op, cell_state[instr.operand_ixs])
         end
-        val_scr
     end
     cell_state_next = CellState(
         new_output,
