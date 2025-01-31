@@ -22,9 +22,9 @@ export Sigmoid, SigmoidAdd, SigmoidSubtract
 export define_unary_op
 
 """
-    splat_or_default(op, def, operands)
+    splat_or_default(op, def, workspace, indices)
 
-Return the result of applying `op` to the operands,
+Return the result of applying `op` to the `operands = workspace[indices]`,
 with `op([]) = def` and `op([x1...]) = op(x1...)`.
 The `Base.splat` function doesn't have a way to deal with the first case.
 """
@@ -38,32 +38,32 @@ function splat_or_default(op, def, operands)
     end
 end
 
-function splat_or_default(op, def, operands::AbstractVector{<:Number})
-    if isempty(operands)
+function splat_or_default(op, def, workspace::AbstractVector{<:Number}, indices::AbstractVector)
+    if isempty(indices)
         return def
     else
-        res = operands[1]
-        for r in operands[2:end]
-            res = op(res, r)
+        res = workspace[indices[1]]
+        for r in indices[2:end]
+            res = op(res, workspace[r])
         end
         return res
     end
 end
 
 
-function splat_or_default(op, def, operands::AbstractVector{<:AbstractVector})
-    if isempty(operands)
+function splat_or_default(op, def, workspace::AbstractVector{<:AbstractVector}, indices::AbstractVector)
+    if isempty(indices)
         return def
     else
         n = 0
-        for v in operands
+        for v in workspace
             n = max(n, length(v))
         end
-        e_type = eltype(operands[1])
+        e_type = eltype(workspace[1])
         res = Vector{e_type}(undef, n)
-        res .= operands[1]
-        for j in 2:length(operands)
-            res .= op(res, operands[j])
+        res .= workspace[indices[1]]
+        for j in 2:length(indices)
+            res .= op(res, workspace[indices[j]])
         end
         return res
     end
@@ -75,11 +75,11 @@ struct Add <: AbstractMultiOp end
 
 short_show(io::IO, ::Add) = print(io, "add")
 
-op_eval(::Add, operands) = splat_or_default(.+, 0.0, operands)
+op_eval(::Add, workspace, indices) = splat_or_default(.+, 0.0, workspace, indices)
 
-function op_eval_add_into!(dest::AbstractArray, ::Add, operands::AbstractArray)
-    for operand in operands
-        dest .+= operand
+function op_eval_add_into!(dest::AbstractArray, ::Add, workspace::AbstractArray, indices::AbstractArray)
+    for j in indices
+        dest .+= workspace[j]
     end
 end
 
@@ -99,19 +99,19 @@ struct Subtract <: AbstractMultiOp end
 
 short_show(io::IO, ::Subtract) = print(io, "sub")
 
-function op_eval(::Subtract, operands)
-    if isempty(operands)
+function op_eval(::Subtract, workspace, indices)
+    if isempty(indices)
         return 0.0
     else
-        return operands[1] .- op_eval(Add(), operands[2:end])
+        return workspace[indices[1]] .- op_eval(Add(), workspace, indices[2:end])
     end
 end
 
-function op_eval_add_into!(dest::AbstractArray, ::Subtract, operands::AbstractArray)
-    if !isempty(operands)
-        dest .+= operands[1]
-        for operand in operands[2:end]
-            dest .-= operand
+function op_eval_add_into!(dest::AbstractArray, ::Subtract, workspace::AbstractArray, indices::AbstractArray)
+    if !isempty(indices)
+        dest .+= workspace[indices[1]]
+        for j in indices[2:end]
+            dest .-= workspace[j]
         end
     end
 end
@@ -134,7 +134,7 @@ struct Multiply <: AbstractMultiOp end
 
 short_show(io::IO, ::Multiply) = print(io, "mul")
 
-op_eval(::Multiply, operands) = splat_or_default(.*, 1.0, operands)
+op_eval(::Multiply, workspace, indices) = splat_or_default(.*, 1.0, workspace, indices)
 
 function to_expr(::Multiply, cs, operands)
     if isempty(operands)
@@ -160,8 +160,8 @@ function short_show(io::IO, c::UnaryComposition)
     short_show(io, c.multi)
 end
 
-function op_eval(c::UnaryComposition, operands)
-    return un_op_eval(c.unary, op_eval(c.multi, operands))
+function op_eval(c::UnaryComposition, workspace, indices)
+    return un_op_eval(c.unary, op_eval(c.multi, workspace, indices))
 end
 
 function to_expr(c::UnaryComposition, cs, operands)
@@ -189,7 +189,7 @@ struct FzAnd <: AbstractMultiOp end
 
 short_show(io::IO, ::FzAnd) = print(io, "fzAnd")
 
-op_eval(::FzAnd, operands) = splat_or_default(.*, 1.0, operands)
+op_eval(::FzAnd, workspace, indices) = splat_or_default(.*, 1.0, workspace, indices)
 
 function to_expr(::FzAnd, cs, operands)
     if isempty(operands)
@@ -207,8 +207,8 @@ struct FzOr <: AbstractMultiOp end
 
 short_show(io::IO, ::FzOr) = print(io, "fzOr")
 
-function op_eval(::FzOr, operands)
-    return 1.0 .- op_eval(FzNor(), operands)
+function op_eval(::FzOr, workspace, indices)
+    return 1.0 .- op_eval(FzNor(), workspace, indices)
 end
 
 function to_expr(::FzOr, cs, operands)
@@ -220,8 +220,8 @@ struct FzNand <: AbstractMultiOp end
 
 short_show(io::IO, ::FzNand) = print(io, "fzNand")
 
-function op_eval(::FzNand, operands)
-    return 1.0 .- op_eval(FzAnd(), operands)
+function op_eval(::FzNand, workspace, indices)
+    return 1.0 .- op_eval(FzAnd(), workspace, indices)
 end
 
 function to_expr(::FzNand, cs, operands)
@@ -233,8 +233,8 @@ struct FzNor <: AbstractMultiOp end
 
 short_show(io::IO, ::FzNor) = print(io, "fzNor")
 
-function op_eval(::FzNor, operands)
-    return splat_or_default(.*, 1.0, 1.0 .- operand for operand in operands)
+function op_eval(::FzNor, workspace, indices)
+    return splat_or_default((acc, x) -> acc .* (1.0 .- x), 1.0, workspace, indices)
 end
 
 function to_expr(::FzNor, cs, operands)
@@ -277,13 +277,14 @@ struct Maximum <: AbstractMultiOp end
 
 short_show(io::IO, ::Maximum) = print(io, "max")
 
-function op_eval(::Maximum, operands)
-    if isempty(operands)
+function op_eval(::Maximum, workspace, indices)
+    if isempty(indices)
         return -Inf
-    elseif length(operands) == 1
-        return operands[1]
+    elseif length(indices) == 1
+        return workspace[indices[1]]
     else
-        return max.(operands...)
+        # This can be sped up...
+        return max.(workspace[indices]...)
     end
 end
 
@@ -305,13 +306,14 @@ struct Minimum <: AbstractMultiOp end
 
 short_show(io::IO, ::Minimum) = print(io, "min")
 
-function op_eval(::Minimum, operands)
-    if isempty(operands)
+function op_eval(::Minimum, workspace, indices)
+    if isempty(indices)
         return -Inf
-    elseif length(operands) == 1
-        return operands[1]
+    elseif length(indices) == 1
+        return workspace[indices[1]]
     else
-        return min.(operands...)
+        # This can be sped up...
+        return min.(workspace[indices]...)
     end
 end
 

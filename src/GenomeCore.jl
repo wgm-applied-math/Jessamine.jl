@@ -73,7 +73,7 @@ function workspace_size(g_spec::GenomeSpec)
            g_spec.input_size
 end
 
-struct CellState{E}
+struct CellState{E} <: AbstractVector{E}
     output::Vector{E}
     scratch::Vector{E}
     parameter::Vector{E}
@@ -104,7 +104,7 @@ function CellState(
         scratch,
         parameter,
         input)
-    E = eltype(input[1])
+    E = eltype(input)
     n_output = length(output)
     n_scratch = length(scratch)
     n_parameter = length(parameter)
@@ -140,6 +140,10 @@ end
 
 function Base.length(cs::CellState)
     return length(cs.output) + length(cs.scratch) + length(cs.parameter) + length(cs.input)
+end
+
+function Base.size(cs::CellState)
+    return [length(cs)]
 end
 
 function cell_output(cs::CellState)
@@ -191,11 +195,11 @@ Return `op` applied to a list of operands.
 function op_eval end
 
 """
-    op_eval_add_into!(dest, op, operands)
+    op_eval_add_into!(dest, op, workspace, indices)
 
-Apply the operator `op` to `operands` and add the result elementwise
+Apply the operator `op` to `operands = workspace[indices]` and add the result elementwise
 in place to dest.  The default is to do
-`dest .= dest .+ op_eval(op, operands)`.
+`dest .= dest .+ op_eval(op, workspace, indices)`.
 
 The idea here is that in-place accumulation instead of the
 default implementation can sometimes avoid the allocation of a
@@ -203,8 +207,8 @@ temporary array to hold the result of `op_eval(...)`.
 
 """
 function op_eval_add_into!(
-        dest::AbstractArray, op::AbstractGeneOp, operands::AbstractArray)
-    dest .+= op_eval(op, operands)
+        dest::AbstractArray, op::AbstractGeneOp, workspace::AbstractArray, indices::AbstractArray)
+    dest .+= op_eval(op, workspace, indices)
 end
 
 """
@@ -285,7 +289,7 @@ function eval_time_step(
     for j in 1:n_output
         block = genome.instruction_blocks[j]
         for instr in block
-            op_eval_add_into!(new_output[j], instr.op, cell_state[instr.operand_ixs])
+            op_eval_add_into!(new_output[j], instr.op, cell_state, instr.operand_ixs)
         end
     end
     n_scratch = length(cell_state.scratch)
@@ -293,7 +297,7 @@ function eval_time_step(
     for j in 1:n_scratch
         block = genome.instruction_blocks[n_output + j]
         for instr in block
-            op_eval_add_into!(new_scratch[j], instr.op, cell_state[instr.operand_ixs])
+            op_eval_add_into!(new_scratch[j], instr.op, cell_state, instr.operand_ixs)
         end
     end
     cell_state_next = CellState(
@@ -314,7 +318,7 @@ function eval_time_step(
     for j in 1:n_output
         block = genome.instruction_blocks[j]
         for instr in block
-            new_output[j] += op_eval(instr.op, cell_state[instr.operand_ixs])
+            new_output[j] += op_eval(instr.op, cell_state, instr.operand_ixs)
         end
     end
     scratch_first = 1 + length(cell_state.output)
@@ -324,7 +328,7 @@ function eval_time_step(
     for j in 1:length(new_scratch)
         block = genome.instruction_blocks[n_output + j]
         for instr in block
-            new_scratch[j] += op_eval(instr.op, cell_state[instr.operand_ixs])
+            new_scratch[j] += op_eval(instr.op, cell_state, instr.operand_ixs)
         end
     end
     cell_state_next = CellState(
