@@ -104,12 +104,28 @@ function CellState(
         scratch,
         parameter,
         input)
-    index_map = vcat(
-        [(output, j) for j in 1:length(output)],
-        [(scratch, j) for j in 1:length(scratch)],
-        [(parameter, j) for j in 1:length(parameter)],
-        [(input, j) for j in 1:length(input)]
-    )
+    E = eltype(input[1])
+    n_output = length(output)
+    n_scratch = length(scratch)
+    n_parameter = length(parameter)
+    n_input = length(input)
+    n_total = n_output + n_scratch + n_parameter + n_input
+    index_map = Vector{Tuple{Vector{E}, Int}}(undef, n_total)
+    for j in 1:n_output
+        index_map[j] = (output, j)
+    end
+    offset = n_output
+    for j in 1:n_scratch
+        index_map[offset + j] = (scratch, j)
+    end
+    offset += n_scratch
+    for j in 1:n_parameter
+        index_map[offset + j] = (parameter, j)
+    end
+    offset += n_parameter
+    for j in 1:n_input
+        index_map[offset + j] = (input, j)
+    end
     return CellState(output, scratch, parameter, input, index_map)
 end
 
