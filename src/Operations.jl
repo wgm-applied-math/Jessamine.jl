@@ -1,4 +1,4 @@
-# !!! TODO Look into NaNMath.jl which returns NaN instead of throwing an error for things 
+# !!! TODO Look into NaNMath.jl which returns NaN instead of throwing an error for things
 # like sqrt(negative)
 
 # Make language server happy
@@ -32,9 +32,43 @@ function splat_or_default(op, def, operands)
     if isempty(operands)
         return def
     else
-        return splat(op)(operands)
+        # Splatting is oddly slow.
+        # Specialized implementations are given for more specific types.
+        return op(operands...)
     end
 end
+
+function splat_or_default(op, def, operands::AbstractVector{<:Number})
+    if isempty(operands)
+        return def
+    else
+        res = operands[1]
+        for r in operands[2:end]
+            res = op(res, r)
+        end
+        return res
+    end
+end
+
+
+function splat_or_default(op, def, operands::AbstractVector{<:AbstractVector})
+    if isempty(operands)
+        return def
+    else
+        n = 0
+        for v in operands
+            n = max(n, length(v))
+        end
+        e_type = eltype(operands[1])
+        res = Vector{e_type}(undef, n)
+        res .= operands[1]
+        for j in 2:length(operands)
+            res .= op(res, operands[j])
+        end
+        return res
+    end
+end
+
 
 "Add operands."
 struct Add <: AbstractMultiOp end

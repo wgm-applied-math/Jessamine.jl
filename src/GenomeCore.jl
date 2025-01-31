@@ -188,7 +188,7 @@ temporary array to hold the result of `op_eval(...)`.
 """
 function op_eval_add_into!(
         dest::AbstractArray, op::AbstractGeneOp, operands::AbstractArray)
-    dest .= dest .+ op_eval(op, operands)
+    dest .+= op_eval(op, operands)
 end
 
 """
