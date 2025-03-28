@@ -83,10 +83,13 @@ function main()
     println("Symbolic form of best agent")
 
     global a_best = pop_next.agents[1]
+    global basic_sym_res = model_basic_symbolic_output(g_spec, a_best)
     global sym_res = model_symbolic_output(g_spec, a_best)
     global x = sym_res.x
 
     short_show(a_best)
+    @show basic_sym_res.y_sym
+    @show basic_sym_res.y_num
     @show sym_res.y_sym
     @show a_best.parameter
     @show a_best.extra
@@ -103,6 +106,16 @@ function main()
     @show cvec
     @show round.(cvec)
     @test round.(cvec) == [2, 3, 3, -3]
+
+    global basic_sympy_res = model_basic_sympy_output(g_spec, a_best)
+    global sympy_res = model_sympy_output(g_spec, a_best)
+
+    short_show(a_best)
+    @show basic_sympy_res.y_sym
+    @show basic_sympy_res.y_num
+    @show sympy_res.y_sym
+    @show sympy_res.y_num
+
 end
 
 end

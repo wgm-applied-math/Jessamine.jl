@@ -1,7 +1,7 @@
 export AbstractModelResult
 export model_predict
-export model_symbolic_output
-export model_sympy_output
+export model_basic_symbolic_output, model_symbolic_output
+export model_basic_sympy_output, model_sympy_output
 
 """
 Abstract base type for the results of fitting a model
@@ -39,6 +39,23 @@ function model_predict(
 end
 
 """
+    model_basic_symbolic_output(g_spec, agent; kw_args...)
+
+Build a Symbolics form for the output of the final time step of
+running `agent`'s `genome`
+Then use the `agent`'s `parameter` vector,
+and feed the symbolic output of the genome as input to
+model result in `agent.extra` to make a prediction
+in symbolic form.
+
+The `kw_args` are eventually splatted into `model_predict`.
+"""
+function model_basic_symbolic_output(g_spec, agent; kw_args...)
+    return model_basic_symbolic_output(
+        g_spec, agent.genome, agent.parameter, agent.extra; kw_args...)
+end
+
+"""
     model_symbolic_output(g_spec, agent; kw_args...)
 
 Build a Symbolics form for the output of the final time step of
@@ -47,6 +64,7 @@ Then use the `agent`'s `parameter` vector,
 and feed the symbolic output of the genome as input to
 model result in `agent.extra` to make a prediction
 in symbolic form.
+The output tuple includes the result of various simplifications.
 
 The `kw_args` are eventually splatted into `model_predict`.
 """
@@ -65,6 +83,7 @@ the symbolic output of the genome,
 and feed the symbolic output of the genome as input to
 model result in `agent.extra` to make a prediction
 in symbolic form.
+The output tuple includes the result of various simplifications.
 
 The `kw_args` are eventually splatted into `model_predict`.
 
@@ -114,6 +133,28 @@ function model_symbolic_output(
 end
 
 """
+    model_basic_sympy_output(g_spec, agent; kw_args...)
+
+Build a SymPy form for the output of the final time step of
+running `agent`'s `genome`
+Then use the `agent`'s `parameter` vector,
+and feed the symbolic output of the genome as input to
+model result in `agent.extra` to make a prediction
+in symbolic form.
+
+Key-word arguments:
+
+- `assumptions = Dict(:extended_real => true)`:
+Assumptions to use when creating symbols.
+
+Other `kw_args` are eventually splatted into `model_predict`.
+"""
+function model_basic_sympy_output(g_spec, agent; kw_args...)
+    return model_basic_sympy_output(
+        g_spec, agent.genome, agent.parameter, agent.extra; kw_args...)
+end
+
+"""
     model_sympy_output(g_spec, agent; kw_args...)
 
 Build a SymPy form for the output of the final time step of
@@ -122,6 +163,7 @@ Then use the `agent`'s `parameter` vector,
 and feed the symbolic output of the genome as input to
 model result in `agent.extra` to make a prediction
 in symbolic form.
+The output tuple includes the result of various simplifications.
 
 Key-word arguments:
 
@@ -145,6 +187,7 @@ the symbolic output of the genome,
 and feed the symbolic output of the genome as input to
 model result in `agent.extra` to make a prediction
 in symbolic form.
+The output tuple includes the result of various simplifications.
 
 Key-word arguments:
 

@@ -35,6 +35,27 @@ function intercept(r::BasicLinearModelResult)
     return r.intercept
 end
 
+function model_basic_symbolic_output(
+        g_spec::GenomeSpec,
+        genome::AbstractGenome,
+        parameter::AbstractArray,
+        mr::AbstractLinearModelResult
+)
+    p, x, z = run_genome_symbolic(g_spec, genome)
+    # This includes `b[1] =` $b_0$ as an intercept or bias term.
+    # Which throws off the numbering.
+    b = Symbolics.variables(:b, 0:(g_spec.output_size))
+    y_sym = dot(z, b[2:end]) + b[1]
+    p_subs = Dict(p[j] => parameter[j] for j in eachindex(p))
+    b_num = coefficients(mr)
+    b_subs = Dict(b[1 + j] => b_num[j] for j in eachindex(b_num))
+    # This is really $b_0$:
+    b_subs[b[1]] = intercept(mr)
+    y_num = Symbolics.substitute(y_sym, merge(p_subs, b_subs))
+    return (p = p, x = x, z = z, b = b, p_subs = p_subs, b_subs = b_subs, y_sym = y_sym,
+        y_num = y_num)
+end
+
 function model_symbolic_output(
         g_spec::GenomeSpec,
         genome::AbstractGenome,
@@ -71,6 +92,31 @@ function model_symbolic_output(
     y_num = Symbolics.simplify(y_sub)
     return (p = p, x = x, z = z, b = b, p_subs = p_subs, b_subs = b_subs, y_sym = y_sym,
         y_lim = y_lim, y_simp = y_simp, y_sub = y_sub, y_num = y_num)
+end
+
+function model_basic_sympy_output(
+        g_spec::GenomeSpec,
+        genome::AbstractGenome,
+        parameter::AbstractArray,
+        mr::AbstractLinearModelResult;
+        assumptions = Dict(:extended_real => true)
+)
+    p, x, z = run_genome_sympy(g_spec, genome; assumptions = assumptions)
+    # This includes `b[1] =` $b_0$ as an intercept or bias term.
+    # Which throws off the numbering.
+    b = [symbols("b$j"; assumptions...) for j in 0:(g_spec.output_size)]
+    # This has to be dot(b[..], z) because SymPy computes dot products
+    # as u dot v = ajoint(u) v, and you end up with stray complex conjugates
+    # all over everything.
+    y_sym = dot(b[2:end], z) + b[1]
+    p_subs = Dict(p[j] => parameter[j] for j in eachindex(p))
+    b_num = coefficients(mr)
+    b_subs = Dict(b[1 + j] => b_num[j] for j in eachindex(b_num))
+    # This is really $b_0$:
+    b_subs[b[1]] = intercept(mr)
+    y_num = y_sym(merge(p_subs, b_subs))
+    return (p = p, x = x, z = z, b = b, p_subs = p_subs, b_subs = b_subs, y_sym = y_sym,
+        y_num = y_num)
 end
 
 function model_sympy_output(
