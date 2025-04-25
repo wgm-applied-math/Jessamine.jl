@@ -30,6 +30,12 @@ export area_above_curve
 # That way we can call convert(MutationSpec, my_epoc_spec) for
 # example.
 
+"""
+struct EpochSpec
+
+    EpochSpec is a struct that contains the parameters for building `MutationSpec`, `SelectionSpec`, and `EvolutionSpec` objects.
+    It's needed to build the `JessamineModel` object.
+"""
 @kwdef mutable struct EpochSpec
     # MutationSpec
     p_mutate_op::Float64 = 0.1
