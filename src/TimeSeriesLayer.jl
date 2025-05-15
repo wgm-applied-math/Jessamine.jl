@@ -4,6 +4,9 @@ end
 
 export run_genome_time_series
 
+"""
+TODO add documentation
+"""
 function run_genome_time_series(
     g_spec::GenomeSpec,
     genome::AbstractGenome,
