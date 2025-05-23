@@ -10,6 +10,7 @@ export eval_time_step, op_eval, flat_workspace
 export run_genome, num_instructions, num_operands, workspace_size
 export short_show
 export to_expr, compile, CompiledGenome
+export zeros_like, zero_like
 
 """
 An operation to be performed as part of the function of a gene.
@@ -104,7 +105,8 @@ function CellState(
         scratch,
         parameter,
         input)
-    E = eltype(input)
+    # E = least common supertype of the element types of all of these vectors
+    E = typejoin(eltype(output), eltype(scratch), eltype(parameter), eltype(input))
     n_output = length(output)
     n_scratch = length(scratch)
     n_parameter = length(parameter)
@@ -126,7 +128,7 @@ function CellState(
     for j in 1:n_input
         index_map[offset + j] = (input, j)
     end
-    return CellState(output, scratch, parameter, input, index_map)
+    return CellState{E}(output, scratch, parameter, input, index_map)
 end
 
 function Base.getindex(cs::CellState, i::Int)
