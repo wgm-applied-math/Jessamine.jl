@@ -211,18 +211,18 @@ function random_genome(rng::AbstractRNG, g_spec::GenomeSpec,
 end
 
 function filter_domain_safe_ops(m_dist)
-    safe_ops = []
-    safe_dist = []
+    safe_op_ixs = Int[]
+    safe_dist = Float64[]
     pv = probs(m_dist.d_op)
     for (i, op) in enumerate(m_dist.op_inventory)
         if is_domain_safe(op)
-            push!(safe_ops, op)
+            push!(safe_op_ixs, i)
             push!(safe_dist, pv[i])
         end
     end
-    @assert !isempty(safe_ops)
-    safe_dist = safe_dist / sum(safe_dist)  # Normalize probabilities
-    return DiscreteNonParametric(safe_ops, safe_dist)
+    @assert !isempty(safe_op_ixs)
+    safe_pv = safe_dist / sum(safe_dist)  # Normalize probabilities
+    return DiscreteNonParametric(safe_op_ixs, safe_pv)
 end
 
 """
