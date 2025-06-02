@@ -220,7 +220,7 @@ function filter_domain_safe_ops(m_dist)
             push!(safe_dist, pv[i])
         end
     end
-    @assert !isempty(safe_ops), "No domain-safe operators found in mutation distribution."
+    @assert !isempty(safe_ops)
     safe_dist = safe_dist / sum(safe_dist)  # Normalize probabilities
     return DiscreteNonParametric(safe_ops, safe_dist)
 end
