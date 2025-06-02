@@ -6,10 +6,6 @@ if false
     # include("GenomeCore.jl")
 end
 
-abstract type AbstractUnaryOp end
-
-abstract type AbstractMultiOp <: AbstractGeneOp end
-
 export splat_or_default
 export AbstractUnaryOp, AbstractMultiOp
 export Add, Multiply, Subtract
@@ -20,6 +16,35 @@ export Maximum, Minimum
 export Sign, SignAdd, SignSubtract
 export Sigmoid, SigmoidAdd, SigmoidSubtract
 export define_unary_op
+
+abstract type AbstractUnaryOp end
+
+abstract type AbstractMultiOp <: AbstractGeneOp end
+
+"""
+    is_domain_safe(op::AbstractMultiOp)
+
+Return `true` if the operation has no domain restrictions.
+Return `false` if the operation has domain restrictions, such as division, in which the denominator cannot be zero.
+The default is to return `false`.
+"""
+
+function is_domain_safe(::AbstractMultiOp)
+    return false
+end
+
+"""
+    is_domain_safe(op::AbstractUnaryOp)
+
+Return `true` if the operation has no domain restrictions.
+Return `false` if the operation has domain restrictions, such as division, in which the denominator cannot be zero.
+The default is to return `false`.
+"""
+
+function is_domain_safe(::AbstractUnaryOp)
+    return false
+end
+
 
 """
     splat_or_default(op, def, workspace, indices)
@@ -75,6 +100,15 @@ struct Add <: AbstractMultiOp end
 
 short_show(io::IO, ::Add) = print(io, "add")
 
+is_domain_safe(::Add) = true
+
+"""
+    op_eval(op::Add, workspace, indices)
+
+Evaluate the `Add` operation on the `workspace` at the given `indices`.
+This function adds the elements in `workspace` at the specified `indices`.
+"""
+
 op_eval(::Add, workspace, indices) = splat_or_default(.+, 0.0, workspace, indices)
 
 function op_eval_add_into!(dest::AbstractArray, ::Add, workspace::AbstractArray, indices::AbstractArray)
@@ -98,6 +132,16 @@ end
 struct Subtract <: AbstractMultiOp end
 
 short_show(io::IO, ::Subtract) = print(io, "sub")
+
+is_domain_safe(::Subtract) = true
+
+"""
+    op_eval(op::Subtract, workspace, indices)
+
+Evaluate the `Subtract` operation on the `workspace` at the given `indices`.
+This function returns 0 if the list of indices is empty,
+and otherwise computes the result of `workspace[indices[1]] - workspace[indices[2]] - ...`.
+"""
 
 function op_eval(::Subtract, workspace, indices)
     if isempty(indices)
@@ -134,6 +178,14 @@ struct Multiply <: AbstractMultiOp end
 
 short_show(io::IO, ::Multiply) = print(io, "mul")
 
+is_domain_safe(::Multiply) = true
+
+"""
+    op_eval(op::Multiply, workspace, indices)
+
+Evaluate the `Multiply` operation on the `workspace` at the given `indices`.
+This function multiplies the elements in `workspace` at the specified `indices`.
+"""
 op_eval(::Multiply, workspace, indices) = splat_or_default(.*, 1.0, workspace, indices)
 
 function to_expr(::Multiply, cs, operands)
@@ -152,6 +204,10 @@ end
               AbstractMultiOp
     unary::Un = Un()
     multi::Multi = Multi()
+end
+
+function is_domain_safe(c::UnaryComposition)
+    return is_domain_safe(c.unary)
 end
 
 function short_show(io::IO, c::UnaryComposition)
@@ -189,6 +245,13 @@ struct FzAnd <: AbstractMultiOp end
 
 short_show(io::IO, ::FzAnd) = print(io, "fzAnd")
 
+is_domain_safe(::FzAnd) = true
+
+"""
+    op_eval(op::FzAnd, workspace, indices)
+
+Evaluate the fuzzy AND operation on the `workspace` at the given `indices`.
+"""
 op_eval(::FzAnd, workspace, indices) = splat_or_default(.*, 1.0, workspace, indices)
 
 function to_expr(::FzAnd, cs, operands)
@@ -207,6 +270,13 @@ struct FzOr <: AbstractMultiOp end
 
 short_show(io::IO, ::FzOr) = print(io, "fzOr")
 
+is_domain_safe(::FzOr) = true
+
+"""
+    op_eval(op::FzOr, workspace, indices)
+
+Evaluate the fuzzy OR operation on the `workspace` at the given `indices`.
+"""
 function op_eval(::FzOr, workspace, indices)
     return 1.0 .- op_eval(FzNor(), workspace, indices)
 end
@@ -220,6 +290,13 @@ struct FzNand <: AbstractMultiOp end
 
 short_show(io::IO, ::FzNand) = print(io, "fzNand")
 
+is_domain_safe(::FzNand) = true
+
+"""
+    op_eval(op::FzNand, workspace, indices)
+
+Evaluate the fuzzy NAND operation on the `workspace` at the given `indices`.
+"""
 function op_eval(::FzNand, workspace, indices)
     return 1.0 .- op_eval(FzAnd(), workspace, indices)
 end
@@ -233,6 +310,13 @@ struct FzNor <: AbstractMultiOp end
 
 short_show(io::IO, ::FzNor) = print(io, "fzNor")
 
+is_domain_safe(::FzNor) = true
+
+"""
+    op_eval(op::FzNor, workspace, indices)
+
+    Evaluate the fuzzy NOR operation on the `workspace` at the given `indices`.
+"""
 function op_eval(::FzNor, workspace, indices)
     return splat_or_default((acc, x) -> acc .* (1.0 .- x), 1.0, workspace, indices)
 end
@@ -251,6 +335,7 @@ end
 "Return the sign of the operand"
 struct Sign <: AbstractUnaryOp end
 short_show(io::IO, ::Sign) = print(io, "sign")
+is_domain_safe(::Sign) = true
 un_op_eval(::Sign, t) = sign.(t)
 to_expr(::Sign, expr) = :(sign.($expr))
 
@@ -263,6 +348,7 @@ const SignSubtract = UnaryComposition{Sign, Subtract}
 "Apply the exponential sigmoid to the operand"
 struct Sigmoid <: AbstractUnaryOp end
 short_show(io::IO, ::Sigmoid) = print(io, "sigmoid")
+is_domain_safe(::Sigmoid) = true
 un_op_eval(::Sigmoid, t) = 1 ./ (1 .+ exp.(-t))
 to_expr(::Sigmoid, expr) = :(1 ./ (1 .+ exp.(-$expr)))
 
@@ -276,6 +362,8 @@ const SigmoidSubtract = UnaryComposition{Sigmoid, Subtract}
 struct Maximum <: AbstractMultiOp end
 
 short_show(io::IO, ::Maximum) = print(io, "max")
+
+is_domain_safe(::Maximum) = true
 
 function op_eval(::Maximum, workspace, indices)
     if isempty(indices)
@@ -305,6 +393,8 @@ end
 struct Minimum <: AbstractMultiOp end
 
 short_show(io::IO, ::Minimum) = print(io, "min")
+
+is_domain_safe(::Minimum) = true
 
 function op_eval(::Minimum, workspace, indices)
     if isempty(indices)
@@ -357,17 +447,24 @@ end
 
 @define_unary_op Sqrt sqrt
 @define_unary_op Exp exp
+is_domain_safe(::Exp) = true
 @define_unary_op Log log
 @define_unary_op Sin sin
+is_domain_safe(::Sin) = true
 @define_unary_op Cos cos
+is_domain_safe(::Cos) = true
 @define_unary_op Tan tan
 @define_unary_op ASin asin
 @define_unary_op ACos acos
 @define_unary_op ATan atan
 @define_unary_op Sinh sinh
+is_domain_safe(::Sinh) = true
 @define_unary_op Cosh cosh
+is_domain_safe(::Cosh) = true
 @define_unary_op Tanh tanh
+is_domain_safe(::Tanh) = true
 @define_unary_op ASinh asinh
+is_domain_safe(::ASinh) = true
 @define_unary_op ACosh acosh
 @define_unary_op ATanh atanh
 

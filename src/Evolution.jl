@@ -175,7 +175,7 @@ function short_show(io::IO, p::Population)
 end
 
 """
-    random_genome(rng::AbstractRNG, g_spec::GenomeSpec, m_spec::MutationSpec, arity_dist::Distribution)
+    random_genome(rng::AbstractRNG, g_spec::GenomeSpec, m_spec::MutationSpec, arity_dist::Distribution; domain_safe=false)
 
 Produce a random genome.  It will contain an instruction block
 for each mutable slot in the state array as specified by
@@ -184,15 +184,23 @@ operator is picked uniformly at random from
 `m_spec.op_inventory`.  The number of operands is drawn from
 `arity_dist`.  The operands are drawn uniformly from the set of
 possible indices.
+If `domain_safe` is `true`, only operators for which `is_domain_safe(op)` is `true` are
+used.
 """
 function random_genome(rng::AbstractRNG, g_spec::GenomeSpec,
-        m_dist::MutationDist, arity_dist::Distribution)
+        m_dist::MutationDist, arity_dist::Distribution;
+        domain_safe=false)
     index_max = workspace_size(g_spec)
     index_dist = DiscreteUniform(1, index_max)
     num_instruction_blocks = g_spec.output_size + g_spec.scratch_size
     instruction_blocks = Vector(undef, num_instruction_blocks)
+    if domain_safe
+        d_op = filter_domain_safe_ops(m_dist)
+    else
+        d_op = m_dist.d_op
+    end
     for j in 1:num_instruction_blocks
-        op = m_dist.op_inventory[rand(rng, m_dist.d_op)]
+        op = m_dist.op_inventory[rand(rng, d_op)]
         num_operands = rand(rng, arity_dist)
         operands = rand(rng, index_dist, num_operands)
         instruction_blocks[j] = [Instruction(op, operands)]
@@ -200,6 +208,21 @@ function random_genome(rng::AbstractRNG, g_spec::GenomeSpec,
     g = Genome(instruction_blocks)
     # cg = compile(g_spec, g)
     return g
+end
+
+function filter_domain_safe_ops(m_dist)
+    safe_ops = []
+    safe_dist = []
+    pv = probs(m_dist.d_op)
+    for (i, op) in enumerate(m_dist.op_inventory)
+        if is_domain_safe(op)
+            push!(safe_ops, op)
+            push!(safe_dist, pv[i])
+        end
+    end
+    @assert !isempty(safe_ops), "No domain-safe operators found in mutation distribution."
+    safe_dist = safe_dist / sum(safe_dist)  # Normalize probabilities
+    return DiscreteNonParametric(safe_ops, safe_dist)
 end
 
 """
@@ -251,6 +274,7 @@ end
         arity_dist::Distribution,
         s_spec::SelectionSpec,
         grow_and_rate;
+        domain_safe = false,
         sense = MinSense)::Population
 
 Make a random initial population.  The number of genomes is
@@ -266,14 +290,14 @@ function random_initial_population(
         arity_dist::Distribution,
         s_spec::SelectionSpec,
         grow_and_rate;
+        domain_safe = false,
         sense = MinSense)::Population
     pop_size = s_spec.num_to_keep + s_spec.num_to_generate
     agents = Vector(undef, pop_size)
     Threads.@threads for j in eachindex(agents)
         agent = nothing
         while isnothing(agent)
-            genome = random_genome(rng, g_spec, m_dist, arity_dist)
-            # @assert check_genome(genome) "random init"
+            genome = random_genome(rng, g_spec, m_dist, arity_dist; domain_safe = domain_safe)
             agent = grow_and_rate(rng, g_spec, genome)
         end
         agents[j] = agent
@@ -288,6 +312,7 @@ end
         rng::AbstractRNG,
         e_spec::EvolutionSpec,
         arity_dist::Distribution;
+        domain_safe = false,
         sense = MinSense)
 
 Initialize a random initial population from an `e_spec`.
@@ -296,6 +321,7 @@ function random_initial_population(
         rng::AbstractRNG,
         e_spec::EvolutionSpec,
         arity_dist::Distribution;
+        domain_safe = false,
         sense = MinSense)::Population
     return random_initial_population(
         rng,
@@ -304,6 +330,7 @@ function random_initial_population(
         arity_dist,
         e_spec.s_dist.spec,
         e_spec.grow_and_rate;
+        domain_safe = domain_safe,
         sense = sense)
 end
 
