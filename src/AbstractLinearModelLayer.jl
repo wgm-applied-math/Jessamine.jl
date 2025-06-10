@@ -186,6 +186,21 @@ function model_predict(lmr::AbstractLinearModelResult, X::Matrix)
 end
 
 """
+    model_predict(lmr::AbstractLinearModelResult, x::AbstractArray; kw_args...)
+
+Return `dot(x, coefficients(lmr)) + intercept(lmr)`.
+"""
+
+function model_predict(
+        lmr::AbstractLinearModelResult, x::AbstractArray;
+        kw_args...
+)
+    # This is a bit of a hack to get the right type.
+    # We need to convert the array to a matrix.
+    return dot(x, coefficients(lmr)) + intercept(lmr)
+end
+
+"""
     extend_if_singleton(v::AbstractArray, m::Int)
 
 If `v` is a singleton, as in `v = [x]`,
