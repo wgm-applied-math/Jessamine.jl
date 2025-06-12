@@ -35,7 +35,11 @@ function model_predict(
     num_rows = length(xs[1])
     last_round = run_genome(g_spec, agent.genome, agent.parameter, xs)[end]
     data_cols = map(u -> extend_if_singleton(u, num_rows), last_round)
-    return model_predict(agent.extra, data_cols; kw_args...)
+    output_col_names = map(1:(g_spec.output_size)) do t
+        "z$t"
+    end
+    Z_df = DataFrame(data_cols, output_col_names, copycols = false)
+    return model_predict(agent.extra, Z_df; kw_args...)
 end
 
 """
