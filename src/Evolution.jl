@@ -296,9 +296,18 @@ function random_initial_population(
     agents = Vector(undef, pop_size)
     Threads.@threads for j in eachindex(agents)
         agent = nothing
+        attempt_count = 0
         while isnothing(agent)
+            if attempt_count > 0 && mod(attempt_count, 10) == 0
+                @warn "Failed to produce a valid agent after $(attempt_count) attempts"
+            end
+            if attempt_count >= 100
+                @error "Failed to produce a valid agent after $(attempt_count) attempts, giving up"
+                error("Failed to produce a valid agent after $(attempt_count) attempts")
+            end
             genome = random_genome(rng, g_spec, m_dist, arity_dist; domain_safe = domain_safe)
             agent = grow_and_rate(rng, g_spec, genome)
+            attempt_count += 1
         end
         agents[j] = agent
     end
@@ -404,10 +413,19 @@ function next_generation(
     new_agents = Vector(undef, s_spec.num_to_generate)
     Threads.@threads for j in eachindex(new_agents)
         agent = nothing
+        attempt_count = 0
         while isnothing(agent)
+            if attempt_count > 0 && mod(attempt_count, 10) == 0
+                @warn "Failed to produce a valid agent after $(attempt_count) attempts"
+            end
+            if attempt_count >= 100
+                @error "Failed to produce a valid agent after $(attempt_count) attempts, giving up"
+                error("Failed to produce a valid agent after $(attempt_count) attempts")
+            end
             ng = new_genome(rng, s_dist, m_dist, pop)
             # cg = compile(g_spec, g)
             agent = grow_and_rate(rng, g_spec, ng)
+            attempt_count += 1
         end
         new_agents[j] = agent
     end

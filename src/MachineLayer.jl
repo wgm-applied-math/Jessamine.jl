@@ -227,12 +227,15 @@ function machine_grow_and_rate(
             @assert !isnothing(c.m_save)
             return Agent(r, genome, sol.u, MachineResult(mn_spec, c.m_save.m))
         else
+            @warn "$(now()) machine_grow_and_rate: Solver did not succeed: $(sol.retcode)"
             return nothing
         end
     catch e
         if( isa(e, DomainError) )
             @warn "$(now()) machine_grow_and_rate: Masking exception $e"
             return nothing
+        else
+            rethrow()
         end
     end
 end
