@@ -38,8 +38,8 @@ function model_predict(
     output_col_names = map(1:(g_spec.output_size)) do t
         "z$t"
     end
-    Z_df = DataFrame(data_cols, output_col_names, copycols = false)
-    return model_predict(agent.extra, Z_df; kw_args...)
+    Z_table = namedtuple(output_col_names, data_cols)
+    return model_predict(agent.extra, Z_table; kw_args...)
 end
 
 """

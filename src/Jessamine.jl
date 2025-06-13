@@ -1,12 +1,12 @@
 module Jessamine
 
-using DataFrames
 using Dates
 using Distributions
 using LinearAlgebra
 using MLJ
 using MLJLinearModels
 using MLJModelInterface
+using NamedTupleTools
 using Optim
 using Optimization
 using OptimizationOptimJL

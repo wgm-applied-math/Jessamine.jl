@@ -171,17 +171,28 @@ Stack the columns `xs` into a matrix `X` and call `model_predict`.
 The `kw_args` are splatted in.
 """
 function model_predict(
-        mr::AbstractLinearModelResult, xs::AbstractArray{<:AbstractArray}; kw_args...)
+        mr::AbstractLinearModelResult, xs::AbstractVector{<:AbstractVector}; kw_args...)
     X = stack(xs)
     return model_predict(mr, X; kw_args...)
 end
 
+function model_predict(
+        mr::AbstractLinearModelResult, xs::NamedTuple; kw_args...)
+    return model_predict(mr, fieldvalues(xs); kw_args...)
+end
+
+function model_predict(
+        mr::AbstractLinearModelResult, xs::Tuple; kw_args...)
+    return model_predict(mr, collect(xs); kw_args...)
+end
+
+
 """
-    model_predict(lmr::AbstractLinearModelResult, X::Matrix)
+    model_predict(lmr::AbstractLinearModelResult, X::AbstractMatrix)
 
 Return `X * coefficients(lmr) + intercept(lmr)`
 """
-function model_predict(lmr::AbstractLinearModelResult, X::Matrix)
+function model_predict(lmr::AbstractLinearModelResult, X::AbstractMatrix)
     return X * coefficients(lmr) .+ intercept(lmr)
 end
 

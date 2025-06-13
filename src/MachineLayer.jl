@@ -159,14 +159,14 @@ function _MGR_f(genome_parameter::AbstractArray, c::MGRContext)
     outputs = map(last_round) do z
         extend_if_singleton(z, num_rows)
     end
-    Z_df = DataFrame(outputs, c.output_col_names, copycols = false)
-    m = machine_init(c.mn_spec, Z_df, c.y)
+    Z_table = namedtuple(c.output_col_names, outputs)
+    m = machine_init(c.mn_spec, Z_table, c.y)
     if isnothing(c.weight_vector)
         machine_fit!(c.mn_spec, m)
     else
         machine_fit!(c.mn_spec, m, w = c.weight_vector)
     end
-    y_hat = machine_predict(c.mn_spec, m, Z_df)
+    y_hat = machine_predict(c.mn_spec, m, Z_table)
     performance = prediction_performance(c.mn_spec, y_hat, c.y)
     m_c = machine_complexity(c.mn_spec, m)
     p_c = genome_parameter_complexity(c.mn_spec, genome_parameter)
@@ -238,8 +238,8 @@ function machine_grow_and_rate(
 end
 
 function model_predict(
-        mr::MachineResult, input::AbstractArray{<:AbstractArray}; kw_args...)
-    return model_predict(mr, DataFrame(input, :auto); kw_args...)
+        mr::MachineResult, input::AbstractVector{<:AbstractVector}; kw_args...)
+    return model_predict(mr, table(input); kw_args...)
 end
 
 function model_predict(mr::MachineResult, input; kw_args...)
