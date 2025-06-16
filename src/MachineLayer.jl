@@ -219,7 +219,7 @@ function machine_grow_and_rate(
         w)
     optim_fn = parameter_solver_optimization_function(sol_spec, _MGR_f)
     optim_prob = parameter_solver_optimization_problem(sol_spec, g_spec, optim_fn, c)
-    # try
+    try
         sol = parameter_solver_solve(sol_spec, optim_prob)
         if SciMLBase.successful_retcode(sol)
             _MGR_f(sol.u, c)
@@ -227,17 +227,17 @@ function machine_grow_and_rate(
             @assert !isnothing(c.m_save)
             return Agent(r, genome, sol.u, MachineResult(mn_spec, c.m_save.m))
         else
-            @warn "$(now()) machine_grow_and_rate: Solver did not succeed: $(sol.retcode)"
+            @info "$(now()): machine_grow_and_rate: (Probably harmless) Solver did not succeed: $(sol.retcode)"
             return nothing
         end
-    # catch e
-    #     if( isa(e, DomainError) )
-    #         @warn "$(now()) machine_grow_and_rate: Masking exception $e"
-    #         return nothing
-    #     else
-    #         rethrow()
-    #     end
-    # end
+    catch e
+        if isa(e, ArgumentError) || isa(e, SingularException) || isa(e, DomainError)
+            @info "$(now()): machine_grow_and_rate: Masking exception $e"
+            return nothing
+        else
+            rethrow()
+        end
+    end
 end
 
 function model_predict(
