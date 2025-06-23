@@ -227,7 +227,7 @@ function machine_grow_and_rate(
             @assert !isnothing(c.m_save)
             return Agent(r, genome, sol.u, MachineResult(mn_spec, c.m_save.m))
         else
-            @info "$(now()): machine_grow_and_rate: (Probably harmless) Solver did not succeed: $(sol.retcode)"
+            @info "$(now()): machine_grow_and_rate: (Probably harmless) Solve for optimal p did not succeed: $(sol.retcode)"
             return nothing
         end
     catch e

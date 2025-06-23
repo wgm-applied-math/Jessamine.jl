@@ -87,7 +87,7 @@ function least_squares_ridge_grow_and_rate(
                 return Agent(r, genome, sol.u, BasicLinearModelResult(c.b))
             end
         else
-            @info "$(now()) machine_grow_and_rate: (Probably harmless) Solver did not succeed: $(sol.retcode)"
+            @info "$(now()) machine_grow_and_rate: (Probably harmless) Solve for optimal p did not succeed: $(sol.retcode)"
             return nothing
         end
     catch e

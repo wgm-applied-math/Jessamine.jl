@@ -131,7 +131,7 @@ function model_symbolic_output(
             y_sym = y_sym,
             y_lim = y_lim, y_simp = y_simp, y_sub = y_sub, y_num = y_num)
     catch e
-        @warn "model_predict failed: $(e)"
+        @info "model_predict failed, returning short symbolic report: $(e)"
         return (p = p, x = x, z = z, p_subs = p_subs, z_num = z_num)
     end
 end
@@ -244,7 +244,7 @@ function model_sympy_output(
             y_sym = y_sym,
             y_lim = y_lim, y_simp = y_simp, y_sub = y_sub, y_num = y_num)
     catch e
-        @warn "model_predict failed: $(e)"
+        @info "model_predict failed, returning short symbolic result: $(e)"
         return (p = p, x = x, z = z, p_subs = p_subs, z_num = z_num)
     end
 end
