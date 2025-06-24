@@ -168,7 +168,9 @@ const default_simplifier = EpochSpec(
 
 # Complication: @mlj_model doesn't work inside another
 # macro because the clean! method comes out with a hygenized
-# type in its definition.
+# type in its definition.  That is, the model field in the struct
+# conflicts with a local variable called model in the generated clean!
+# method.  So we have to use @kwdef instead of @mlj_model.
 
 # Complication: @kwdef barfs if I try to put a type parameter here.
 # As in `@kwdef mutable struct $(struct_name){T}` just won't work.
