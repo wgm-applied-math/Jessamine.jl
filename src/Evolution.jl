@@ -189,7 +189,7 @@ used.
 """
 function random_genome(rng::AbstractRNG, g_spec::GenomeSpec,
         m_dist::MutationDist, arity_dist::Distribution;
-        domain_safe=false)
+        domain_safe = false)
     index_max = workspace_size(g_spec)
     index_dist = DiscreteUniform(1, index_max)
     num_instruction_blocks = g_spec.output_size + g_spec.scratch_size
@@ -233,7 +233,7 @@ Parameters needed to run `random_initial_population` and `evolution_loop`.
     m_dist::MutationDist
     s_dist::SelectionDist
     grow_and_rate::Any
-    max_generations::Union{Nothing,Int} = nothing
+    max_generations::Union{Nothing, Int} = nothing
     stop_on_innovation::Bool = false
 end
 
@@ -275,6 +275,7 @@ end
         s_spec::SelectionSpec,
         grow_and_rate;
         domain_safe = false,
+        valid_agent_max_attempts = 100,
         sense = MinSense)::Population
 
 Make a random initial population.  The number of genomes is
@@ -282,6 +283,17 @@ specified by adding the number of new genomes per generation and
 the number of keepers given in `s_spec`.  Other parameters are
 passed to `random_genome` to produce random genomes.
 The `grow_and_rate` function is called with `rng, g_spec, genome`.
+
+Since growing an agent from a genome may fail, the function
+will try to produce a valid agent up to `valid_agent_max_attempts`
+times.  After that many failures, it will give up and throw an
+error.
+
+If `domain_safe` is `true`, only operators for which `is_domain_safe(op)` 
+is `true` are used in the genomes.
+
+The `sense` parameter specifies whether selection should aim to
+minimize (`MinSense`) or maximize (`MaxSense`) the rating of the agents.
 """
 function random_initial_population(
         rng::AbstractRNG,
@@ -291,6 +303,7 @@ function random_initial_population(
         s_spec::SelectionSpec,
         grow_and_rate;
         domain_safe = false,
+        valid_agent_max_attempts = 100,
         sense = MinSense)::Population
     pop_size = s_spec.num_to_keep + s_spec.num_to_generate
     agents = Vector(undef, pop_size)
@@ -301,11 +314,12 @@ function random_initial_population(
             if attempt_count > 0 && mod(attempt_count, 10) == 0
                 @warn "Failed to produce a valid agent after $(attempt_count) attempts"
             end
-            if attempt_count >= 100
+            if attempt_count >= valid_agent_max_attempts
                 @error "Failed to produce a valid agent after $(attempt_count) attempts, giving up"
                 error("Failed to produce a valid agent after $(attempt_count) attempts")
             end
-            genome = random_genome(rng, g_spec, m_dist, arity_dist; domain_safe = domain_safe)
+            genome = random_genome(
+                rng, g_spec, m_dist, arity_dist; domain_safe = domain_safe)
             agent = grow_and_rate(rng, g_spec, genome)
             attempt_count += 1
         end
@@ -501,14 +515,14 @@ function evolution_loop(
         s_dist::SelectionDist,
         grow_and_rate,
         pop_init::Population;
-        max_generations::Union{Nothing,Integer},
+        max_generations::Union{Nothing, Integer},
         generation_mod = 10,
         verbosity = 1,
         sense = MinSense,
-        stop_threshold::Union{Nothing,Number} = nothing,
+        stop_threshold::Union{Nothing, Number} = nothing,
         stop_on_innovation = false,
-        stop_channel::Union{Nothing,Channel} = nothing,
-        stop_deadline::Union{Nothing,DateTime} = nothing,
+        stop_channel::Union{Nothing, Channel} = nothing,
+        stop_deadline::Union{Nothing, DateTime} = nothing
 )
     pop_next = pop_init
     best_in_gen = pop_next.agents[1]
@@ -641,13 +655,13 @@ function vns_evolution_loop(
         rng::AbstractRNG,
         neighborhoods::AbstractArray{EvolutionSpec},
         pop_init::Population;
-        max_epochs::Union{Nothing,Integer} = nothing,
+        max_epochs::Union{Nothing, Integer} = nothing,
         generation_mod = 10,
         verbosity = 1,
         sense = MinSense,
-        stop_threshold::Union{Nothing,Number} = nothing,
-        stop_channel::Union{Nothing,Channel} = nothing,
-        stop_deadline::Union{Nothing,DateTime} = nothing,
+        stop_threshold::Union{Nothing, Number} = nothing,
+        stop_channel::Union{Nothing, Channel} = nothing,
+        stop_deadline::Union{Nothing, DateTime} = nothing
 )
     pop_next = pop_init
     neighborhood_index = 1
@@ -675,7 +689,8 @@ function vns_evolution_loop(
         best_in_gen = pop_next.agents[1]
         condition = pop_next.condition
         if (condition == DiscoveredInnovation()
-            || is_better(best_rating, best_in_gen.rating, sense))
+            ||
+            is_better(best_rating, best_in_gen.rating, sense))
             best_rating = best_in_gen.rating
             # Return to neighborhood 1
             neighborhood_index = 1
