@@ -517,6 +517,10 @@ If a message is found, the loop stops.
 If `stop_deadline` is a `DateTime` rather than nothing,
 the loop checks whether `now() > stop_deadline` before
 calling `next_generation`, and if so, the loop stops.
+
+* `valid_agent_max_attempts = 100`:
+Passed to `next_generation()`.
+
 """
 
 function evolution_loop(
@@ -529,6 +533,7 @@ function evolution_loop(
         max_generations::Union{Nothing, Integer},
         generation_mod = 10,
         verbosity = 1,
+        valid_agent_max_attempts = 100,
         sense = MinSense,
         stop_threshold::Union{Nothing, Number} = nothing,
         stop_on_innovation = false,
@@ -570,7 +575,8 @@ function evolution_loop(
         end
         t += 1
         pop_next = next_generation(
-            rng, g_spec, s_dist, m_dist, pop_next, grow_and_rate)
+            rng, g_spec, s_dist, m_dist, pop_next, grow_and_rate,
+            valid_agent_max_attempts = valid_agent_max_attempts)
         if verbosity > 0 && mod(t, generation_mod) == 0
             @info "$(now()): Generation $t, best = $best_rating"
         end
@@ -660,6 +666,9 @@ If a message is found, the loop stops.
 If `stop_deadline` is a `DateTime` rather than nothing,
 the loop checks whether `now() > stop_deadline` before
 calling `next_generation`, and if so, the loop stops.
+
+* `valid_agent_max_attempts = 100`:
+Passed to `next_generation()`.
 """
 
 function vns_evolution_loop(
@@ -669,6 +678,7 @@ function vns_evolution_loop(
         max_epochs::Union{Nothing, Integer} = nothing,
         generation_mod = 10,
         verbosity = 1,
+        valid_agent_max_attempts = 100,
         sense = MinSense,
         stop_threshold::Union{Nothing, Number} = nothing,
         stop_channel::Union{Nothing, Channel} = nothing,
@@ -692,6 +702,7 @@ function vns_evolution_loop(
             pop_next;
             generation_mod = generation_mod,
             verbosity = verbosity,
+            valid_agent_max_attempts = valid_agent_max_attempts,
             sense = sense,
             stop_threshold = stop_threshold,
             stop_channel = stop_channel,
