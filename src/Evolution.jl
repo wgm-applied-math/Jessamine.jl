@@ -312,11 +312,11 @@ function random_initial_population(
         attempt_count = 0
         while isnothing(agent)
             if attempt_count > 0 && mod(attempt_count, 10) == 0
-                @warn "Failed to produce a valid agent after $(attempt_count) attempts"
+                @warn "random_initial_population: Failed to produce a valid agent after $(attempt_count) attempts; trying again"
             end
             if attempt_count >= valid_agent_max_attempts
-                @error "Failed to produce a valid agent after $(attempt_count) attempts, giving up"
-                error("Failed to produce a valid agent after $(attempt_count) attempts")
+                @error "random_initial_population: Failed to produce a valid agent after $(attempt_count) attempts; giving up"
+                error("random_initial_population: Failed to produce a valid agent after $(attempt_count) attempts")
             end
             genome = random_genome(
                 rng, g_spec, m_dist, arity_dist; domain_safe = domain_safe)
@@ -405,6 +405,7 @@ end
         m_dist::MutationDist,
         pop::Population,
         grow_and_rate;
+        valid_agent_max_attempts = 100,
         sense = MinSense)
 
 Produce the next generation of a population by selection and
@@ -414,6 +415,15 @@ organism and return the rating and extra data as an `Agent`,
 which is inserted into the population.  The `sense` parameter
 specifies whether selection should minimize or maximize the
 rating.
+
+Since growing an agent from a genome may fail, the function
+will try to produce a valid agent up to `valid_agent_max_attempts`
+times.  After that many failures, it will give up and throw an
+error.
+
+The `sense` parameter specifies whether selection should aim to
+minimize (`MinSense`) or maximize (`MaxSense`) the rating of the agents.
+
 """
 function next_generation(
         rng::AbstractRNG,
@@ -422,6 +432,7 @@ function next_generation(
         m_dist::MutationDist,
         pop::Population,
         grow_and_rate;
+        valid_agent_max_attempts = 100,
         sense = MinSense)::Population
     s_spec = s_dist.spec
     new_agents = Vector(undef, s_spec.num_to_generate)
@@ -430,11 +441,11 @@ function next_generation(
         attempt_count = 0
         while isnothing(agent)
             if attempt_count > 0 && mod(attempt_count, 10) == 0
-                @warn "Failed to produce a valid agent after $(attempt_count) attempts"
+                @warn "next_generation: Failed to produce a valid agent after $(attempt_count) attempts; trying again"
             end
-            if attempt_count >= 100
-                @error "Failed to produce a valid agent after $(attempt_count) attempts, giving up"
-                error("Failed to produce a valid agent after $(attempt_count) attempts")
+            if attempt_count >= valid_agent_max_attempts
+                @error "next_generation: Failed to produce a valid agent after $(attempt_count) attempts; giving up"
+                error("next_generation: Failed to produce a valid agent after $(attempt_count) attempts")
             end
             ng = new_genome(rng, s_dist, m_dist, pop)
             # cg = compile(g_spec, g)
