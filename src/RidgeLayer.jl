@@ -87,12 +87,12 @@ function least_squares_ridge_grow_and_rate(
                 return Agent(r, genome, sol.u, BasicLinearModelResult(c.b))
             end
         else
-            @info "$(now()) machine_grow_and_rate: (Probably harmless) Solve for optimal p did not succeed: $(sol.retcode)"
+            @debug "$(now()) machine_grow_and_rate: (Probably harmless) Solve for optimal p did not succeed: $(sol.retcode)"
             return nothing
         end
     catch e
         if isa(e, ArgumentError) || isa(e, SingularException) || isa(e, DomainError)
-            @info "$(now()) least_squares_ridge_grow_and_rate: Masking exception $e"
+            @debug "$(now()) least_squares_ridge_grow_and_rate: (Probably harmless) Masking exception $e"
             return nothing
         end
         rethrow()
