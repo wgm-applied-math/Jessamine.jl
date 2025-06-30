@@ -306,10 +306,9 @@ function random_initial_population(
         valid_agent_max_attempts = 100,
         sense = MinSense)::Population
     pop_size = s_spec.num_to_keep + s_spec.num_to_generate
-    agents = Vector(undef, pop_size)
-    Threads.@threads for j in eachindex(agents)
-        agent = nothing
+    function make_agent()
         attempt_count = 0
+        agent = nothing
         while isnothing(agent)
             if attempt_count > 0 && mod(attempt_count, 10) == 0
                 @debug "random_initial_population: Failed to produce a valid agent after $(attempt_count) attempts; trying again"
@@ -323,8 +322,9 @@ function random_initial_population(
             agent = grow_and_rate(rng, g_spec, genome)
             attempt_count += 1
         end
-        agents[j] = agent
+        return agent
     end
+    agents = fetch.([Threads.@spawn make_agent() for i in 1:pop_size])
     rev = sense == Optimization.MaxSense
     sort!(agents, rev = rev)
     return Population(agents, InitialPopulation())
@@ -435,10 +435,9 @@ function next_generation(
         valid_agent_max_attempts = 100,
         sense = MinSense)::Population
     s_spec = s_dist.spec
-    new_agents = Vector(undef, s_spec.num_to_generate)
-    Threads.@threads for j in eachindex(new_agents)
-        agent = nothing
+    function make_agent()
         attempt_count = 0
+        agent = nothing
         while isnothing(agent)
             if attempt_count > 0 && mod(attempt_count, 10) == 0
                 @debug "next_generation: Failed to produce a valid agent after $(attempt_count) attempts; trying again"
@@ -452,8 +451,9 @@ function next_generation(
             agent = grow_and_rate(rng, g_spec, ng)
             attempt_count += 1
         end
-        new_agents[j] = agent
+        return agent
     end
+    new_agents = fetch.([Threads.@spawn make_agent() for i in 1:s_spec.num_to_generate])
     keepers = pop.agents[1:(s_spec.num_to_keep)]
     next_rated_genomes = vcat(new_agents, keepers)
     rev = sense == Optimization.MaxSense
