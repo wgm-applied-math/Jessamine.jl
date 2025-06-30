@@ -319,7 +319,12 @@ function random_initial_population(
             end
             genome = random_genome(
                 rng, g_spec, m_dist, arity_dist; domain_safe = domain_safe)
-            agent = grow_and_rate(rng, g_spec, genome)
+            try
+                agent = grow_and_rate(rng, g_spec, genome)
+            catch e
+                @debug "$(now()): random_initial_population: grow_and_rate failed with exception, trying again: $e"
+                agent = nothing
+            end
             attempt_count += 1
         end
         return agent
@@ -448,7 +453,12 @@ function next_generation(
             end
             ng = new_genome(rng, s_dist, m_dist, pop)
             # cg = compile(g_spec, g)
-            agent = grow_and_rate(rng, g_spec, ng)
+            try
+                agent = grow_and_rate(rng, g_spec, ng)
+            catch e
+                @debug "$(now()): next_generation: grow_and_rate failed with exception, trying again: $e"
+                agent = nothing
+            end
             attempt_count += 1
         end
         return agent
