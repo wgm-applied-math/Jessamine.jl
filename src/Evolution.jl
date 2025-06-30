@@ -312,7 +312,7 @@ function random_initial_population(
         attempt_count = 0
         while isnothing(agent)
             if attempt_count > 0 && mod(attempt_count, 10) == 0
-                @warn "random_initial_population: Failed to produce a valid agent after $(attempt_count) attempts; trying again"
+                @debug "random_initial_population: Failed to produce a valid agent after $(attempt_count) attempts; trying again"
             end
             if attempt_count >= valid_agent_max_attempts
                 @error "random_initial_population: Failed to produce a valid agent after $(attempt_count) attempts; giving up"
@@ -441,7 +441,7 @@ function next_generation(
         attempt_count = 0
         while isnothing(agent)
             if attempt_count > 0 && mod(attempt_count, 10) == 0
-                @warn "next_generation: Failed to produce a valid agent after $(attempt_count) attempts; trying again"
+                @debug "next_generation: Failed to produce a valid agent after $(attempt_count) attempts; trying again"
             end
             if attempt_count >= valid_agent_max_attempts
                 @error "next_generation: Failed to produce a valid agent after $(attempt_count) attempts; giving up"
