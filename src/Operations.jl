@@ -449,24 +449,42 @@ end
 @define_unary_op Exp exp
 is_domain_safe(::Exp) = true
 @define_unary_op Log log
+
 @define_unary_op Sin sin
 is_domain_safe(::Sin) = true
 @define_unary_op Cos cos
 is_domain_safe(::Cos) = true
 @define_unary_op Tan tan
+@define_unary_op Cot cot
+@define_unary_op Sec sec
+@define_unary_op Csc csc
+
 @define_unary_op ASin asin
 @define_unary_op ACos acos
 @define_unary_op ATan atan
+is_domain_safe(::ATan) = true
+@define_unary_op ACot acot
+is_domain_safe(::ACot) = true
+@define_unary_op ASec asec
+@define_unary_op ACsc acsc
+
 @define_unary_op Sinh sinh
 is_domain_safe(::Sinh) = true
 @define_unary_op Cosh cosh
 is_domain_safe(::Cosh) = true
 @define_unary_op Tanh tanh
 is_domain_safe(::Tanh) = true
+@define_unary_op Coth coth
+@define_unary_op Sech sech
+is_domain_safe(::Sech) = true
+@define_unary_op Csch csch
 @define_unary_op ASinh asinh
 is_domain_safe(::ASinh) = true
 @define_unary_op ACosh acosh
 @define_unary_op ATanh atanh
+@define_unary_op ACoth acoth
+@define_unary_op ASech asech
+@define_unary_op ACsch acsch
 
 export PolynomialInventory
 const PolynomialInventory = [Add(), Subtract(), Multiply()]
