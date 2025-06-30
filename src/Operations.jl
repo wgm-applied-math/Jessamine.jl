@@ -504,12 +504,14 @@ export TrigInventory
 const TrigInventory = vcat(ExpLogInventory,
     reshape(
         [UnaryComposition{un_op, bin_op}()
-         for un_op in [Sin, Cos, Tan, ASin, ACos, ATan], bin_op in [Add, Subtract, Multiply]],
+         for un_op in [Sin, Cos, Tan, Cot, Sec, Csc, ASin, ACos, ATan, ACot, ASec, ACsc],
+            bin_op in [Add, Subtract, Multiply]],
         :))
 
 export HyperbolicInventory
 const HyperbolicInventory = vcat(ExpLogInventory,
         reshape(
             [UnaryComposition{un_op, bin_op}()
-             for un_op in [Sinh, Cosh, Tanh, ASinh, ACosh, ATanh], bin_op in [Add, Subtract, Multiply]],
+             for un_op in [Sinh, Cosh, Tanh, Coth, Sech, Csch, ASinh, ACosh, ATanh, ACoth, ASech, ACsch],
+                bin_op in [Add, Subtract, Multiply]],
             :))
