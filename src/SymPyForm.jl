@@ -1,6 +1,7 @@
 # Make language server happy
 if false
     using SymPy
+    using PyCall
     include("GenomeCore.jl")
 end
 
@@ -25,10 +26,10 @@ function eval_time_step_sympy(
         input_sym = :x,
         assumptions = Dict(:extended_real => true)
 )
-    z = [symbols("$output_sym$j"; assumptions...) for j in 1:(g_spec.output_size)]
-    t = [symbols("$scratch_sym$j"; assumptions...) for j in 1:(g_spec.scratch_size)]
-    p = [symbols("$parameter_sym$j"; assumptions...) for j in 1:(g_spec.parameter_size)]
-    x = [symbols("$input_sym$j"; assumptions...) for j in 1:(g_spec.input_size)]
+    z = Sym{PyCall.PyObject}[symbols("$output_sym$j"; assumptions...) for j in 1:(g_spec.output_size)]
+    t = Sym{PyCall.PyObject}[symbols("$scratch_sym$j"; assumptions...) for j in 1:(g_spec.scratch_size)]
+    p = Sym{PyCall.PyObject}[symbols("$parameter_sym$j"; assumptions...) for j in 1:(g_spec.parameter_size)]
+    x = Sym{PyCall.PyObject}[symbols("$input_sym$j"; assumptions...) for j in 1:(g_spec.input_size)]
     c = CellState(z, t, p, x)
     c_next = eval_time_step(c, genome)
     return (z = z, t = t, p = p, x = x, c = c, c_next = c_next)
@@ -62,8 +63,8 @@ function run_genome_sympy(
         parameter_sym = :p,
         input_sym = :x,
         assumptions = Dict(:extended_real => true))
-    p = [symbols("$parameter_sym$j"; assumptions...) for j in 1:(g_spec.parameter_size)]
-    x = [symbols("$input_sym$j"; assumptions...) for j in 1:(g_spec.input_size)]
+    p = Sym{PyCall.PyObject}[symbols("$parameter_sym$j"; assumptions...) for j in 1:(g_spec.parameter_size)]
+    x = Sym{PyCall.PyObject}[symbols("$input_sym$j"; assumptions...) for j in 1:(g_spec.input_size)]
     z = run_genome(g_spec, genome, p, x)[end]
     return (p = p, x = x, z = z)
 end
