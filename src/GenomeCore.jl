@@ -311,9 +311,9 @@ function eval_time_step(
 end
 
 function eval_time_step(
-        cell_state::CellState{E},
+        cell_state::CellState,
         genome::Genome
-)::CellState{E} where {E <: Number}
+)::CellState
     # local new_output::Vector{E}
     new_output = zero_like(cell_state.output)
     n_output = length(new_output)
@@ -387,9 +387,9 @@ function compile(g_spec::GenomeSpec, cg::CompiledGenome)
 end
 
 function eval_time_step(
-        cell_state::CellState{E},
+        cell_state::CellState,
         cg::CompiledGenome
-)::CellState{E} where {E}
+)::CellState
     return invokelatest(cg.f, cell_state)
 end
 
