@@ -217,25 +217,33 @@ function machine_grow_and_rate(
         output_col_names,
         nothing,
         w)
-    optim_fn = parameter_solver_optimization_function(sol_spec, _MGR_f)
-    optim_prob = parameter_solver_optimization_problem(sol_spec, g_spec, optim_fn, c)
-    try
-        sol = parameter_solver_solve(sol_spec, optim_prob)
-        if SciMLBase.successful_retcode(sol)
-            _MGR_f(sol.u, c)
-            r = sol.objective + g_c
-            @assert !isnothing(c.m_save)
-            return Agent(r, genome, sol.u, MachineResult(mn_spec, c.m_save.m))
-        else
-            @debug "$(now()): machine_grow_and_rate: (Probably harmless) Solve for optimal p did not succeed: $(sol.retcode)"
-            return nothing
-        end
-    catch e
-        if isa(e, ArgumentError) || isa(e, SingularException) || isa(e, DomainError)
-            @debug "$(now()): machine_grow_and_rate: (Probably harmless) Masking exception $e"
-            return nothing
-        else
-            rethrow()
+    if g_spec.parameter_size == 0
+        # No need to solve for p; no ps to solve for.
+        r_obj = _MGR_f(zeros(0), c)
+        r = r_obj + g_c
+        @assert !isnothing(c.m_save)
+        return Agent(r, genome, zeros(0), MachineResult(mn_spec, c.m_save.m))
+    else
+        optim_fn = parameter_solver_optimization_function(sol_spec, _MGR_f)
+        optim_prob = parameter_solver_optimization_problem(sol_spec, g_spec, optim_fn, c)
+        try
+            sol = parameter_solver_solve(sol_spec, optim_prob)
+            if SciMLBase.successful_retcode(sol)
+                _MGR_f(sol.u, c)
+                r = sol.objective + g_c
+                @assert !isnothing(c.m_save)
+                return Agent(r, genome, sol.u, MachineResult(mn_spec, c.m_save.m))
+            else
+                @debug "$(now()): machine_grow_and_rate: (Probably harmless) Solve for optimal p did not succeed: $(sol.retcode)"
+                return nothing
+            end
+        catch e
+            if isa(e, ArgumentError) || isa(e, SingularException) || isa(e, DomainError)
+                @debug "$(now()): machine_grow_and_rate: (Probably harmless) Masking exception $e"
+                return nothing
+            else
+                rethrow()
+            end
         end
     end
 end

@@ -73,29 +73,41 @@ function least_squares_ridge_grow_and_rate(
         genome::AbstractGenome,
         p_init::AbstractArray = zeros(g_spec.parameter_size)
 )::Union{Agent, Nothing}
-    optim_fn = OptimizationFunction(_LSRGR_f)
     c = _LSRGR_Context(g_spec, genome, lambda_b, xs, y, lambda_p, nothing, nothing)
-    optim_prob = OptimizationProblem(optim_fn, p_init, c, sense = MinSense)
-    try
-        sol = solve(optim_prob, NelderMead())
-        if SciMLBase.successful_retcode(sol)
-            _LSRGR_f(sol.u, c)
-            if isnothing(c.b)
-                return nothing
-            else
-                r = sol.objective + lambda_operand * num_operands(genome)
-                return Agent(r, genome, sol.u, BasicLinearModelResult(c.b))
-            end
+    if g_spec.parameter_size == 0
+        # No need to solve for p; no ps to solve for.
+        # Just do the least squares ridge regression.
+        r_obj = _LSRGR_f(p_init, c)
+        if isnothing(c.b)
+            return nothing
         else
-            @debug "$(now()) machine_grow_and_rate: (Probably harmless) Solve for optimal p did not succeed: $(sol.retcode)"
-            return nothing
+            r = r_obj + lambda_operand * num_operands(genome)
+            return Agent(r, genome, p_init, BasicLinearModelResult(c.b))
         end
-    catch e
-        if isa(e, ArgumentError) || isa(e, SingularException) || isa(e, DomainError)
-            @debug "$(now()) least_squares_ridge_grow_and_rate: (Probably harmless) Masking exception $e"
-            return nothing
+    else
+        optim_fn = OptimizationFunction(_LSRGR_f)
+        optim_prob = OptimizationProblem(optim_fn, p_init, c, sense = MinSense)
+        try
+            sol = solve(optim_prob, NelderMead())
+            if SciMLBase.successful_retcode(sol)
+                _LSRGR_f(sol.u, c)
+                if isnothing(c.b)
+                    return nothing
+                else
+                    r = sol.objective + lambda_operand * num_operands(genome)
+                    return Agent(r, genome, sol.u, BasicLinearModelResult(c.b))
+                end
+            else
+                @debug "$(now()) machine_grow_and_rate: (Probably harmless) Solve for optimal p did not succeed: $(sol.retcode)"
+                return nothing
+            end
+        catch e
+            if isa(e, ArgumentError) || isa(e, SingularException) || isa(e, DomainError)
+                @debug "$(now()) least_squares_ridge_grow_and_rate: (Probably harmless) Masking exception $e"
+                return nothing
+            end
+            rethrow()
         end
-        rethrow()
     end
 end
 
@@ -126,14 +138,14 @@ end
 
 function _LSRGR_f(u::Vector{Float64}, c::_LSRGR_Context{TXs, Ty}) where {TXs, Ty}
     n, b = least_squares_ridge(c.xs, c.y, c.lambda_b, c.g_spec, c.genome, u)
-    if isnothing(b)
+    c.n = n
+    c.b = b
+    if isnothing(b) || isnothing(n)
         # Ridge regression failed.
         # This should be some form of infinity.
         return n
     else
         # Ridge regression succeeded.
-        c.n = n
-        c.b = b
         return n^2 + c.lambda_b * dot(b, b) + c.lambda_p * dot(u, u)
     end
 end
