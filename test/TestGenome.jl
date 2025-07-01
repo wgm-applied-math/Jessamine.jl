@@ -8,6 +8,23 @@ using Jessamine
 function main()
     rng = Xoshiro(202406181224)
 
+    println("Test run_genome with something basic")
+
+    g_spec = GenomeSpec(2, 0, 0, 2, 2)
+
+    # Map from variables to indices
+    z1, z2, x1, x2 = 1:4
+
+    instruction_blocks = [
+        [Instruction(Add(), [x1, x2, z2])],
+        [Instruction(Multiply(), [x1, x2])]
+    ]
+
+    genome = Genome(instruction_blocks)
+
+    @show run_genome(g_spec, genome, Float64[], [4.0, 5.0])
+
+
     println("Test run_genome with the Henon map")
 
     a = 1.4
