@@ -1,6 +1,5 @@
 # Make language server happy
 if false
-    using Dates
     using Distributions
     include("GenomeCore.jl")
     include("Operations.jl")
@@ -17,6 +16,25 @@ export generation_size
 export random_genome, random_initial_population, next_generation
 export EvolutionSpec, evolution_loop
 export vns_evolution_loop
+export infinitely_bad
+
+"""
+    infinitely_bad(sense::SciMLBase.ObjSense)
+
+Return a value that is considered almost infinitely bad in the
+given optimization sense.
+
+This returns a finite number of the largest possible magnitude
+because infinite float values`Inf` and `-Inf` can't be compared
+to any other float value using `<`.
+"""
+function infinitely_bad(sense::ObjSense; t=Float64)
+    if sense == MinSense
+        return prevfloat(typemax(t))
+    else
+        return nextfloat(typemin(t))
+    end
+end
 
 """
 Parameters for tournament selection.
@@ -78,7 +96,7 @@ end
 
 """An agent has a rating, a genome, a parameter vector, and an
 extra bit of data that depends on how rating is done."""
-struct Agent{R, G <: AbstractGenome, VPar <: AbstractArray, T}
+struct Agent{R, G, VPar, T}
     rating::R
     genome::G
     parameter::VPar
@@ -309,21 +327,20 @@ function random_initial_population(
     function make_agent()
         attempt_count = 0
         agent = nothing
-        while isnothing(agent)
+        while isnothing(agent) || !isfinite(agent.rating)
             if attempt_count > 0 && mod(attempt_count, 10) == 0
                 @debug "random_initial_population: Failed to produce a valid agent after $(attempt_count) attempts; trying again"
             end
             if attempt_count >= valid_agent_max_attempts
-                @error "random_initial_population: Failed to produce a valid agent after $(attempt_count) attempts; giving up"
-                error("random_initial_population: Failed to produce a valid agent after $(attempt_count) attempts")
+                @warn "random_initial_population: Failed to produce a valid agent after $(attempt_count) attempts; giving up"
+                return agent
             end
             genome = random_genome(
                 rng, g_spec, m_dist, arity_dist; domain_safe = domain_safe)
             try
                 agent = grow_and_rate(rng, g_spec, genome)
             catch e
-                @debug "$(now()): random_initial_population: grow_and_rate failed with exception, trying again: $e"
-                agent = nothing
+                @debug "random_initial_population: grow_and_rate failed with exception, trying again: $e"
             end
             attempt_count += 1
         end
@@ -443,21 +460,20 @@ function next_generation(
     function make_agent()
         attempt_count = 0
         agent = nothing
-        while isnothing(agent)
+        while isnothing(agent) || !isfinite(agent.rating)
             if attempt_count > 0 && mod(attempt_count, 10) == 0
                 @debug "next_generation: Failed to produce a valid agent after $(attempt_count) attempts; trying again"
             end
             if attempt_count >= valid_agent_max_attempts
-                @error "next_generation: Failed to produce a valid agent after $(attempt_count) attempts; giving up"
-                error("next_generation: Failed to produce a valid agent after $(attempt_count) attempts")
+                @warn "next_generation: Failed to produce a valid agent after $(attempt_count) attempts; giving up"
+                return agent
             end
             ng = new_genome(rng, s_dist, m_dist, pop)
             # cg = compile(g_spec, g)
             try
                 agent = grow_and_rate(rng, g_spec, ng)
             catch e
-                @debug "$(now()): next_generation: grow_and_rate failed with exception, trying again: $e"
-                agent = nothing
+                @debug "$next_generation: grow_and_rate failed with exception, trying again: $e"
             end
             attempt_count += 1
         end
@@ -577,7 +593,7 @@ function evolution_loop(
             best_rating = best_in_gen.rating
             condition = DiscoveredInnovation()
             if verbosity > 0
-                @info "$(now()): Generation $t, new best = $best_rating"
+                @info "Generation $t, new best = $best_rating"
             end
             if stop_on_innovation
                 break
@@ -588,11 +604,11 @@ function evolution_loop(
             rng, g_spec, s_dist, m_dist, pop_next, grow_and_rate,
             valid_agent_max_attempts = valid_agent_max_attempts)
         if verbosity > 0 && mod(t, generation_mod) == 0
-            @info "$(now()): Generation $t, best = $best_rating"
+            @info "Generation $t, best = $best_rating"
         end
     end
     if verbosity > 0
-        @info "$(now()): Stopping: $(describe_condition(condition))"
+        @info "Stopping: $(describe_condition(condition))"
     end
     return Population(pop_next.agents, condition)
 end
@@ -727,22 +743,22 @@ function vns_evolution_loop(
             # Return to neighborhood 1
             neighborhood_index = 1
             if verbosity > 0
-                @info "$(now()): Epoch $e: Discovered innovation, returning to first neighborhood"
+                @info "Epoch $e: Discovered innovation, returning to first neighborhood"
             end
         elseif neighborhood_index < length(neighborhoods)
             # Advance to the next neighborhood
             neighborhood_index += 1
             if verbosity > 0
-                @info "$(now()): Epoch $e: Completed with no innovation, advancing to neighborhood $neighborhood_index"
+                @info "Epoch $e: Completed with no innovation, advancing to neighborhood $neighborhood_index"
             end
         else
             if verbosity > 0
-                @info "$(now()): Epoch $e: Completed with no innovation, continuing in neighborhood $neighborhood_index"
+                @info "Epoch $e: Completed with no innovation, continuing in neighborhood $neighborhood_index"
             end
         end
     end
     if verbosity > 0
-        @info "$(now()): Stopping VNS: $(describe_condition(condition))"
+        @info "Stopping VNS: $(describe_condition(condition))"
     end
     return Population(pop_next.agents, condition)
 end

@@ -234,13 +234,13 @@ function machine_grow_and_rate(
                 @assert !isnothing(c.m_save)
                 return Agent(r, genome, sol.u, MachineResult(mn_spec, c.m_save.m))
             else
-                @debug "$(now()): machine_grow_and_rate: (Probably harmless) Solve for optimal p did not succeed: $(sol.retcode)"
-                return nothing
+                @debug "Solve for optimal p did not succeed: $(sol.retcode)"
+                return Agent(infinitely_bad(optim_prob.sense), genome, nothing, nothing)
             end
         catch e
             if isa(e, ArgumentError) || isa(e, SingularException) || isa(e, DomainError)
-                @debug "$(now()): machine_grow_and_rate: (Probably harmless) Masking exception $e"
-                return nothing
+                @debug "Masking exception $e"
+                return Agent(infinitely_bad(optim_prob.sense), genome, nothing, nothing)
             else
                 rethrow()
             end

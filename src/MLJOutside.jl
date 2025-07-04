@@ -359,7 +359,7 @@ function MLJModelInterface.fit(
     end
     specs = build_specs!(jm, X, y, w)
     init_neighborhood = specs.neighborhoods[1]
-    @info "$(now()): Building initial population"
+    @info "Building initial population"
     pop_init = random_initial_population(
         jm.rng,
         init_neighborhood,
@@ -395,7 +395,7 @@ function MLJModelInterface.update(
     specs = old_cache.specs
     pop_init = old_cache.pop
     if verbosity > 0
-        @info "$(now()): Begin VNS loop"
+        @info "Begin VNS loop"
     end
     pop_next = vns_evolution_loop(
         jm.rng,
@@ -410,7 +410,7 @@ function MLJModelInterface.update(
     if !isnothing(jm.simplifier)
         if do_simplification(pop_next.condition)
             if verbosity > 0
-                @info "$(now()): Begin simplification epoch"
+                @info "Begin simplification epoch"
             end
             pre_simp_condition = pop_next.condition
             pop_next = evolution_loop(
@@ -428,11 +428,11 @@ function MLJModelInterface.update(
                 pop_next = Population(pop_next, pre_simp_condition)
             end
         elseif verbosity > 0
-            @info "$(now()): Skipping simplification: $(describe_condition(pop_next.condition))"
+            @info "Skipping simplification: $(describe_condition(pop_next.condition))"
         end
     end
     if verbosity > 0
-        @info "$(now()): Evolution ended"
+        @info "Evolution ended"
     end
     best_agent = pop_next.agents[1]
     best_rating = best_agent.rating

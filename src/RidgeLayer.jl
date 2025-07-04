@@ -91,20 +91,17 @@ function least_squares_ridge_grow_and_rate(
             sol = solve(optim_prob, NelderMead())
             if SciMLBase.successful_retcode(sol)
                 _LSRGR_f(sol.u, c)
-                if isnothing(c.b)
-                    return nothing
-                else
-                    r = sol.objective + lambda_operand * num_operands(genome)
-                    return Agent(r, genome, sol.u, BasicLinearModelResult(c.b))
-                end
+                @assert !isnothing(c.b) "Optimization should have succeeded."
+                r = sol.objective + lambda_operand * num_operands(genome)
+                return Agent(r, genome, sol.u, BasicLinearModelResult(c.b))
             else
-                @debug "$(now()) machine_grow_and_rate: (Probably harmless) Solve for optimal p did not succeed: $(sol.retcode)"
-                return nothing
+                @debug "Solve for optimal p did not succeed: $(sol.retcode)"
+                return Agent(infinitely_bad(optim_prob.sense), genome, nothing, nothing)
             end
         catch e
             if isa(e, ArgumentError) || isa(e, SingularException) || isa(e, DomainError)
-                @debug "$(now()) least_squares_ridge_grow_and_rate: (Probably harmless) Masking exception $e"
-                return nothing
+                @debug "Masking exception $e"
+                return Agent(infinitely_bad(optim_prob.sense), genome, nothing, nothing)
             end
             rethrow()
         end
