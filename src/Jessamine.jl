@@ -3,6 +3,8 @@ module Jessamine
 using Dates
 using Distributions
 using LinearAlgebra
+using Logging
+using LoggingExtras
 using MLJ
 using MLJLinearModels
 using MLJModelInterface
@@ -20,6 +22,7 @@ using Tables
 using TermInterface
 using Base.Threads
 
+include("LoggingTools.jl")
 include("TablesUtil.jl")
 include("GenomeCore.jl")
 include("RandomDuplicateDelete.jl")

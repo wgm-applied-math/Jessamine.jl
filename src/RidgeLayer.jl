@@ -100,7 +100,7 @@ function least_squares_ridge_grow_and_rate(
             end
         catch e
             if isa(e, ArgumentError) || isa(e, SingularException) || isa(e, DomainError)
-                @debug "Masking exception $e"
+                @debug "Masking exception" exception=e
                 return Agent(infinitely_bad(optim_prob.sense), genome, nothing, nothing)
             end
             rethrow()

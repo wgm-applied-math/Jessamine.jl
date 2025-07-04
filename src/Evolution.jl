@@ -340,7 +340,7 @@ function random_initial_population(
             try
                 agent = grow_and_rate(rng, g_spec, genome)
             catch e
-                @debug "random_initial_population: grow_and_rate failed with exception, trying again: $e"
+                @debug "random_initial_population: grow_and_rate failed with exception, trying again" exception=e
             end
             attempt_count += 1
         end
@@ -473,7 +473,7 @@ function next_generation(
             try
                 agent = grow_and_rate(rng, g_spec, ng)
             catch e
-                @debug "$next_generation: grow_and_rate failed with exception, trying again: $e"
+                @debug "$next_generation: grow_and_rate failed with exception, trying again" exception=e
             end
             attempt_count += 1
         end
