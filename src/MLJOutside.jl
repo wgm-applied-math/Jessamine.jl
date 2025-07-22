@@ -459,6 +459,21 @@ function MLJModelInterface.predict(jm::JessamineModel, fit_result, X)
     return model_predict(fit_result.g_spec, fit_result.best_agent, X)
 end
 
+
+"""
+    model_basic_symbolic_output(fit_result::NamedTuple; kw_args...)
+
+Call `model_basic_symbolic_output` with the `g_spec::GenomeSpec`
+and `best_agent::Agent` found in `fit_result`.
+Return the result.
+"""
+function model_basic_symbolic_output(fit_result::NamedTuple; kw_args...)
+    return model_basic_symbolic_output(
+        fit_result.g_spec,
+        fit_result.best_agent;
+        kw_args...)
+end
+
 """
     model_symbolic_output(fit_result::NamedTuple; kw_args...)
 
@@ -468,6 +483,21 @@ Return the result.
 """
 function model_symbolic_output(fit_result::NamedTuple; kw_args...)
     return model_symbolic_output(
+        fit_result.g_spec,
+        fit_result.best_agent;
+        kw_args...)
+end
+
+
+"""
+    model_basic_sympy_output(fit_result::NamedTuple; kw_args...)
+
+Call `model_basic_sympy_output` with the `g_spec::GenomeSpec`
+and `best_agent::Agent` found in `fit_result`.
+Return the result.
+"""
+function model_basic_sympy_output(fit_result::NamedTuple; kw_args...)
+    return model_basic_sympy_output(
         fit_result.g_spec,
         fit_result.best_agent;
         kw_args...)
