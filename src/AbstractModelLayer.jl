@@ -43,6 +43,49 @@ function model_predict(
 end
 
 """
+    model_basic_symbolic_output(g_spec, genome, parameter, model_result; kw_args...)
+
+Build a Symbolics form for the output of the final time step of
+running `genome`
+Then use the `parameter` vector,
+the symbolic output of the genome,
+and feed the symbolic output of the genome as input to
+model result in `agent.extra` to make a prediction
+in symbolic form.
+No simplifications are performed.
+
+The `kw_args` are eventually splatted into `model_predict`.
+
+Return a named tuple with lots of useful fields.
+
+"""
+function model_basic_symbolic_output(
+        g_spec::GenomeSpec,
+        genome::AbstractGenome,
+        parameter::AbstractArray,
+        mr::AbstractModelResult;
+        kw_args...)
+    p, x, z = run_genome_symbolic(g_spec, genome)
+    p_subs = Dict(p[j] => parameter[j] for j in eachindex(p))
+    z_num = map(z) do zj
+        substitute(zj, p_subs)
+    end
+    try
+        z_sym_row_mat = reshape(z, 1, :)
+        y_sym = model_predict(mr, z_sym_row_mat; kw_args...)[1]
+        y_sub = substitute(y_sym, p_subs)
+        y_num = Symbolics.simplify(y_sub)
+
+        return (p = p, x = x, z = z, p_subs = p_subs, z_num = z_num,
+            y_sym = y_sym,
+            y_sub = y_sub, y_num = y_num)
+    catch e
+        @info "model_predict failed, returning short symbolic report: $(e)"
+        return (p = p, x = x, z = z, p_subs = p_subs, z_num = z_num)
+    end
+end
+
+"""
     model_basic_symbolic_output(g_spec, agent; kw_args...)
 
 Build a Symbolics form for the output of the final time step of
