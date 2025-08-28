@@ -340,13 +340,25 @@ function random_initial_population(
             try
                 agent = grow_and_rate(rng, g_spec, genome)
             catch e
-                @debug "random_initial_population: grow_and_rate failed with exception, trying again" exception=e
+                if isa(e, Union{ArgumentError,SingularException,DomainError})
+                    @debug "random_initial_population: attempt to create agent failed with numerical exception, trying again" exception=e
+                else
+                    rethrow()
+                end
             end
             attempt_count += 1
         end
         return agent
     end
-    agents = fetch.([Threads.@spawn make_agent() for i in 1:pop_size])
+    agents = []
+    while length(agents) < pop_size
+        remaining = pop_size - length(agents)
+        more_agents = fetch.([Threads.@spawn make_agent() for i in 1:remaining])
+        if isempty(more_agents)
+            error("random_initial_population: Failed to produce enough valid agents; giving up")
+        end
+        append!(agents, more_agents)
+    end
     rev = sense == Optimization.MaxSense
     sort!(agents, rev = rev)
     return Population(agents, InitialPopulation())
