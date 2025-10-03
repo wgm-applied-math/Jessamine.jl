@@ -12,6 +12,7 @@ export Add, Multiply, Subtract
 export UnaryComposition
 export Reciprocal, ReciprocalMultiply, ReciprocalAdd, ReciprocalSubtract
 export FzAnd, FzOr, FzNand, FzNor
+export SoftMax, SoftMin
 export Maximum, Minimum
 export Sign, SignAdd, SignSubtract
 export Sigmoid, SigmoidAdd, SigmoidSubtract
@@ -357,6 +358,63 @@ const SigmoidAdd = UnaryComposition{Sigmoid, Add}
 
 "Apply the exponential sigmoid to the difference of the operands"
 const SigmoidSubtract = UnaryComposition{Sigmoid, Subtract}
+
+"Apply the soft-max function to the operands"
+struct SoftMax <: AbstractMultiOp end
+short_show(io::IO, ::SoftMax) = print(io, "softmax")
+is_domain_safe(::SoftMax) = true
+
+function op_eval(::SoftMax, workspace, indices)
+    if isempty(indices)
+        return Inf
+    elseif length(indices) == 1
+        return workspace[indices[1]]
+    else
+        return log(mapreduce(v->exp.(v), (+), (workspace[indices])))
+    end
+end
+
+function to_expr(::SoftMax, cs, operands)
+    if isempty(operands)
+        return [-Inf]
+    elseif length(operands) == 1
+        field, j = operands[1]
+        return :($cs.$field[$j])
+    else
+        return quote
+            log(mapreduce(v->exp.(v), (+), ($((:($cs.$field[$j]) for (field, j) in operands)...))))
+        end
+    end
+end
+
+"Apply the soft-min function to the operands"
+struct SoftMin <: AbstractMultiOp end
+short_show(io::IO, ::SoftMin) = print(io, "softmin")
+is_domain_safe(::SoftMin) = true
+
+function op_eval(::SoftMin, workspace, indices)
+    if isempty(indices)
+        return Inf
+    elseif length(indices) == 1
+        return workspace[indices[1]]
+    else
+        return -log(mapreduce(v->exp.(-v), (+), (workspace[indices])))
+    end
+end
+
+function to_expr(::SoftMin, cs, operands)
+    if isempty(operands)
+        return [Inf]
+    elseif length(operands) == 1
+        field, j = operands[1]
+        return :($cs.$field[$j])
+    else
+        return quote
+            -log(mapreduce(v->exp.(-v), (+), ($((:($cs.$field[$j]) for (field, j) in operands)...))))
+        end
+    end
+end
+
 
 "Return the maximum of the operands."
 struct Maximum <: AbstractMultiOp end
