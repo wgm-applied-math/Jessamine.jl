@@ -370,7 +370,7 @@ function op_eval(::SoftMax, workspace, indices)
     elseif length(indices) == 1
         return workspace[indices[1]]
     else
-        return log(mapreduce(v->exp.(v), (+), (workspace[indices])))
+        return log.(mapreduce(v->exp.(v), (.+), (workspace[indices])))
     end
 end
 
@@ -382,7 +382,7 @@ function to_expr(::SoftMax, cs, operands)
         return :($cs.$field[$j])
     else
         return quote
-            log(mapreduce(v->exp.(v), (+), ($((:($cs.$field[$j]) for (field, j) in operands)...))))
+            log.(mapreduce(v->exp.(v), (.+), ($((:($cs.$field[$j]) for (field, j) in operands)...))))
         end
     end
 end
@@ -398,7 +398,7 @@ function op_eval(::SoftMin, workspace, indices)
     elseif length(indices) == 1
         return workspace[indices[1]]
     else
-        return -log(mapreduce(v->exp.(-v), (+), (workspace[indices])))
+        return -log.(mapreduce(v->exp.(-v), (.+), (workspace[indices])))
     end
 end
 
@@ -410,7 +410,7 @@ function to_expr(::SoftMin, cs, operands)
         return :($cs.$field[$j])
     else
         return quote
-            -log(mapreduce(v->exp.(-v), (+), ($((:($cs.$field[$j]) for (field, j) in operands)...))))
+            -log.(mapreduce(v->exp.(-v), (.+), ($((:($cs.$field[$j]) for (field, j) in operands)...))))
         end
     end
 end
