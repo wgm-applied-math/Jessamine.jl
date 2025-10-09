@@ -11,6 +11,7 @@ export AbstractUnaryOp, AbstractMultiOp
 export Add, Multiply, Subtract
 export UnaryComposition
 export Reciprocal, ReciprocalMultiply, ReciprocalAdd, ReciprocalSubtract
+export Power, WholePower
 export FzAnd, FzOr, FzNand, FzNor
 export SoftMax, SoftMin
 export Maximum, Minimum
@@ -240,6 +241,29 @@ const ReciprocalAdd = UnaryComposition{Reciprocal, Add}
 
 "Subtract operands and return the reciprocal."
 const ReciprocalSubtract = UnaryComposition{Reciprocal, Subtract}
+
+struct Power <: AbstractUnaryOp
+    exponent::Float64
+end
+
+short_show(io::IO, p::Power) = print(io, "pow(", p.exponent, ")")
+is_domain_safe(::Power) = false
+un_op_eval(p::Power, t) = t .^ p.exponent
+to_expr(p::Power, expr) = :($expr .^ $(p.exponent))
+
+struct WholePower <: AbstractUnaryOp
+    exponent::Int
+    function WholePower(exponent::Int)
+        if exponent < 0
+            throw(ArgumentError("WholePower exponent must be non-negative, given $exponent"))
+        end
+        new(exponent)
+    end
+end
+short_show(io::IO, p::WholePower) = print(io, "wpow(", p.exponent, ")")
+is_domain_safe(::WholePower) = true
+un_op_eval(p::WholePower, t) = t .^ p.exponent
+to_expr(p::WholePower, expr) = :($expr .^ $(p.exponent))
 
 "Return fuzzy AND of the operands"
 struct FzAnd <: AbstractMultiOp end
