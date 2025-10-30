@@ -65,7 +65,7 @@ function splat_or_default(op, def, operands)
     end
 end
 
-function splat_or_default(op, def, workspace::AbstractVector{<:Number}, indices::AbstractVector)
+function splat_or_default(op, def, workspace::AbstractVector{<:Number}, indices::AbstractVector{<:Integer})
     if isempty(indices)
         return def
     else
@@ -78,7 +78,7 @@ function splat_or_default(op, def, workspace::AbstractVector{<:Number}, indices:
 end
 
 
-function splat_or_default(op, def, workspace::AbstractVector{<:AbstractVector}, indices::AbstractVector)
+function splat_or_default(op, def, workspace::AbstractVector{<:AbstractVector}, indices::AbstractVector{<:Integer})
     if isempty(indices)
         return def
     else
@@ -113,7 +113,7 @@ This function adds the elements in `workspace` at the specified `indices`.
 
 op_eval(::Add, workspace, indices) = splat_or_default(.+, 0.0, workspace, indices)
 
-function op_eval_add_into!(dest::AbstractArray, ::Add, workspace::AbstractArray, indices::AbstractArray)
+function op_eval_add_into!(dest::AbstractArray, ::Add, workspace::AbstractArray, indices::AbstractArray{<:Integer})
     for j in indices
         dest .+= workspace[j]
     end
@@ -153,7 +153,7 @@ function op_eval(::Subtract, workspace, indices)
     end
 end
 
-function op_eval_add_into!(dest::AbstractArray, ::Subtract, workspace::AbstractArray, indices::AbstractArray)
+function op_eval_add_into!(dest::AbstractArray, ::Subtract, workspace::AbstractArray, indices::AbstractArray{<:Integer})
     if !isempty(indices)
         dest .+= workspace[indices[1]]
         for j in indices[2:end]
@@ -388,7 +388,7 @@ struct SoftMax <: AbstractMultiOp end
 short_show(io::IO, ::SoftMax) = print(io, "softmax")
 is_domain_safe(::SoftMax) = true
 
-function op_eval(::SoftMax, workspace, indices)
+function op_eval(::SoftMax, workspace, indices::AbstractArray{<:Integer})
     if isempty(indices)
         return Inf
     elseif length(indices) == 1
@@ -416,7 +416,7 @@ struct SoftMin <: AbstractMultiOp end
 short_show(io::IO, ::SoftMin) = print(io, "softmin")
 is_domain_safe(::SoftMin) = true
 
-function op_eval(::SoftMin, workspace, indices)
+function op_eval(::SoftMin, workspace, indices::AbstractArray{<:Integer})
     if isempty(indices)
         return Inf
     elseif length(indices) == 1
@@ -447,7 +447,7 @@ short_show(io::IO, ::Maximum) = print(io, "max")
 
 is_domain_safe(::Maximum) = true
 
-function op_eval(::Maximum, workspace, indices)
+function op_eval(::Maximum, workspace, indices::AbstractArray{<:Integer})
     if isempty(indices)
         return -Inf
     elseif length(indices) == 1
@@ -478,7 +478,7 @@ short_show(io::IO, ::Minimum) = print(io, "min")
 
 is_domain_safe(::Minimum) = true
 
-function op_eval(::Minimum, workspace, indices)
+function op_eval(::Minimum, workspace, indices::AbstractArray{<:Integer})
     if isempty(indices)
         return -Inf
     elseif length(indices) == 1
