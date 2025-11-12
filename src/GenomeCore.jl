@@ -281,35 +281,8 @@ function num_operands(xs::AbstractArray)
     return sum(num_operands.(xs))
 end
 
-function eval_time_step(
-        cell_state::CellState{E},
-        genome::Genome
-)::CellState{E} where {E <: AbstractArray}
-    # local new_output::Vector{E}
-    n_output = length(cell_state.output)
-    new_output = [zero_like(cell_state.input[1]) for j in 1:n_output]
-    for j in 1:n_output
-        block = genome.instruction_blocks[j]
-        for instr in block
-            op_eval_add_into!(new_output[j], instr.op, cell_state, instr.operand_ixs)
-        end
-    end
-    n_scratch = length(cell_state.scratch)
-    new_scratch = [zero_like(cell_state.input[1]) for j in 1:n_scratch]
-    for j in 1:n_scratch
-        block = genome.instruction_blocks[n_output + j]
-        for instr in block
-            op_eval_add_into!(new_scratch[j], instr.op, cell_state, instr.operand_ixs)
-        end
-    end
-    cell_state_next = CellState(
-        new_output,
-        new_scratch,
-        cell_state.parameter,
-        cell_state.input)
-    return cell_state_next
-end
-
+# This is the general implementation, functional style.
+# This method is called for symbolic calculations, for example.
 function eval_time_step(
         cell_state::CellState,
         genome::Genome
@@ -341,6 +314,37 @@ function eval_time_step(
     return cell_state_next
 end
 
+# This is the specialization for the case of arrays of inputs and outputs.
+# This method exists so that vectorization and op_eval_add_into! can be used.
+function eval_time_step(
+        cell_state::CellState{E},
+        genome::Genome
+)::CellState{E} where {E <: AbstractArray}
+    # local new_output::Vector{E}
+    n_output = length(cell_state.output)
+    new_output = [zero_like(cell_state.input[1]) for j in 1:n_output]
+    for j in 1:n_output
+        block = genome.instruction_blocks[j]
+        for instr in block
+            op_eval_add_into!(new_output[j], instr.op, cell_state, instr.operand_ixs)
+        end
+    end
+    n_scratch = length(cell_state.scratch)
+    new_scratch = [zero_like(cell_state.input[1]) for j in 1:n_scratch]
+    for j in 1:n_scratch
+        block = genome.instruction_blocks[n_output + j]
+        for instr in block
+            op_eval_add_into!(new_scratch[j], instr.op, cell_state, instr.operand_ixs)
+        end
+    end
+    cell_state_next = CellState(
+        new_output,
+        new_scratch,
+        cell_state.parameter,
+        cell_state.input)
+    return cell_state_next
+end
+
 function zero_like(ref::T)::T where {T <: Number}
     return convert(T, 0)
 end
@@ -362,6 +366,36 @@ end
 
 function zeros_like(v::T, num_elts::Int)::Vector{T} where {T <: Number}
     return zeros(typeof(v), num_elts)
+end
+
+# Evaluate a time step in place
+function eval_time_step!(
+    cell_state::CellState{AbstractArray},
+    source_state::CellState{AbstractArray},
+    genome::Genome
+    )
+    n_output = length(cell_state.output)
+    n_scratch = length(cell_state.scratch)
+    # Zero out the current output and scratch
+    for j in 1:n_output
+        cell_state.output[j] .= 0
+    end
+    for j in 1:n_scratch
+        cell_state.scratch[j] .= 0
+    end
+    # Evaluate instructions
+    for j in 1:n_output
+        block = genome.instruction_blocks[j]
+        for instr in block
+            op_eval_add_into!(cell_state.output[j], instr.op, source_state, instr.operand_ixs)
+        end
+    end
+    for j in 1:n_scratch
+        block = genome.instruction_blocks[n_output + j]
+        for instr in block
+            op_eval_add_into!(cell_state.scratch[j], instr.op, source_state, instr.operand_ixs)
+        end
+    end
 end
 
 @kwdef struct CompiledGenome <: AbstractGenome
@@ -428,6 +462,48 @@ function run_genome(
         current_state = future_state
     end
     return outputs
+end
+
+"""
+    run_genome_to_last!(g_spec::GenomeSpec, genome::Genome, parameter::AbstractArray, input)::Vector
+
+Build a work space vector using zeros for each output and scratch
+slot, followed by the `parameter` vector, then the `input`
+vector.  Evaluate the instructions in `genome`, repeating the
+evaluation `g_spec.num_time_steps`.  Return an array that
+contains, for just the final time step, the elements 1 through
+output portion of the work space vector.
+
+"""
+function run_genome_to_last!(
+        g_spec::GenomeSpec,
+        genome::AbstractGenome,
+        parameter::AbstractArray,
+        input
+    )
+    # This implementation is intended to minimize allocation
+
+    input_v = separate_columns(input)
+    @assert length(input_v) == g_spec.input_size
+    @assert length(parameter) == g_spec.parameter_size
+    parameter_v = v_convert.(eltype(input_v), parameter)
+    # Create two independent cell states
+
+    output_v = zeros_like(input_v[1], g_spec.output_size)
+    scratch_v = zeros_like(input_v[1], g_spec.scratch_size)
+    state_next = CellState(output_v, scratch_v, parameter_v, input_v)
+
+    output_v = zeros_like(input_v[1], g_spec.output_size)
+    scratch_v = zeros_like(input_v[1], g_spec.scratch_size)
+    state_current = CellState(output_v, scratch_v, parameter_v, input_v)
+
+    for t in 1:(g_spec.num_time_steps)
+        eval_time_step!(state_next, state_current, genome)
+        tmp = state_current
+        state_current = state_next
+        state_next = tmp
+    end
+    return state_current.outputs
 end
 
 function short_show(io::IO, g::Genome)
