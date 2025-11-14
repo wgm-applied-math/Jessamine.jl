@@ -26,8 +26,7 @@ function run_genome_time_series(
         # Pull one point from time series and append the memory vector
         input_v = vcat(point, memory_v)
         # Feed [point memory_v] as input to the genome
-        outputs = run_genome(g_spec, genome, parameter, input_v)
-        last_output = outputs[end]
+        last_output = run_genome_to_last(g_spec, genome, parameter, input_v)
         outputs_series[t] = last_output
         # Shift the memory vector by one notch
         memory_v = vcat(last_output, memory_v[(g_spec.output_size + 1):end])
