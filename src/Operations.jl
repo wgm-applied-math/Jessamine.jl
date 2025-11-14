@@ -52,50 +52,23 @@ end
     splat_or_default(op, def, workspace, indices)
 
 Return the result of applying `op` to the `operands = workspace[indices]`,
-with `op([]) = def` and `op([x1...]) = op(x1...)`.
+with `op([]) = def` and `op([x1...]) = op(x1, op(x2, ...))`.
 The `Base.splat` function doesn't have a way to deal with the first case.
+The operation should be flat (commutative and associative).
 """
-function splat_or_default(op, def, operands)
-    if isempty(operands)
-        return def
-    else
-        # Splatting is oddly slow.
-        # Specialized implementations are given for more specific types.
-        return op(operands...)
-    end
-end
 
-function splat_or_default(op, def, workspace::AbstractVector{<:Number}, indices::AbstractVector{<:Integer})
+#    return reduce(op, operands, def)
+
+
+function splat_or_default(op, def, workspace::AbstractVector, indices::AbstractVector{<:Integer})
     if isempty(indices)
         return def
+    elseif length(indices) == 1
+        return workspace[indices[1]]
     else
-        res = workspace[indices[1]]
-        for r in indices[2:end]
-            res = op(res, workspace[r])
-        end
-        return res
+        return reduce(op, workspace[indices])
     end
 end
-
-
-function splat_or_default(op, def, workspace::AbstractVector{<:AbstractVector}, indices::AbstractVector{<:Integer})
-    if isempty(indices)
-        return def
-    else
-        n = 0
-        for v in workspace
-            n = max(n, length(v))
-        end
-        e_type = eltype(workspace[1])
-        res = Vector{e_type}(undef, n)
-        res .= workspace[indices[1]]
-        for j in 2:length(indices)
-            res .= op(res, workspace[indices[j]])
-        end
-        return res
-    end
-end
-
 
 "Add operands."
 struct Add <: AbstractMultiOp end
@@ -112,6 +85,9 @@ This function adds the elements in `workspace` at the specified `indices`.
 """
 
 op_eval(::Add, workspace, indices) = splat_or_default(.+, 0.0, workspace, indices)
+
+get(a::AbstractArray, index) = a[index]
+get(x::Number, index::Integer) = x
 
 function op_eval_add_into!(dest::AbstractArray, ::Add, workspace::AbstractArray, indices::AbstractArray{<:Integer})
     for j in indices
