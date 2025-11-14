@@ -7,7 +7,7 @@ export GenomeSpec, CellState, Instruction
 export AbstractGenome, Genome
 export v_convert, v_unconvert
 export eval_time_step, op_eval, flat_workspace
-export run_genome, num_instructions, num_operands, workspace_size
+export run_genome, run_genome_to_last, num_instructions, num_operands, workspace_size
 export short_show
 export to_expr, compile, CompiledGenome
 export zeros_like, zero_like
@@ -209,7 +209,7 @@ temporary array to hold the result of `op_eval(...)`.
 
 """
 function op_eval_add_into!(
-        dest::AbstractArray, op::AbstractGeneOp, workspace::AbstractArray, indices::AbstractArray)
+        dest::AbstractArray, op::AbstractGeneOp, workspace::AbstractArray, indices::AbstractArray{<:Integer})
     dest .+= op_eval(op, workspace, indices)
 end
 
@@ -317,10 +317,9 @@ end
 # This is the specialization for the case of arrays of inputs and outputs.
 # This method exists so that vectorization and op_eval_add_into! can be used.
 function eval_time_step(
-        cell_state::CellState{E},
+        cell_state::CellState{<:AbstractArray},
         genome::Genome
-)::CellState{E} where {E <: AbstractArray}
-    # local new_output::Vector{E}
+)
     n_output = length(cell_state.output)
     new_output = [zero_like(cell_state.input[1]) for j in 1:n_output]
     for j in 1:n_output
@@ -370,8 +369,8 @@ end
 
 # Evaluate a time step in place
 function eval_time_step!(
-    cell_state::CellState{AbstractArray},
-    source_state::CellState{AbstractArray},
+    cell_state::CellState{<:AbstractArray},
+    source_state::CellState{<:AbstractArray},
     genome::Genome
     )
     n_output = length(cell_state.output)
@@ -465,23 +464,52 @@ function run_genome(
 end
 
 """
-    run_genome_to_last!(g_spec::GenomeSpec, genome::Genome, parameter::AbstractArray, input)::Vector
+    run_genome_to_last(g_spec::GenomeSpec, genome::AbstractGenome, parameter::AbstractArray, input)::Vector
 
-Build a work space vector using zeros for each output and scratch
-slot, followed by the `parameter` vector, then the `input`
-vector.  Evaluate the instructions in `genome`, repeating the
-evaluation `g_spec.num_time_steps`.  Return an array that
-contains, for just the final time step, the elements 1 through
-output portion of the work space vector.
-
+Run the genome on the given inputs with the given parameter vector.
+Return the vector of ouptuts from the final time step.
 """
 function run_genome_to_last(
         g_spec::GenomeSpec,
         genome::AbstractGenome,
         parameter::AbstractArray,
         input
+)
+    input_v = separate_columns(input)
+    @assert length(input_v) == g_spec.input_size
+    @assert length(parameter) == g_spec.parameter_size
+    parameter_v = v_convert.(eltype(input_v), parameter)
+    output_v = zeros_like(input_v[1], g_spec.output_size)
+    scratch_v = zeros_like(input_v[1], g_spec.scratch_size)
+    current_state = CellState(output_v, scratch_v, parameter_v, input_v)
+    for t in 1:(g_spec.num_time_steps)
+        future_state = eval_time_step(current_state, genome)
+        current_state = future_state
+    end
+    return cell_output(current_state)
+end
+
+
+"""
+    run_genome_to_last(g_spec::GenomeSpec, genome::Genome, parameter::AbstractArray, input::AbstractArray{<:AbstractArray})
+
+Specialization that allocates less memory along the way.
+"""
+
+function run_genome_to_last(
+        g_spec::GenomeSpec,
+        genome::Genome,
+        parameter::AbstractArray,
+        input::AbstractArray{<:AbstractArray}
     )
     # This implementation is intended to minimize allocation
+
+    # Build a work space vector using zeros for each output and scratch
+    # slot, followed by the `parameter` vector, then the `input`
+    # vector.  Evaluate the instructions in `genome`, repeating the
+    # evaluation `g_spec.num_time_steps`.  Return an array that
+    # contains, for just the final time step, the elements 1 through
+    # output portion of the work space vector.
 
     input_v = separate_columns(input)
     @assert length(input_v) == g_spec.input_size
@@ -503,7 +531,7 @@ function run_genome_to_last(
         state_current = state_next
         state_next = tmp
     end
-    return state_current.outputs
+    return cell_output(state_current)
 end
 
 function short_show(io::IO, g::Genome)
