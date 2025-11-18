@@ -11,6 +11,7 @@ using ..RD
 function main()
     rng = Xoshiro(3208201)
 
+    @show rng
     global g_spec = GenomeSpec(4, 0, 1, 2, 3)
     global index_max = workspace_size(g_spec)
     global m_spec = MutationSpec(
@@ -55,11 +56,16 @@ function main()
     @test round.(coefficients(a_check.extra)) == [2, 3, 3, -3]
     @test intercept(a_check.extra) == 0
 
+    println("After a_check")
+    @show rng
+
+    println("Before setting pop_init")
     global pop_init = random_initial_population(
         rng, g_spec, m_dist, arity_dist, s_spec, grow_and_rate)
     println("pop_init = ")
     short_show(pop_init)
     println("end pop_init")
+    @show rng
     println("")
 
     function ev_loop(pop_init::Population, num_generations::Int)
@@ -74,10 +80,13 @@ function main()
         return pop_next
     end
 
+    println("Before pop_next")
+    @show rng
     global pop_next = ev_loop(pop_init, 100)
     println("pop_next = ")
     short_show(pop_next)
     println("end pop_next")
+    @show rng
     println("")
 
     println("Symbolic form of best agent")
@@ -115,7 +124,7 @@ function main()
     @show basic_sympy_res.y_num
     @show sympy_res.y_sym
     @show sympy_res.y_num
-
+    @show rng
 end
 
 end
