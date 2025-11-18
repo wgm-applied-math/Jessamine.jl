@@ -131,6 +131,25 @@ function CellState(
     return CellState{E}(output, scratch, parameter, input, index_map)
 end
 
+"""
+    copy_blank(cs::CellState)
+    Return a copy of `cs` with zero output and scratch vectors.
+    The parameter and input vectors are shared with `cs`, and so is the index map.
+"""
+function copy_blank(cs::CellState)
+    if isempty(cs.output)
+        output_copy = copy(cs.output)
+    else
+        output_copy = zeros_like(cs.output[1], length(cs.output))
+    end
+    if isempty(cs.scratch)
+        scratch_copy = copy(cs.scratch)
+    else
+        scratch_copy = zeros_like(cs.scratch[1], length(cs.scratch))
+    end
+    return CellState(output_copy, scratch_copy, cs.parameter, cs.input, cs.index_map)
+end
+
 function Base.getindex(cs::CellState, i::Int)
     (v, j) = cs.index_map[i]
     return v[j]
@@ -316,6 +335,8 @@ end
 
 # This is the specialization for the case of arrays of inputs and outputs.
 # This method exists so that vectorization and op_eval_add_into! can be used.
+# TODO: Use copy_blank here?
+# TODO: Use zeros_like here?
 function eval_time_step(
         cell_state::CellState{<:AbstractArray},
         genome::Genome
@@ -468,6 +489,7 @@ end
 
 Run the genome on the given inputs with the given parameter vector.
 Return the vector of ouptuts from the final time step.
+This is the most general implementation.
 """
 function run_genome_to_last(
         g_spec::GenomeSpec,
@@ -515,15 +537,12 @@ function run_genome_to_last(
     @assert length(input_v) == g_spec.input_size
     @assert length(parameter) == g_spec.parameter_size
     parameter_v = v_convert.(eltype(input_v), parameter)
+    
     # Create two independent cell states
-
     output_v = zeros_like(input_v[1], g_spec.output_size)
     scratch_v = zeros_like(input_v[1], g_spec.scratch_size)
     state_next = CellState(output_v, scratch_v, parameter_v, input_v)
-
-    output_v = zeros_like(input_v[1], g_spec.output_size)
-    scratch_v = zeros_like(input_v[1], g_spec.scratch_size)
-    state_current = CellState(output_v, scratch_v, parameter_v, input_v)
+    state_current = copy_blank(state_next)
 
     for t in 1:(g_spec.num_time_steps)
         eval_time_step!(state_next, state_current, genome)
