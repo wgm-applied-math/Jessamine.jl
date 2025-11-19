@@ -155,7 +155,7 @@ end
 
 function _MGR_f(genome_parameter::AbstractArray, c::MGRContext)
     num_rows = length(c.xs[1])
-    last_round = run_genome(c.g_spec, c.genome, genome_parameter, c.xs)[end]
+    last_round = run_genome_to_end(c.g_spec, c.genome, genome_parameter, c.xs)
     outputs = map(last_round) do z
         extend_if_singleton(z, num_rows)
     end
