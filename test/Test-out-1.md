@@ -4,6 +4,11 @@
 
 Julia 1.11.7, main at 67a906ca75067faa9e6acbad74fb713c5f6684cb
 
+Agrees with:
+
+devel-gm-memory-confirmed at d8844e13ba2f12607cc4e1dcc06aaf73443f5489
+
+
 ```
      Testing Running tests...
 === TestGenome ===

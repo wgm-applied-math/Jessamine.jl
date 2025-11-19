@@ -475,7 +475,7 @@ contains, for just the final time step, the elements 1 through
 output portion of the work space vector.
 
 """
-function run_genome_to_last!(
+function run_genome_to_last(
         g_spec::GenomeSpec,
         genome::AbstractGenome,
         parameter::AbstractArray,
