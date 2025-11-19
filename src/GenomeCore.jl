@@ -79,8 +79,43 @@ struct CellState{E} <: AbstractVector{E}
     scratch::Vector{E}
     parameter::Vector{E}
     input::Vector{E}
-    index_map::Vector{Tuple{Vector{E}, Int}}
+    offsets::Vector{Int64}
 end
+
+function CellState(
+    output,
+    scratch,
+    parameter,
+    input)
+    # E = least common supertype of the element types of all of these vectors
+    E = typejoin(eltype(output), eltype(scratch), eltype(parameter), eltype(input))
+    n_output = length(output)
+    n_scratch = length(scratch)
+    n_parameter = length(parameter)
+    n_input = length(input)
+    offsets = [n_output, n_output + n_scratch, n_output + n_scratch + n_parameter,
+               n_output + n_scratch + n_parameter + n_input]
+    return CellState{E}(output, scratch, parameter, input, offsets)
+end
+
+
+function Base.show(io::IO, cs::CellState)
+    println(io, "Cell state")
+    println(io, "  output:")
+    show(io, cs.output)
+    println(io, "")
+    println(io, "  scratch:")
+    show(io, cs.scratch)
+    println(io, "")
+    println(io, "  parameter:")
+    show(io, cs.parameter)
+    println(io, "")
+    println(io, "  input:")
+    show(io, cs.input)
+    println(io, "")
+    println(io, "end")
+end
+
 
 function v_convert(::Type{<:AbstractArray}, x::AbstractArray)
     return x
@@ -100,36 +135,6 @@ function v_unconvert(xv::AbstractArray)
     return xv[1]
 end
 
-function CellState(
-        output,
-        scratch,
-        parameter,
-        input)
-    # E = least common supertype of the element types of all of these vectors
-    E = typejoin(eltype(output), eltype(scratch), eltype(parameter), eltype(input))
-    n_output = length(output)
-    n_scratch = length(scratch)
-    n_parameter = length(parameter)
-    n_input = length(input)
-    n_total = n_output + n_scratch + n_parameter + n_input
-    index_map = Vector{Tuple{Vector{E}, Int}}(undef, n_total)
-    for j in 1:n_output
-        index_map[j] = (output, j)
-    end
-    offset = n_output
-    for j in 1:n_scratch
-        index_map[offset + j] = (scratch, j)
-    end
-    offset += n_scratch
-    for j in 1:n_parameter
-        index_map[offset + j] = (parameter, j)
-    end
-    offset += n_parameter
-    for j in 1:n_input
-        index_map[offset + j] = (input, j)
-    end
-    return CellState{E}(output, scratch, parameter, input, index_map)
-end
 
 """
     copy_blank(cs::CellState)
@@ -147,12 +152,19 @@ function copy_blank(cs::CellState)
     else
         scratch_copy = zeros_like(cs.scratch[1], length(cs.scratch))
     end
-    return CellState(output_copy, scratch_copy, cs.parameter, cs.input, cs.index_map)
+    return CellState(output_copy, scratch_copy, cs.parameter, cs.input, cs.offsets)
 end
 
 function Base.getindex(cs::CellState, i::Int)
-    (v, j) = cs.index_map[i]
-    return v[j]
+    if i <= cs.offsets[1]
+        return cs.output[i]
+    elseif i <= cs.offsets[2]
+        return cs.scratch[i - cs.offsets[1]]
+    elseif i <= cs.offsets[3]
+        return cs.parameter[i - cs.offsets[2]]
+    else
+        return cs.input[i - cs.offsets[3]]
+    end
 end
 
 function Base.getindex(cs::CellState, ix::AbstractArray)
@@ -160,7 +172,7 @@ function Base.getindex(cs::CellState, ix::AbstractArray)
 end
 
 function Base.length(cs::CellState)
-    return length(cs.output) + length(cs.scratch) + length(cs.parameter) + length(cs.input)
+    return cs.offsets[end]
 end
 
 function Base.size(cs::CellState)
@@ -307,61 +319,49 @@ function eval_time_step(
         genome::Genome
 )::CellState
     # local new_output::Vector{E}
-    new_output = zero_like(cell_state.output)
+    cell_state_next = copy_blank(cell_state)
+    new_output = cell_state_next.output
     n_output = length(new_output)
-    for j in 1:n_output
+    for j in eachindex(new_output)
         block = genome.instruction_blocks[j]
         for instr in block
             new_output[j] += op_eval(instr.op, cell_state, instr.operand_ixs)
         end
     end
-    scratch_first = 1 + length(cell_state.output)
     # local new_scratch::Vector{E}
-    new_scratch = zero_like(cell_state.scratch)
-    n_scratch = length(new_scratch)
-    for j in 1:length(new_scratch)
+    new_scratch = cell_state_next.scratch
+    for j in eachindex(new_scratch)
         block = genome.instruction_blocks[n_output + j]
         for instr in block
             new_scratch[j] += op_eval(instr.op, cell_state, instr.operand_ixs)
         end
     end
-    cell_state_next = CellState(
-        new_output,
-        new_scratch,
-        cell_state.parameter,
-        cell_state.input)
     return cell_state_next
 end
 
 # This is the specialization for the case of arrays of inputs and outputs.
 # This method exists so that vectorization and op_eval_add_into! can be used.
-# TODO: Use copy_blank here?
-# TODO: Use zeros_like here?
 function eval_time_step(
         cell_state::CellState{<:AbstractArray},
         genome::Genome
 )
+    cell_state_next = copy_blank(cell_state)
     n_output = length(cell_state.output)
-    new_output = [zero_like(cell_state.input[1]) for j in 1:n_output]
-    for j in 1:n_output
+    new_output = cell_state_next.output
+    for j in eachindex(new_output)
         block = genome.instruction_blocks[j]
         for instr in block
             op_eval_add_into!(new_output[j], instr.op, cell_state, instr.operand_ixs)
         end
     end
     n_scratch = length(cell_state.scratch)
-    new_scratch = [zero_like(cell_state.input[1]) for j in 1:n_scratch]
-    for j in 1:n_scratch
+    new_scratch = cell_state_next.scratch
+    for j in eachindex(new_scratch)
         block = genome.instruction_blocks[n_output + j]
         for instr in block
             op_eval_add_into!(new_scratch[j], instr.op, cell_state, instr.operand_ixs)
         end
     end
-    cell_state_next = CellState(
-        new_output,
-        new_scratch,
-        cell_state.parameter,
-        cell_state.input)
     return cell_state_next
 end
 
@@ -375,12 +375,11 @@ function zero_like(v::V)::AbstractArray where {V <: AbstractArray}
     return v .* 0
 end
 
-function zero_like(v::Array)::Array
-    return zeros(eltype(v), size(v))
+function zero_like(v::Array{T})::Array{T} where { T <: Number }
+    return zeros(T, size(v))
 end
 
-function zeros_like(
-        v::AbstractArray, num_elts::Int)
+function zeros_like(v::AbstractArray, num_elts::Int)
     return [zero_like(v) for _ in 1:num_elts]
 end
 
@@ -537,7 +536,7 @@ function run_genome_to_last(
     @assert length(input_v) == g_spec.input_size
     @assert length(parameter) == g_spec.parameter_size
     parameter_v = v_convert.(eltype(input_v), parameter)
-    
+
     # Create two independent cell states
     output_v = zeros_like(input_v[1], g_spec.output_size)
     scratch_v = zeros_like(input_v[1], g_spec.scratch_size)
