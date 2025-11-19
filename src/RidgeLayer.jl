@@ -10,7 +10,7 @@ export least_squares_ridge, least_squares_ridge_grow_and_rate
 
 Compute ridge regression.
 Assume `xs` is an array of columns as predictors and `y` is a column of target values.
-Apply `run_genome` using `parameter` as the parameter vector and `xs` as the inputs.
+Apply `run_genome_to_last` using `parameter` as the parameter vector and `xs` as the inputs.
 Gather a column of 1s and the output columns as a matrix `X`.
 The prediction values are `y_hat = X * b`, where `b` is a column of (unknown) coefficients.
 Solve for the `b` that minimizes `norm(y - y_hat)^2 + lambda * norm(b)^2`.
@@ -27,11 +27,9 @@ function least_squares_ridge(
     @assert g_spec.input_size == length(xs)
     num_rows = length(y)
     # local outputs::Vector{Vector{Vector{Float64}}}
-    outputs = run_genome(g_spec, genome, parameter, xs)
-    # local last_round::Vector{Vector{Float64}}
-    last_round = outputs[end]
-    num_output_cols = length(last_round)
-    data_cols = map(u -> extend_if_singleton(u, num_rows), last_round)
+    last_output = run_genome_to_last(g_spec, genome, parameter, xs)
+    num_output_cols = length(last_output)
+    data_cols = map(u -> extend_if_singleton(u, num_rows), last_output)
     X = stack(data_cols)
     @assert num_output_cols == size(X, 2)
     b = (X' * X + lambda * I) \ (X' * y)
