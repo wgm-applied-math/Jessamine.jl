@@ -64,9 +64,16 @@ function main()
         return output
     end
 
+    function h_hist(input)
+        outputs = run_genome(g_spec, genome, parameter, input)
+        return outputs[end]
+    end
+
     @show h(input)
+    @show h_hist(input)
 
     @test f(input) == h(input)
+    @test f(input) == h_hist(input)
 
     println("Test to_expr")
     cg = compile(g_spec, genome)
@@ -83,8 +90,10 @@ function main()
 
     println("Test vectorization:")
     @show h(v_input)
+    @show h_hist(v_input)
     @show hc(v_input)
     @test f(v_input) == h(v_input)
+    @test f(v_input) == h_hist(v_input)
     @test f(v_input) == hc(v_input)
 
     println("Test RandomDuplicateDelete")
