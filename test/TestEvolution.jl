@@ -9,6 +9,9 @@ using Jessamine
 using ..RD
 
 function main()
+    # Set the global RNG seed in case something outside my control uses it
+    Random.seed!(19101510324)
+
     rng = Xoshiro(3208201)
 
     @show rng
