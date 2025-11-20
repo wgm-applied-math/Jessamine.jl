@@ -124,8 +124,21 @@ and otherwise computes the result of `workspace[indices[1]] - workspace[indices[
 function op_eval(::Subtract, workspace, indices)
     if isempty(indices)
         return 0.0
+    elseif length(indices) == 1
+        return workspace[indices[1]]
     else
-        return workspace[indices[1]] .- op_eval(Add(), workspace, indices[2:end])
+        # Original
+        # return workspace[indices[1]] .- op_eval(Add(), workspace, indices[2:end])
+        # This assumes the outputs are first in the workspace,
+        # and that they are expanded to full vectors.  Otherwise,
+        # we have to go through all the indices and figure out
+        # how big of a vector to make.
+        dest = similar(workspace[1])
+        dest .= workspace[indices[1]]
+        for j in 2:length(indices)
+            dest .-= workspace[indices[j]]
+        end
+        return dest
     end
 end
 
@@ -360,6 +373,10 @@ const SigmoidAdd = UnaryComposition{Sigmoid, Add}
 
 "Apply the exponential sigmoid to the difference of the operands"
 const SigmoidSubtract = UnaryComposition{Sigmoid, Subtract}
+
+# TODO The SoftMax and SoftMin will allocate a lot of temporary
+# arrays as written.  Re-write them to the form softmax.(...)
+# somehow.
 
 "Apply the soft-max function to the operands"
 struct SoftMax <: AbstractMultiOp end
