@@ -34,13 +34,15 @@ function least_squares_ridge(
     @assert num_output_cols == size(X, 2)
     b = (X' * X + lambda * I) \ (X' * y)
     y_hat = X * b
-    # r = y - y_hat
-    # n = norm(r)
-    n_sq = 0
-    for j in eachindex(y)
-        n_sq += (y[j] - y_hat[j])^2
-    end
-    n = sqrt(n_sq)
+    # This allocates but is faster overall in practice:
+    r = y - y_hat
+    n = norm(r)
+    # This doesn't allocate but is slower overall in practice:
+    # n_sq = 0
+    # for j in eachindex(y)
+    #     n_sq += (y[j] - y_hat[j])^2
+    # end
+    # n = sqrt(n_sq)
     if isnan(n)
         return (Inf, nothing)
     else
