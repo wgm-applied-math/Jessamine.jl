@@ -350,7 +350,9 @@ const SignSubtract = UnaryComposition{Sign, Subtract}
 struct Sigmoid <: AbstractUnaryOp end
 short_show(io::IO, ::Sigmoid) = print(io, "sigmoid")
 is_domain_safe(::Sigmoid) = true
-un_op_eval(::Sigmoid, t) = 1 ./ (1 .+ exp.(-t))
+sigmoid(t) = 1 / (1 + exp(-t))
+# un_op_eval(::Sigmoid, t) = 1 ./ (1 .+ exp.(-t))
+un_op_eval(::Sigmoid, t) = sigmoid.(t)
 to_expr(::Sigmoid, expr) = :(1 ./ (1 .+ exp.(-$expr)))
 
 "Apply the exponential sigmoid to the sum of the operands"
