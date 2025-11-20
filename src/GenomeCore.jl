@@ -79,7 +79,10 @@ struct CellState{E} <: AbstractVector{E}
     scratch::Vector{E}
     parameter::Vector{E}
     input::Vector{E}
-    offsets::Vector{Int64}
+    offset_scratch::Int64
+    offset_parameter::Int64
+    offset_input::Int64
+    total_size::Int64
 end
 
 function CellState(
@@ -93,9 +96,12 @@ function CellState(
     n_scratch = length(scratch)
     n_parameter = length(parameter)
     n_input = length(input)
-    offsets = [n_output, n_output + n_scratch, n_output + n_scratch + n_parameter,
-               n_output + n_scratch + n_parameter + n_input]
-    return CellState{E}(output, scratch, parameter, input, offsets)
+    return CellState{E}(
+        output, scratch, parameter, input,
+        n_output,
+        n_output + n_scratch,
+        n_output + n_scratch + n_parameter,
+        n_output + n_scratch + n_parameter + n_input)
 end
 
 
@@ -152,18 +158,24 @@ function copy_blank(cs::CellState)
     else
         scratch_copy = zeros_like(cs.scratch[1], length(cs.scratch))
     end
-    return CellState(output_copy, scratch_copy, cs.parameter, cs.input, cs.offsets)
+    return CellState(
+        output_copy, scratch_copy, cs.parameter, cs.input,
+        cs.offset_scratch,
+        cs.offset_parameter,
+        cs.offset_input,
+        cs.total_size
+    )
 end
 
 function Base.getindex(cs::CellState, i::Int)
-    if i <= cs.offsets[1]
+    if i <= cs.offset_scratch
         return cs.output[i]
-    elseif i <= cs.offsets[2]
-        return cs.scratch[i - cs.offsets[1]]
-    elseif i <= cs.offsets[3]
-        return cs.parameter[i - cs.offsets[2]]
+    elseif i <= cs.offset_parameter
+        return cs.scratch[i - cs.offset_scratch]
+    elseif i <= cs.offset_input
+        return cs.parameter[i - cs.offset_parameter]
     else
-        return cs.input[i - cs.offsets[3]]
+        return cs.input[i - cs.offset_input]
     end
 end
 
@@ -172,7 +184,7 @@ function Base.getindex(cs::CellState, ix::AbstractArray)
 end
 
 function Base.length(cs::CellState)
-    return cs.offsets[end]
+    return cs.total_size
 end
 
 function Base.size(cs::CellState)
