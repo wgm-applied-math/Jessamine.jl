@@ -6,8 +6,17 @@ Julia 1.11.7, main at 67a906ca75067faa9e6acbad74fb713c5f6684cb
 
 Agrees with:
 
-devel-gm-memory-confirmed at d8844e13ba2f12607cc4e1dcc06aaf73443f5489
+- devel-gm-memory-confirmed at d8844e13ba2f12607cc4e1dcc06aaf73443f5489
 
+- devel-gm-memory-confirmed at e29e9cd736957e3acf260a2a9d8efcd7511366d0
+  incorporating d0bb9ee389fbb5d1166d96d5d039033ab8ec3d09
+
+- devel-gm-memory-confirmed at a4a02aa0b01b7efefd47ea78cbf615fdf026b89c
+  incorporating 4b0fd979a4630579bf5330a214b62d646a035149
+  
+I believe reproducibility was broken at 67239c30467f35d259c326753ae00f17d6cf4b4b which introduced `copy_blank` and the implementation in that commit is faulty:
+It leaves references to the source `CellState` in the copy, which messes up everything.
+A future commit fixes that and should restore reproducibility.
 
 ```
      Testing Running tests...
