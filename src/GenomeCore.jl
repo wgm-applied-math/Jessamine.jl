@@ -321,7 +321,13 @@ end
 Return the total number of instruction operands in `xs`.
 """
 function num_operands(xs::AbstractArray)
-    return sum(num_operands.(xs))
+    # This causes a bunch of pointless allocation
+    # return sum(num_operands.(xs))
+    n = 0
+    for x in xs
+        n += num_operands(x)
+    end
+    return n
 end
 
 # This is the general implementation, functional style.
