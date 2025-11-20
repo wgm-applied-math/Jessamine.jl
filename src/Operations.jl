@@ -1,6 +1,13 @@
 # !!! TODO Look into NaNMath.jl which returns NaN instead of throwing an error for things
 # like sqrt(negative)
 
+# For vectorization, sometimes we need a blank vector of the appropriate size.
+# I'm taking the size and type from workspace[1].
+# This assumes the outputs are first in the workspace,
+# and that they are expanded to full vectors.  Otherwise,
+# we have to go through all the indices and figure out
+# how big of a vector to make.
+
 # Make language server happy
 if false
     # include("GenomeCore.jl")
@@ -86,10 +93,26 @@ This function adds the elements in `workspace` at the specified `indices`.
 
 op_eval(::Add, workspace, indices) = splat_or_default(.+, 0.0, workspace, indices)
 
-get(a::AbstractArray, index) = a[index]
-get(x::Number, index::Integer) = x
+function op_eval(::Add, workspace::AbstractVector{<:AbstractVector}, indices::AbstractVector{<:Integer})
+    n = length(indices)
+    if n == 0
+        return [0.0]
+    elseif n == 1
+        return workspace[indices[1]]
+    else
+        dest = similar(workspace[1])
+        dest .= workspace[indices[1]]
+        for j = 1:n-1
+            dest .+= workspace[indices[j]]
+        end
+        return dest
+    end
+end
 
-function op_eval_add_into!(dest::AbstractArray, ::Add, workspace::AbstractArray, indices::AbstractArray{<:Integer})
+#get(a::AbstractArray, index) = a[index]
+#get(x::Number, index::Integer) = x
+
+function op_eval_add_into!(dest::AbstractVector, ::Add, workspace::AbstractVector, indices::AbstractVector{<:Integer})
     for j in indices
         dest .+= workspace[j]
     end
@@ -122,27 +145,33 @@ and otherwise computes the result of `workspace[indices[1]] - workspace[indices[
 """
 
 function op_eval(::Subtract, workspace, indices)
-    if isempty(indices)
-        return 0.0
-    elseif length(indices) == 1
+    n = length(indices)
+    if n == 0
+        return 0
+    elseif n == 1
         return workspace[indices[1]]
     else
-        # Original
-        # return workspace[indices[1]] .- op_eval(Add(), workspace, indices[2:end])
-        # This assumes the outputs are first in the workspace,
-        # and that they are expanded to full vectors.  Otherwise,
-        # we have to go through all the indices and figure out
-        # how big of a vector to make.
+        return workspace[indices[1]] .- op_eval(Add(), workspace, indices[2:end])
+    end
+end
+
+function op_eval(::Subtract, workspace::AbstractVector{<:AbstractVector}, indices::AbstractVector{<:Integer})
+    n = length(indices)
+    if n == 0
+        return [0.0]
+    elseif n == 1
+        return workspace[indices[1]]
+    else
         dest = similar(workspace[1])
         dest .= workspace[indices[1]]
-        for j in 2:length(indices)
+        for j in 2:n
             dest .-= workspace[indices[j]]
         end
         return dest
     end
 end
 
-function op_eval_add_into!(dest::AbstractArray, ::Subtract, workspace::AbstractArray, indices::AbstractArray{<:Integer})
+function op_eval_add_into!(dest::AbstractVector, ::Subtract, workspace::AbstractVector, indices::AbstractVector{<:Integer})
     if !isempty(indices)
         dest .+= workspace[indices[1]]
         for j in indices[2:end]
@@ -178,6 +207,23 @@ Evaluate the `Multiply` operation on the `workspace` at the given `indices`.
 This function multiplies the elements in `workspace` at the specified `indices`.
 """
 op_eval(::Multiply, workspace, indices) = splat_or_default(.*, 1.0, workspace, indices)
+
+function op_eval(::Multiply, workspace::AbstractVector{<:AbstractVector}, indices::AbstractVector{<:Integer})
+    n = length(indices)
+    if n == 0
+        return [1.0]
+    elseif n == 1
+        return workspace[indices[1]]
+    else
+        dest = similar(workspace[1])
+        dest .= workspace[indices[1]]
+        for j in 2:n
+            dest .*= workspace[indices[j]]
+        end
+        return dest
+    end
+end
+
 
 function to_expr(::Multiply, cs, operands)
     if isempty(operands)
@@ -383,7 +429,7 @@ struct SoftMax <: AbstractMultiOp end
 short_show(io::IO, ::SoftMax) = print(io, "softmax")
 is_domain_safe(::SoftMax) = true
 
-function op_eval(::SoftMax, workspace, indices::AbstractArray{<:Integer})
+function op_eval(::SoftMax, workspace, indices::AbstractVector{<:Integer})
     if isempty(indices)
         return Inf
     elseif length(indices) == 1
@@ -411,7 +457,7 @@ struct SoftMin <: AbstractMultiOp end
 short_show(io::IO, ::SoftMin) = print(io, "softmin")
 is_domain_safe(::SoftMin) = true
 
-function op_eval(::SoftMin, workspace, indices::AbstractArray{<:Integer})
+function op_eval(::SoftMin, workspace, indices::AbstractVector{<:Integer})
     if isempty(indices)
         return Inf
     elseif length(indices) == 1
@@ -442,7 +488,7 @@ short_show(io::IO, ::Maximum) = print(io, "max")
 
 is_domain_safe(::Maximum) = true
 
-function op_eval(::Maximum, workspace, indices::AbstractArray{<:Integer})
+function op_eval(::Maximum, workspace, indices::AbstractVector{<:Integer})
     if isempty(indices)
         return -Inf
     elseif length(indices) == 1
@@ -473,7 +519,7 @@ short_show(io::IO, ::Minimum) = print(io, "min")
 
 is_domain_safe(::Minimum) = true
 
-function op_eval(::Minimum, workspace, indices::AbstractArray{<:Integer})
+function op_eval(::Minimum, workspace, indices::AbstractVector{<:Integer})
     if isempty(indices)
         return -Inf
     elseif length(indices) == 1
