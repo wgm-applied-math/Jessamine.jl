@@ -102,8 +102,8 @@ function op_eval(::Add, workspace::AbstractVector{<:AbstractVector}, indices::Ab
     else
         dest = similar(workspace[1])
         dest .= workspace[indices[1]]
-        for j = 1:n-1
-            dest .+= workspace[indices[j]]
+        for k in indices[2:end]
+            dest .+= workspace[k]
         end
         return dest
     end
@@ -113,14 +113,14 @@ end
 #get(x::Number, index::Integer) = x
 
 function op_eval_add_into!(dest::AbstractVector, ::Add, workspace::AbstractVector, indices::AbstractVector{<:Integer})
-    for j in indices
-        dest .+= workspace[j]
+    for k in indices
+        dest .+= workspace[k]
     end
 end
 
 function to_expr(::Add, cs, operands)
     if isempty(operands)
-        return [0.0]
+        return :(0)
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -164,8 +164,8 @@ function op_eval(::Subtract, workspace::AbstractVector{<:AbstractVector}, indice
     else
         dest = similar(workspace[1])
         dest .= workspace[indices[1]]
-        for j in 2:n
-            dest .-= workspace[indices[j]]
+        for k in indices[2:end]
+            dest .-= workspace[k]
         end
         return dest
     end
@@ -174,15 +174,15 @@ end
 function op_eval_add_into!(dest::AbstractVector, ::Subtract, workspace::AbstractVector, indices::AbstractVector{<:Integer})
     if !isempty(indices)
         dest .+= workspace[indices[1]]
-        for j in indices[2:end]
-            dest .-= workspace[j]
+        for k in indices[2:end]
+            dest .-= workspace[k]
         end
     end
 end
 
 function to_expr(::Subtract, cs, operands)
     if isempty(operands)
-        return [0.0]
+        return :(0)
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -217,8 +217,8 @@ function op_eval(::Multiply, workspace::AbstractVector{<:AbstractVector}, indice
     else
         dest = similar(workspace[1])
         dest .= workspace[indices[1]]
-        for j in 2:n
-            dest .*= workspace[indices[j]]
+        for k in indices[2:end]
+            dest .*= workspace[k]
         end
         return dest
     end
@@ -227,7 +227,7 @@ end
 
 function to_expr(::Multiply, cs, operands)
     if isempty(operands)
-        return [1.0]
+        return :(1)
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -265,8 +265,8 @@ end
 
 struct Reciprocal <: AbstractUnaryOp end
 short_show(io::IO, ::Reciprocal) = print(io, "rcp")
-un_op_eval(::Reciprocal, t) = 1.0 ./ t
-to_expr(::Reciprocal, expr) = :(1.0 ./ $expr)
+un_op_eval(::Reciprocal, t) = 1 ./ t
+to_expr(::Reciprocal, expr) = :(1 ./ $expr)
 
 "Multiply operands and return the reciprocal."
 const ReciprocalMultiply = UnaryComposition{Reciprocal, Multiply}
@@ -316,7 +316,7 @@ op_eval(::FzAnd, workspace, indices) = splat_or_default(.*, 1.0, workspace, indi
 
 function to_expr(::FzAnd, cs, operands)
     if isempty(operands)
-        return [1.0]
+        return :1.0
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -383,7 +383,7 @@ end
 
 function to_expr(::FzNor, cs, operands)
     if isempty(operands)
-        return [1.0]
+        return :1.0
     elseif length(operands) == 1
         field, j = operands[1]
         return :(1.0 .- $cs.$field[$j])
@@ -441,7 +441,7 @@ end
 
 function to_expr(::SoftMax, cs, operands)
     if isempty(operands)
-        return [-Inf]
+        return :(-Inf)
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -469,7 +469,7 @@ end
 
 function to_expr(::SoftMin, cs, operands)
     if isempty(operands)
-        return [Inf]
+        return :(Inf)
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -501,7 +501,7 @@ end
 
 function to_expr(::Maximum, cs, operands)
     if isempty(operands)
-        return [-Inf]
+        return :(-Inf)
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -532,7 +532,7 @@ end
 
 function to_expr(::Minimum, cs, operands)
     if isempty(operands)
-        return [Inf]
+        return :(Inf)
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
