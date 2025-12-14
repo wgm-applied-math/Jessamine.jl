@@ -353,7 +353,8 @@ function random_initial_population(
     agents = []
     while length(agents) < pop_size
         remaining = pop_size - length(agents)
-        more_agents = fetch.([Threads.@spawn make_agent() for i in 1:remaining])
+        #more_agents = fetch.([Threads.@spawn make_agent() for i in 1:remaining])
+        more_agents = OhMyThreads.tcollect(Agent, make_agent() for i in 1:remaining)
         if isempty(more_agents)
             error("random_initial_population: Failed to produce enough valid agents; giving up")
         end

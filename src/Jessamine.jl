@@ -9,6 +9,7 @@ using MLJ
 using MLJLinearModels
 using MLJModelInterface
 using NamedTupleTools
+using OhMyThreads
 using Optim
 using Optimization
 using OptimizationOptimJL
