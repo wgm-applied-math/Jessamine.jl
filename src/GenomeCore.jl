@@ -435,10 +435,10 @@ function eval_time_step!(
     end
 end
 
-@kwdef struct CompiledGenome <: AbstractGenome
+@kwdef struct CompiledGenome{F} <: AbstractGenome
     genome::Genome
     expr::Expr
-    f::Function
+    f::F
 end
 
 function compile(g_spec::GenomeSpec, genome::Genome)
@@ -453,9 +453,31 @@ function compile(g_spec::GenomeSpec, genome::Genome)
     end
 end
 
-function compile(g_spec::GenomeSpec, cg::CompiledGenome)
+function compile(g_spec::GenomeSpec, cg::CompiledGenome{<:Function})
     return cg
 end
+
+function compile(g_spec::GenomeSpec, cg::CompiledGenome)
+    return CompiledGenome(cg.genome, cg.expr, eval(cg.expr))
+end
+
+
+# I have to do this, because it's a mess to serialize the constructed
+# function object.
+# See https://stackoverflow.com/questions/49007433/how-to-implement-custom-serialization-deserialization-for-a-struct-in-julia
+# function Serialization.serialize(s::AbstractSerializer, cg::CompiledGenome)
+#     Serialization.writetag(s.io, Serialization.OBJECT_TAG)
+#     Serialization.serialize(s, CompiledGenome)
+#     Serialization.serialize(s, cg.genome)
+#     Serialization.serialize(s, cg.expr)
+# end
+
+# function Serialization.deserialize(s::AbstractSerializer, ::Type{CompiledGenome})
+#     genome = Serialization.deserialize(s)
+#     expr = Serialization.deserialize(s)
+#     f = eval(expr)
+#     return CompiledGenome(genome, expr, f)
+# end
 
 function eval_time_step(
         cell_state::CellState,

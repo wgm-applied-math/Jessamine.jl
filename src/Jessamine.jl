@@ -15,6 +15,7 @@ using OptimizationOptimJL
 using PyCall
 using Random
 using SciMLBase
+using Serialization
 using Symbolics
 using SymPy
 using SymPyCore
