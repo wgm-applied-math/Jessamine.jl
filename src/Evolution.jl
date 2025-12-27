@@ -492,7 +492,8 @@ function next_generation(
         return agent
     end
     new_agents = fetch.([Threads.@spawn make_agent() for i in 1:s_spec.num_to_generate])
-    keepers = pop.agents[1:(s_spec.num_to_keep)]
+    to_keep = min(s_spec.num_to_keep, length(pop.agents))
+    keepers = pop.agents[1:to_keep]
     next_rated_genomes = vcat(new_agents, keepers)
     rev = sense == Optimization.MaxSense
     sort!(next_rated_genomes, rev = rev)
