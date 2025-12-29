@@ -93,10 +93,10 @@ This function adds the elements in `workspace` at the specified `indices`.
 
 op_eval(::Add, workspace, indices) = splat_or_default(.+, 0.0, workspace, indices)
 
-function op_eval(::Add, workspace::AbstractVector{<:AbstractVector}, indices::AbstractVector{<:Integer})
+function op_eval(::Add, workspace::AbstractVector{V}, indices::AbstractVector{<:Integer}) where {V<:AbstractVector}
     n = length(indices)
     if n == 0
-        return [0.0]
+        return [zero(eltype(V))]
     elseif n == 1
         return workspace[indices[1]]
     else
@@ -155,10 +155,10 @@ function op_eval(::Subtract, workspace, indices)
     end
 end
 
-function op_eval(::Subtract, workspace::AbstractVector{<:AbstractVector}, indices::AbstractVector{<:Integer})
+function op_eval(::Subtract, workspace::AbstractVector{V}, indices::AbstractVector{<:Integer}) where {V<:AbstractVector}
     n = length(indices)
     if n == 0
-        return [0.0]
+        return [zero(eltype(V))]
     elseif n == 1
         return workspace[indices[1]]
     else
@@ -208,10 +208,10 @@ This function multiplies the elements in `workspace` at the specified `indices`.
 """
 op_eval(::Multiply, workspace, indices) = splat_or_default(.*, 1.0, workspace, indices)
 
-function op_eval(::Multiply, workspace::AbstractVector{<:AbstractVector}, indices::AbstractVector{<:Integer})
+function op_eval(::Multiply, workspace::AbstractVector{V}, indices::AbstractVector{<:Integer}) where {V<:AbstractVector}
     n = length(indices)
     if n == 0
-        return [1.0]
+        return [one(eltype(V))]
     elseif n == 1
         return workspace[indices[1]]
     else
@@ -409,10 +409,10 @@ const SignSubtract = UnaryComposition{Sign, Subtract}
 struct Sigmoid <: AbstractUnaryOp end
 short_show(io::IO, ::Sigmoid) = print(io, "sigmoid")
 is_domain_safe(::Sigmoid) = true
-sigmoid(t) = 1 / (1 + exp(-t))
+sigmoid(t) = 1.0 / (1.0 + exp(-t))
 # un_op_eval(::Sigmoid, t) = 1 ./ (1 .+ exp.(-t))
 un_op_eval(::Sigmoid, t) = sigmoid.(t)
-to_expr(::Sigmoid, expr) = :(1 ./ (1 .+ exp.(-$expr)))
+to_expr(::Sigmoid, expr) = :(1.0 ./ (1.0 .+ exp.(-$expr)))
 
 "Apply the exponential sigmoid to the sum of the operands"
 const SigmoidAdd = UnaryComposition{Sigmoid, Add}
