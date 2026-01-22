@@ -71,7 +71,7 @@ function run_genome_symbolic(
     p = Symbolics.variables(parameter_sym, 1:(g_spec.parameter_size))
     x = Symbolics.variables(input_sym, 1:(g_spec.input_size))
 
-    z = run_genome(g_spec, genome, p, x)[end]
+    z = run_genome_to_last(g_spec, genome, p, x)
     return (p = p, x = x, z = z)
 end
 

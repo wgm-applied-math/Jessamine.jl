@@ -1,6 +1,13 @@
 # !!! TODO Look into NaNMath.jl which returns NaN instead of throwing an error for things
 # like sqrt(negative)
 
+# For vectorization, sometimes we need a blank vector of the appropriate size.
+# I'm taking the size and type from workspace[1].
+# This assumes the outputs are first in the workspace,
+# and that they are expanded to full vectors.  Otherwise,
+# we have to go through all the indices and figure out
+# how big of a vector to make.
+
 # Make language server happy
 if false
     # include("GenomeCore.jl")
@@ -52,50 +59,23 @@ end
     splat_or_default(op, def, workspace, indices)
 
 Return the result of applying `op` to the `operands = workspace[indices]`,
-with `op([]) = def` and `op([x1...]) = op(x1...)`.
+with `op([]) = def` and `op([x1...]) = op(x1, op(x2, ...))`.
 The `Base.splat` function doesn't have a way to deal with the first case.
+The operation should be flat (commutative and associative).
 """
-function splat_or_default(op, def, operands)
-    if isempty(operands)
-        return def
-    else
-        # Splatting is oddly slow.
-        # Specialized implementations are given for more specific types.
-        return op(operands...)
-    end
-end
 
-function splat_or_default(op, def, workspace::AbstractVector{<:Number}, indices::AbstractVector{<:Integer})
+#    return reduce(op, operands, def)
+
+
+function splat_or_default(op, def, workspace::AbstractVector, indices::AbstractVector{<:Integer})
     if isempty(indices)
         return def
+    elseif length(indices) == 1
+        return workspace[indices[1]]
     else
-        res = workspace[indices[1]]
-        for r in indices[2:end]
-            res = op(res, workspace[r])
-        end
-        return res
+        return reduce(op, workspace[indices])
     end
 end
-
-
-function splat_or_default(op, def, workspace::AbstractVector{<:AbstractVector}, indices::AbstractVector{<:Integer})
-    if isempty(indices)
-        return def
-    else
-        n = 0
-        for v in workspace
-            n = max(n, length(v))
-        end
-        e_type = eltype(workspace[1])
-        res = Vector{e_type}(undef, n)
-        res .= workspace[indices[1]]
-        for j in 2:length(indices)
-            res .= op(res, workspace[indices[j]])
-        end
-        return res
-    end
-end
-
 
 "Add operands."
 struct Add <: AbstractMultiOp end
@@ -113,15 +93,34 @@ This function adds the elements in `workspace` at the specified `indices`.
 
 op_eval(::Add, workspace, indices) = splat_or_default(.+, 0.0, workspace, indices)
 
-function op_eval_add_into!(dest::AbstractArray, ::Add, workspace::AbstractArray, indices::AbstractArray{<:Integer})
-    for j in indices
-        dest .+= workspace[j]
+function op_eval(::Add, workspace::AbstractVector{V}, indices::AbstractVector{<:Integer}) where {V<:AbstractVector}
+    n = length(indices)
+    if n == 0
+        return [zero(eltype(V))]
+    elseif n == 1
+        return workspace[indices[1]]
+    else
+        dest = similar(workspace[1])
+        dest .= workspace[indices[1]]
+        for k in indices[2:end]
+            dest .+= workspace[k]
+        end
+        return dest
+    end
+end
+
+#get(a::AbstractArray, index) = a[index]
+#get(x::Number, index::Integer) = x
+
+function op_eval_add_into!(dest::AbstractVector, ::Add, workspace::AbstractVector, indices::AbstractVector{<:Integer})
+    for k in indices
+        dest .+= workspace[k]
     end
 end
 
 function to_expr(::Add, cs, operands)
     if isempty(operands)
-        return [0.0]
+        return :(0)
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -146,25 +145,44 @@ and otherwise computes the result of `workspace[indices[1]] - workspace[indices[
 """
 
 function op_eval(::Subtract, workspace, indices)
-    if isempty(indices)
-        return 0.0
+    n = length(indices)
+    if n == 0
+        return 0
+    elseif n == 1
+        return workspace[indices[1]]
     else
         return workspace[indices[1]] .- op_eval(Add(), workspace, indices[2:end])
     end
 end
 
-function op_eval_add_into!(dest::AbstractArray, ::Subtract, workspace::AbstractArray, indices::AbstractArray{<:Integer})
+function op_eval(::Subtract, workspace::AbstractVector{V}, indices::AbstractVector{<:Integer}) where {V<:AbstractVector}
+    n = length(indices)
+    if n == 0
+        return [zero(eltype(V))]
+    elseif n == 1
+        return workspace[indices[1]]
+    else
+        dest = similar(workspace[1])
+        dest .= workspace[indices[1]]
+        for k in indices[2:end]
+            dest .-= workspace[k]
+        end
+        return dest
+    end
+end
+
+function op_eval_add_into!(dest::AbstractVector, ::Subtract, workspace::AbstractVector, indices::AbstractVector{<:Integer})
     if !isempty(indices)
         dest .+= workspace[indices[1]]
-        for j in indices[2:end]
-            dest .-= workspace[j]
+        for k in indices[2:end]
+            dest .-= workspace[k]
         end
     end
 end
 
 function to_expr(::Subtract, cs, operands)
     if isempty(operands)
-        return [0.0]
+        return :(0)
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -190,9 +208,26 @@ This function multiplies the elements in `workspace` at the specified `indices`.
 """
 op_eval(::Multiply, workspace, indices) = splat_or_default(.*, 1.0, workspace, indices)
 
+function op_eval(::Multiply, workspace::AbstractVector{V}, indices::AbstractVector{<:Integer}) where {V<:AbstractVector}
+    n = length(indices)
+    if n == 0
+        return [one(eltype(V))]
+    elseif n == 1
+        return workspace[indices[1]]
+    else
+        dest = similar(workspace[1])
+        dest .= workspace[indices[1]]
+        for k in indices[2:end]
+            dest .*= workspace[k]
+        end
+        return dest
+    end
+end
+
+
 function to_expr(::Multiply, cs, operands)
     if isempty(operands)
-        return [1.0]
+        return :(1)
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -230,8 +265,8 @@ end
 
 struct Reciprocal <: AbstractUnaryOp end
 short_show(io::IO, ::Reciprocal) = print(io, "rcp")
-un_op_eval(::Reciprocal, t) = 1.0 ./ t
-to_expr(::Reciprocal, expr) = :(1.0 ./ $expr)
+un_op_eval(::Reciprocal, t) = 1 ./ t
+to_expr(::Reciprocal, expr) = :(1 ./ $expr)
 
 "Multiply operands and return the reciprocal."
 const ReciprocalMultiply = UnaryComposition{Reciprocal, Multiply}
@@ -281,7 +316,7 @@ op_eval(::FzAnd, workspace, indices) = splat_or_default(.*, 1.0, workspace, indi
 
 function to_expr(::FzAnd, cs, operands)
     if isempty(operands)
-        return [1.0]
+        return :1.0
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -348,7 +383,7 @@ end
 
 function to_expr(::FzNor, cs, operands)
     if isempty(operands)
-        return [1.0]
+        return :1.0
     elseif length(operands) == 1
         field, j = operands[1]
         return :(1.0 .- $cs.$field[$j])
@@ -374,8 +409,10 @@ const SignSubtract = UnaryComposition{Sign, Subtract}
 struct Sigmoid <: AbstractUnaryOp end
 short_show(io::IO, ::Sigmoid) = print(io, "sigmoid")
 is_domain_safe(::Sigmoid) = true
-un_op_eval(::Sigmoid, t) = 1 ./ (1 .+ exp.(-t))
-to_expr(::Sigmoid, expr) = :(1 ./ (1 .+ exp.(-$expr)))
+sigmoid(t) = 1.0 / (1.0 + exp(-t))
+# un_op_eval(::Sigmoid, t) = 1 ./ (1 .+ exp.(-t))
+un_op_eval(::Sigmoid, t) = sigmoid.(t)
+to_expr(::Sigmoid, expr) = :(1.0 ./ (1.0 .+ exp.(-$expr)))
 
 "Apply the exponential sigmoid to the sum of the operands"
 const SigmoidAdd = UnaryComposition{Sigmoid, Add}
@@ -383,12 +420,16 @@ const SigmoidAdd = UnaryComposition{Sigmoid, Add}
 "Apply the exponential sigmoid to the difference of the operands"
 const SigmoidSubtract = UnaryComposition{Sigmoid, Subtract}
 
+# TODO The SoftMax and SoftMin will allocate a lot of temporary
+# arrays as written.  Re-write them to the form softmax.(...)
+# somehow.
+
 "Apply the soft-max function to the operands"
 struct SoftMax <: AbstractMultiOp end
 short_show(io::IO, ::SoftMax) = print(io, "softmax")
 is_domain_safe(::SoftMax) = true
 
-function op_eval(::SoftMax, workspace, indices::AbstractArray{<:Integer})
+function op_eval(::SoftMax, workspace, indices::AbstractVector{<:Integer})
     if isempty(indices)
         return Inf
     elseif length(indices) == 1
@@ -400,7 +441,7 @@ end
 
 function to_expr(::SoftMax, cs, operands)
     if isempty(operands)
-        return [-Inf]
+        return :(-Inf)
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -416,7 +457,7 @@ struct SoftMin <: AbstractMultiOp end
 short_show(io::IO, ::SoftMin) = print(io, "softmin")
 is_domain_safe(::SoftMin) = true
 
-function op_eval(::SoftMin, workspace, indices::AbstractArray{<:Integer})
+function op_eval(::SoftMin, workspace, indices::AbstractVector{<:Integer})
     if isempty(indices)
         return Inf
     elseif length(indices) == 1
@@ -428,7 +469,7 @@ end
 
 function to_expr(::SoftMin, cs, operands)
     if isempty(operands)
-        return [Inf]
+        return :(Inf)
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -447,7 +488,7 @@ short_show(io::IO, ::Maximum) = print(io, "max")
 
 is_domain_safe(::Maximum) = true
 
-function op_eval(::Maximum, workspace, indices::AbstractArray{<:Integer})
+function op_eval(::Maximum, workspace, indices::AbstractVector{<:Integer})
     if isempty(indices)
         return -Inf
     elseif length(indices) == 1
@@ -460,7 +501,7 @@ end
 
 function to_expr(::Maximum, cs, operands)
     if isempty(operands)
-        return [-Inf]
+        return :(-Inf)
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])
@@ -478,7 +519,7 @@ short_show(io::IO, ::Minimum) = print(io, "min")
 
 is_domain_safe(::Minimum) = true
 
-function op_eval(::Minimum, workspace, indices::AbstractArray{<:Integer})
+function op_eval(::Minimum, workspace, indices::AbstractVector{<:Integer})
     if isempty(indices)
         return -Inf
     elseif length(indices) == 1
@@ -491,7 +532,7 @@ end
 
 function to_expr(::Minimum, cs, operands)
     if isempty(operands)
-        return [Inf]
+        return :(Inf)
     elseif length(operands) == 1
         field, j = operands[1]
         return :($cs.$field[$j])

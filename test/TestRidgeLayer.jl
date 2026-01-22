@@ -21,23 +21,22 @@ using Test
 using Jessamine
 using ..RD
 
-y1, t1, t2, t3, p1, pm1, x1, x2 = 1:8
+z1, z2, z3, t1, t2, p1, pm1, x1, x2 = 1:9
 
 genome = Genome(
-    [[Instruction(Add(), [x2, t3])],
-    [Instruction(Multiply(), [pm1, x2])],
-    [Instruction(Add(), [p1, t1])],
-    [Instruction(Multiply(), [x1, t2])],
-    [Instruction(Multiply(), [])]
+    [[Instruction(Add(), [x2])],
+     [Instruction(Multiply(), [x1, t2])],
+     [Instruction(Multiply(), [])],
+     [Instruction(Multiply(), [x2, pm1])],
+     [Instruction(Add(), [p1, t1])],
 ]
 )
 
 parameter = [1.0, -1.0]
 
-g_spec = GenomeSpec(2, 3, 2, 2, 4)
+g_spec = GenomeSpec(3, 2, 2, 2, 4)
 
-g_res = run_genome(g_spec, genome, parameter, RD.xs)
-y = g_res[end][1]
+g_res = run_genome_to_last(g_spec, genome, parameter, RD.xs)
 
 function main()
     @show least_squares_ridge(RD.xs, RD.y, 0.0, g_spec, genome, parameter)
@@ -74,12 +73,12 @@ function main()
     # instead of a Symbolic array object.
     x = Symbolics.variables(:x, 1:2)
 
-    global z_sym = run_genome(
-        TestRidge.g_spec, TestRidge.genome, Num.(TestRidge.agent.parameter), x)[end]
+    global z_sym = run_genome_to_last(
+        TestRidge.g_spec, TestRidge.genome, Num.(TestRidge.agent.parameter), x)
     global b = coefficients(TestRidge.agent.extra)
     global y_pred_sym = dot(z_sym, b)
     @show y_pred_sym
-    global y_pred_simp = simplify(y_pred_sym)
+    global y_pred_simp = Symbolics.expand(y_pred_sym)
     @show y_pred_simp
 end
 
@@ -97,8 +96,8 @@ function main()
     global x = [symbols("x$j", extended_real = true)
                 for j in 1:(TestRidge.g_spec.input_size)]
 
-    global z_sym = run_genome(
-        TestRidge.g_spec, TestRidge.genome, map(Sym, TestRidge.agent.parameter), x)[end]
+    global z_sym = run_genome_to_last(
+        TestRidge.g_spec, TestRidge.genome, map(Sym, TestRidge.agent.parameter), x)
     global b = coefficients(TestRidge.agent.extra)
     global y_pred_sym = dot(z_sym, b)
     @show y_pred_sym
