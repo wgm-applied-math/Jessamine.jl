@@ -24,6 +24,7 @@ function main()
 
     @show run_genome(g_spec, genome, Float64[], [4.0, 5.0])
 
+    @show run_genome_to_last(g_spec, genome, Float64[], [4.0, 5.0])
 
     println("Test run_genome with the Henon map")
 
@@ -59,20 +60,27 @@ function main()
     genome = Genome(instruction_blocks)
 
     function h(input)
-        output = run_genome(g_spec, genome, parameter, input)
-        return output[end]
+        output = run_genome_to_last(g_spec, genome, parameter, input)
+        return output
+    end
+
+    function h_hist(input)
+        outputs = run_genome(g_spec, genome, parameter, input)
+        return outputs[end]
     end
 
     @show h(input)
+    @show h_hist(input)
 
     @test f(input) == h(input)
+    @test f(input) == h_hist(input)
 
     println("Test to_expr")
     cg = compile(g_spec, genome)
     @show cg.expr
     function hc(input)
-        output = run_genome(g_spec, cg, parameter, input)
-        return output[end]
+        output = run_genome_to_last(g_spec, cg, parameter, input)
+        return output
     end
     @test f(input) == hc(input)
 
@@ -82,8 +90,10 @@ function main()
 
     println("Test vectorization:")
     @show h(v_input)
+    @show h_hist(v_input)
     @show hc(v_input)
     @test f(v_input) == h(v_input)
+    @test f(v_input) == h_hist(v_input)
     @test f(v_input) == hc(v_input)
 
     println("Test RandomDuplicateDelete")

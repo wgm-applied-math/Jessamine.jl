@@ -33,7 +33,7 @@ function model_predict(
 )
     xs = separate_columns(x_table)
     num_rows = length(xs[1])
-    last_round = run_genome(g_spec, agent.genome, agent.parameter, xs)[end]
+    last_round = run_genome_to_last(g_spec, agent.genome, agent.parameter, xs)
     data_cols = map(u -> extend_if_singleton(u, num_rows), last_round)
     output_col_names = map(1:(g_spec.output_size)) do t
         "z$t"
