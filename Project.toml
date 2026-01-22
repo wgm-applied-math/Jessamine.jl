@@ -1,7 +1,10 @@
 name = "Jessamine"
 uuid = "2807b6de-c4a7-4d42-9dc5-a90bb38e3ffd"
+version = "0.2.0"
 authors = ["W. Garrett Mitchener <garrett.mitchener@gmail.com>"]
-version = "0.1.0"
+
+[workspace]
+projects = ["test"]
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
@@ -30,28 +33,6 @@ Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 TermInterface = "8ea1fca8-c5ef-4a55-8b96-4e9afe9c9a3c"
 
 [compat]
-DataFrames = "~1.7"
-Dates = "~1.11"
-Distributions = "~0.25"
-LinearAlgebra = "~1.11"
-Logging = "~1.11"
-LoggingExtras = "~1.1"
-MLJ = "~0.20"
-MLJLinearModels = "~0.10"
-MLJModelInterface = "~1.11"
-NamedTupleTools = "~0.14"
-Optim = "~1.13"
-Optimization = "~4.5"
-OptimizationOptimJL = "~0.4"
-PkgHelpers = "~0.3"
-PyCall = "~1.96"
-Random = "~1.11"
-SciMLBase = "~2.102"
-Serialization = "1.11.0"
-SymPy = "~2.3"
-SymPyCore = "~0.3"
-SymbolicUtils = "~3.29"
-Symbolics = "~6.43"
-Tables = "~1.12"
-TermInterface = "~2.0"
-julia = "~1.11"
+LinearAlgebra = "1.12.0"
+PyCall = "1.96.4"
+SymPy = "2.3.3"
