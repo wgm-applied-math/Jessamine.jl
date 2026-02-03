@@ -1,12 +1,3 @@
-# Make language server happy
-if false
-    using Distributions
-    include("GenomeCore.jl")
-    include("Operations.jl")
-    include("Recombination.jl")
-    include("Mutation.jl")
-end
-
 export SelectionSpec, SelectionDist, Population
 export Agent
 export AbstractPopulationCondition, InitialPopulation, InProgress
@@ -307,7 +298,7 @@ will try to produce a valid agent up to `valid_agent_max_attempts`
 times.  After that many failures, it will give up and throw an
 error.
 
-If `domain_safe` is `true`, only operators for which `is_domain_safe(op)` 
+If `domain_safe` is `true`, only operators for which `is_domain_safe(op)`
 is `true` are used in the genomes.
 
 The `sense` parameter specifies whether selection should aim to

@@ -1,7 +1,3 @@
-# Make language server happy
-if false
-end
-
 export AbstractGeneOp
 export GenomeSpec, CellState, Instruction
 export AbstractGenome, Genome

@@ -1,8 +1,3 @@
-# Make language server happy
-if false
-    include("Operations.jl")
-end
-
 export MutationSpec, MutationDist
 export mutate
 

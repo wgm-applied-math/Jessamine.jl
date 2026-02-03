@@ -3,7 +3,6 @@ using Distributions
 using LinearAlgebra
 using Optimization
 using Random
-using Symbolics
 using Test
 using Jessamine
 using ..RD
@@ -88,42 +87,8 @@ function main()
     println("end pop_next")
     @show rng
     println("")
-
-    println("Symbolic form of best agent")
-
     global a_best = pop_next.agents[1]
-    global basic_sym_res = model_basic_symbolic_output(g_spec, a_best)
-    global sym_res = model_symbolic_output(g_spec, a_best)
-    global x = sym_res.x
-
     short_show(a_best)
-    @show basic_sym_res.y_sym
-    @show basic_sym_res.y_num
-    @show sym_res.y_sym
-    @show a_best.parameter
-    @show a_best.extra
-    @show sym_res.y_num
-
-    global y_num = simplify(sym_res.y_num; expand = true)
-    @show y_num
-
-    global c1 = Symbolics.coeff(y_num)
-    global cx1 = Symbolics.coeff(Symbolics.coeff(y_num, x[1]))
-    global cx2 = Symbolics.coeff(Symbolics.coeff(y_num, x[2]))
-    global cx1x2 = Symbolics.coeff(Symbolics.coeff(y_num, x[2]), x[1])
-    global cvec = [c1, cx1, cx2, cx1x2]
-    @show cvec
-    @show round.(cvec)
-    @test round.(cvec) == [2, 3, 3, -3]
-
-    global basic_sympy_res = model_basic_sympy_output(g_spec, a_best)
-    global sympy_res = model_sympy_output(g_spec, a_best)
-
-    short_show(a_best)
-    @show basic_sympy_res.y_sym
-    @show basic_sympy_res.y_num
-    @show sympy_res.y_sym
-    @show sympy_res.y_num
     @show rng
 end
 

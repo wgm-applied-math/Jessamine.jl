@@ -8,11 +8,6 @@
 # we have to go through all the indices and figure out
 # how big of a vector to make.
 
-# Make language server happy
-if false
-    # include("GenomeCore.jl")
-end
-
 export splat_or_default
 export AbstractUnaryOp, AbstractMultiOp
 export Add, Multiply, Subtract

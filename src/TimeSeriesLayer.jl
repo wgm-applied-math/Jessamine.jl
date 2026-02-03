@@ -1,7 +1,3 @@
-if false
-    include("GenomeCore.jl")
-end
-
 export run_genome_time_series
 
 """
