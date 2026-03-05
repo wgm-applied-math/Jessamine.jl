@@ -10,10 +10,13 @@ using Optim
 using Optimization
 using OptimizationOptimJL
 using Random
+using RuntimeGeneratedFunctions
 using SciMLBase
 using Serialization
 using Tables
 using Base.Threads
+
+RuntimeGeneratedFunctions.init(@__MODULE__)
 
 include("LoggingTools.jl")
 include("TablesUtil.jl")

@@ -100,6 +100,9 @@ function CellState(
         n_output + n_scratch + n_parameter + n_input)
 end
 
+function Base.eltype(cs::CellState)
+    return eltype(cs.output)
+end
 
 function Base.show(io::IO, cs::CellState)
     println(io, "Cell state")
@@ -203,7 +206,6 @@ end
 # *sigh*
 function Instruction(op, operands::Vector{Any})
     @assert isempty(operands)
-
     return Instruction(op, Int[])
 end
 
@@ -273,15 +275,14 @@ end
 
 function to_expr(g_spec::GenomeSpec, genome::Genome)
     scratch_begin = 1 + g_spec.output_size
-    quote
-        function (cs::CellState{E}) where {E}
-            new_output = $(to_expr(
-                g_spec, genome.instruction_blocks[1:(g_spec.output_size)], :cs, :E))
-            new_scratch = $(to_expr(
-                g_spec, genome.instruction_blocks[scratch_begin:end], :cs, :E))
-            return CellState(new_output, new_scratch, cs.parameter, cs.input)
-        end
-    end
+    :(function (cs::CellState)
+          E = eltype(cs)
+          new_output = $(to_expr(
+              g_spec, genome.instruction_blocks[1:(g_spec.output_size)], :cs, :E))
+          new_scratch = $(to_expr(
+              g_spec, genome.instruction_blocks[scratch_begin:end], :cs, :E))
+          return CellState(new_output, new_scratch, cs.parameter, cs.input)
+      end)
 end
 
 """
@@ -440,7 +441,7 @@ end
 function compile(g_spec::GenomeSpec, genome::Genome)
     expr = to_expr(g_spec, genome)
     try
-        f = eval(expr)
+        f = @RuntimeGeneratedFunction(expr)
         return CompiledGenome(genome, expr, f)
     catch
         short_show(genome)
@@ -479,7 +480,7 @@ function eval_time_step(
         cell_state::CellState,
         cg::CompiledGenome
 )::CellState
-    return invokelatest(cg.f, cell_state)
+    return cg.f(cell_state)
 end
 
 function num_operands(cg::CompiledGenome)
