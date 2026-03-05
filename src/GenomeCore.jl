@@ -122,8 +122,8 @@ function Base.show(io::IO, cs::CellState)
 end
 
 
-function v_convert(::Type{<:AbstractArray}, x::AbstractArray)
-    return x
+function v_convert(ref::Type{<:AbstractArray}, x::AbstractArray)
+    return convert(ref, x)
 end
 
 function v_convert(ref::Type{<:AbstractArray}, x)
