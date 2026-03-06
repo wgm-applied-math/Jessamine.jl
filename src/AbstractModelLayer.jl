@@ -1,7 +1,5 @@
 export AbstractModelResult
 export model_predict
-export model_basic_symbolic_output, model_symbolic_output
-export model_basic_sympy_output, model_sympy_output
 
 """
 Abstract base type for the results of fitting a model
