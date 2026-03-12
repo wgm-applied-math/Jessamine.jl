@@ -1,5 +1,6 @@
 # !!! TODO Look into NaNMath.jl which returns NaN instead of throwing an error for things
 # like sqrt(negative)
+using Base: signequal
 
 # For vectorization, sometimes we need a blank vector of the appropriate size.
 # I'm taking the size and type from workspace[1].
@@ -20,6 +21,7 @@ export Maximum, Minimum
 export Sign, SignAdd, SignSubtract
 export Sigmoid, SigmoidAdd, SigmoidSubtract
 export define_unary_op
+export build_op_inventory, get_op_inventory
 
 abstract type AbstractUnaryOp end
 
@@ -231,7 +233,7 @@ function to_expr(::Multiply, cs, operands)
     end
 end
 
-"Do a multi-arity operation and apply a unary operation"
+"Do a multiary operation and apply a unary operation"
 @kwdef struct UnaryComposition{Un <: AbstractUnaryOp, Multi <: AbstractMultiOp} <:
               AbstractMultiOp
     unary::Un = Un()
@@ -386,19 +388,6 @@ function to_expr(::FzNor, cs, operands)
         return Expr(:call, :.*, (:(1.0 .- $cs.$field[$j]) for (field, j) in operands)...)
     end
 end
-
-"Return the sign of the operand"
-struct Sign <: AbstractUnaryOp end
-short_show(io::IO, ::Sign) = print(io, "sign")
-is_domain_safe(::Sign) = true
-un_op_eval(::Sign, t) = sign.(t)
-to_expr(::Sign, expr) = :(sign.($expr))
-
-"Return the sign of the sum of the operands"
-const SignAdd = UnaryComposition{Sign, Add}
-
-"Return the sign of the difference of the operands"
-const SignSubtract = UnaryComposition{Sign, Subtract}
 
 "Apply the exponential sigmoid to the operand"
 struct Sigmoid <: AbstractUnaryOp end
@@ -563,6 +552,9 @@ macro define_unary_op(struct_name, function_name)
     end
 end
 
+@define_unary_op Sign sign
+is_domain_safe(::Sign) = true
+
 @define_unary_op Sqrt sqrt
 @define_unary_op Exp exp
 is_domain_safe(::Exp) = true
@@ -607,6 +599,14 @@ is_domain_safe(::ASinh) = true
 export PolynomialInventory
 const PolynomialInventory = [Add(), Subtract(), Multiply()]
 
+export PolynomialSigmoidInventory
+const PolynomialSigmoidInventory = vcat(PolynomialInventory,
+    reshape(
+        [UnaryComposition{un_op, bin_op}()
+         for un_op in [Sigmoid], bin_op in [Add, Subtract, Multiply]],
+        :))
+
+
 export RationalFunctionInventory
 const RationalFunctionInventory = vcat(
     PolynomialInventory, [ReciprocalAdd(), ReciprocalSubtract(), ReciprocalMultiply()])
@@ -633,3 +633,121 @@ const HyperbolicInventory = vcat(ExpLogInventory,
              for un_op in [Sinh, Cosh, Tanh, Coth, Sech, Csch, ASinh, ACosh, ATanh, ACoth, ASech, ACsch],
                 bin_op in [Add, Subtract, Multiply]],
             :))
+
+op_inventory_map = Dict(
+    "Polynomial" => PolynomialInventory,
+    "PolynomialSigmoid" => PolynomialSigmoidInventory,
+    "RationalFunction" => RationalFunctionInventory,
+    "ExpLog" => ExpLogInventory,
+    "Trig" => TrigInventory,
+    "Hyperbolic" => HyperbolicInventory,
+)
+
+unary_op_map = Dict(
+    "sqrt" => Sqrt,
+    "exp" => Exp,
+    "log" => Log,
+    "sigmoid" => Sigmoid,
+    "/" => Reciprocal,
+    "÷" => Reciprocal,
+    "reciprocal" => Reciprocal,
+    "sign" => Sign,
+    "signum" => Sign,
+    "sin" => Sin,
+    "cos" => Cos,
+    "tan" => Tan,
+    "cot" => Cot,
+    "sec" => Sec,
+    "csc" => Csc,
+    "asin" => ASin,
+    "acos" => ACos,
+    "atan" => ATan,
+    "acot" => ACot,
+    "asec" => ASec,
+    "acsc" => ACsc,
+    "sinh" => Sinh,
+    "cosh" => Cosh,
+    "tanh" => Tanh,
+    "coth" => Coth,
+    "sech" => Sech,
+    "csch" => Csch,
+    "asinh" => ASinh,
+    "acosh" => ACosh,
+    "atanh" => ATanh,
+    "acoth" => ACoth,
+    "asech" => ASech,
+    "acsch" => ACsch,
+)
+
+multiary_op_map = Dict(
+    "+" => Add,
+    "add" => Add,
+    "-" => Subtract,
+    "sub" => Subtract,
+    "*" => Multiply,
+    "mul" => Multiply,
+    "min" => Minimum,
+    "max" => Maximum,
+    "softmin" => SoftMin,
+    "softmax" => SoftMax,
+    "fzand" => FzAnd,
+    "fzor" => FzOr,
+    "fznand" => FzNand,
+    "fznor" => FzNor,
+)
+
+"""
+    build_op_inventory(op_names)
+
+Given a container of strings, build the operation inventory for
+all combinations of the corresponding unary and multiary
+operations.  Return a named tuple with fields
+
+- inventory: array of UnaryCompositions
+
+- unknown: array of members of op_names that didn't correspond to
+  any known operation
+"""
+function build_op_inventory(op_names)
+    un_ops = []
+    multi_ops = []
+    unknown = eltype(op_names)[]
+    for s in op_names
+        if haskey(unary_op_map, s)
+            push!(un_ops, unary_op_map[s])
+        elseif haskey(multiary_op_map, s)
+            push!(multi_ops, multiary_op_map[s])
+        else
+            push!(unknown, s)
+        end
+    end
+    inventory =
+        vcat([bin_op() for bin_op in multi_ops],
+             reshape(
+                 [UnaryComposition{un_op, bin_op}()
+                  for un_op in un_ops, bin_op in multi_ops],
+                 :))
+    return (inventory=inventory, unknown=unknown)
+end
+
+"""
+    get_op_inventory(inventory_name)
+
+Look up the pre-built operation inventory with the given name.
+If no such inventory is known, use `PolynomialInventory`
+Return a named tuple with fields
+
+- inventory: array of operations
+
+- found: true if `inventory_name` is a known pre-build operation
+  inventory, false otherwise
+"""
+function get_op_inventory(inventory_name::String)
+    if haskey(op_inventory_map, inventory_name)
+        return (inventory=op_inventory_map[inventory_name],
+                found=true)
+    else
+        return (inventory=PolynomialInventory,
+                found=false)
+    end
+end
