@@ -532,6 +532,11 @@ Progress is reported as an `@info` log message when the
 generation number is a multiple of `generation_mod`.  If this
 number is not > 0, this progress report is disabled.
 
+* `discovery_channel = nothing`:
+If `discovery_channel` is a `Channel` rather than `nothing`,
+each time the best agent in a generation is better than all
+previous ones, it is sent as a message to this channel.
+
 * `stop_threshold = nothing`:
 If `stop_threshold` is a number rather than `nothing`, the
 loop stops as soon as an agent with a rating better than
@@ -568,7 +573,8 @@ function evolution_loop(
         stop_threshold::Union{Nothing, Number} = nothing,
         stop_on_innovation = false,
         stop_channel::Union{Nothing, Channel} = nothing,
-        stop_deadline::Union{Nothing, DateTime} = nothing
+        stop_deadline::Union{Nothing, DateTime} = nothing,
+        discovery_channel::Union{Nothing, Channel} = nothing,
 )
     pop_next = pop_init
     best_in_gen = pop_next.agents[1]
@@ -595,11 +601,14 @@ function evolution_loop(
         best_in_gen = pop_next.agents[1]
         if is_better(best_rating, best_in_gen.rating, sense)
             best_rating = best_in_gen.rating
-            condition = DiscoveredInnovation()
+            if !isnothing(discovery_channel)
+                put!(discovery_channel, best_in_gen)
+            end
             if verbosity > 0
                 @info "Generation $t, new best = $best_rating"
             end
             if stop_on_innovation
+                condition = DiscoveredInnovation()
                 break
             end
         end
@@ -681,6 +690,11 @@ produced after each epoch completes.
 If `max_epochs` is an integer rather than `nothing`, the loop ends
 after at most that many epochs.
 
+* `discovery_channel = nothing`:
+If `discovery_channel` is a `Channel` rather than `nothing`,
+each time the best agent in a generation is better than all
+previous ones, it is sent as a message to this channel.
+
 * `stop_threshold = nothing`:
 If `stop_threshold` is a number rather than `nothing`, the
 loop stops as soon as an agent with a rating better than
@@ -710,6 +724,7 @@ function vns_evolution_loop(
         verbosity = 1,
         valid_agent_max_attempts = 100,
         sense = MinSense,
+        discovery_channel::Union{Nothing, Channel} = nothing,
         stop_threshold::Union{Nothing, Number} = nothing,
         stop_channel::Union{Nothing, Channel} = nothing,
         stop_deadline::Union{Nothing, DateTime} = nothing
@@ -734,9 +749,10 @@ function vns_evolution_loop(
             verbosity = verbosity,
             valid_agent_max_attempts = valid_agent_max_attempts,
             sense = sense,
+            discovery_channel = discovery_channel,
             stop_threshold = stop_threshold,
             stop_channel = stop_channel,
-            stop_deadline = stop_deadline
+            stop_deadline = stop_deadline,
         )
         best_in_gen = pop_next.agents[1]
         condition = pop_next.condition
