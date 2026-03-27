@@ -742,7 +742,7 @@ Return a named tuple with fields
 - found: true if `inventory_name` is a known pre-build operation
   inventory, false otherwise
 """
-function get_op_inventory(inventory_name)
+function get_op_inventory(inventory_name="Polynomial")
     if haskey(op_inventory_map, inventory_name)
         return (inventory=op_inventory_map[inventory_name],
                 found=true)
