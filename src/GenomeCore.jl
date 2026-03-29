@@ -70,11 +70,18 @@ function workspace_size(g_spec::GenomeSpec)
            g_spec.input_size
 end
 
-struct CellState{E} <: AbstractVector{E}
-    output::Vector{E}
-    scratch::Vector{E}
-    parameter::Vector{E}
-    input::Vector{E}
+"""
+    CellState{EIn,EWork}
+
+Workspace for a genome.  The reason for two element type
+parameters is that this allows `EIn` to be something like a view
+into a matrix, while `EWork` can be a regular `Array`.
+"""
+struct CellState{EIn,EWork} <: AbstractVector{Union{EIn,EWork}}
+    output::Vector{EWork}
+    scratch::Vector{EWork}
+    parameter::Vector{EWork}
+    input::Vector{EIn}
     offset_scratch::Int64
     offset_parameter::Int64
     offset_input::Int64
@@ -87,13 +94,15 @@ function CellState(
     parameter,
     input)
     # E = least common supertype of the element types of all of these vectors
-    E = typejoin(eltype(output), eltype(scratch), eltype(parameter), eltype(input))
+    # E = typejoin(eltype(output), eltype(scratch), eltype(parameter), eltype(input))
     n_output = length(output)
     n_scratch = length(scratch)
     n_parameter = length(parameter)
     n_input = length(input)
-    return CellState{E}(
-        output, scratch, parameter, input,
+    # The collect() here is so that you can use an iterator,
+    # something like eachcol(X), as input
+    return CellState(
+        output, scratch, parameter, collect(input),
         n_output,
         n_output + n_scratch,
         n_output + n_scratch + n_parameter,
@@ -121,19 +130,43 @@ function Base.show(io::IO, cs::CellState)
     println(io, "end")
 end
 
+"""
+    v_convert(ref::Type{<:AbstractArray}, x::AbstractArray)
 
+Convert an array-like object `x` to a regular `Array`.
+This function is used to create arrays within `run_genome_*` functions.
+
+This function can be specialized for array types for which another
+array type is more appropriate.
+"""
 function v_convert(ref::Type{<:AbstractArray}, x::AbstractArray)
-    return convert(ref, x)
+    return convert(Array{eltype(ref)}, x)
 end
 
+"""
+    v_convert(ref::Type{<:AbstractArray}, x)
+
+Convert an `x` that is not an array to an array of the reference type with just one element equal to `x`.
+"""
 function v_convert(ref::Type{<:AbstractArray}, x)
-    singleton = [convert(eltype(ref), x)]
-    return convert(ref, singleton)
+    return [convert(eltype(ref), x)]
 end
 
+"""
+    v_convert(ref::Type, x)
+
+Just convert `x` to the reference type.
+"""
 function v_convert(ref::Type, x)
     return convert(ref, x)
 end
+
+"""
+    v_unconvert(xv::AbstractArray)
+
+Given a single-element array, return its element.
+Calls @assert to ensure that there's only one element.
+"""
 
 function v_unconvert(xv::AbstractArray)
     @assert length(xv) == 1
