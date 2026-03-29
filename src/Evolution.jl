@@ -16,7 +16,7 @@ Return a value that is considered almost infinitely bad in the
 given optimization sense.
 
 This returns a finite number of the largest possible magnitude
-because infinite float values`Inf` and `-Inf` can't be compared
+because infinite float values `Inf` and `-Inf` can't be compared
 to any other float value using `<`.
 """
 function infinitely_bad(sense::ObjSense; t=Float64)
