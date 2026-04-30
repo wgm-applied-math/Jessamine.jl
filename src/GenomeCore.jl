@@ -18,25 +18,25 @@ A collection of parameters specifying the genome architecture and mutation proce
 """
 @kwdef struct GenomeSpec
     "How many output slots are in the state array"
-    output_size::Int
+    output_size::Int64
 
     "How many scratch slots are in the state array"
-    scratch_size::Int
+    scratch_size::Int64
 
     "How many parameter slots are in the state array"
-    parameter_size::Int
+    parameter_size::Int64
 
     "How many input slots are in the state array"
-    input_size::Int
+    input_size::Int64
 
     "How many time steps in an evaluation cycle"
-    num_time_steps::Int
+    num_time_steps::Int64
 
     "Table of which field and index therein corresponds to an overall index"
-    index_map::Vector{Tuple{Symbol, Int}}
+    index_map::Vector{Tuple{Symbol, Int64}}
 end
 
-function GenomeSpec(output_size, scratch_size, parameter_size, input_size, num_time_steps)
+function GenomeSpec(output_size::Int64, scratch_size::Int64, parameter_size::Int64, input_size::Int64, num_time_steps::Int64)
     index_map = vcat(
         [(:output, j) for j in 1:output_size],
         [(:scratch, j) for j in 1:scratch_size],
