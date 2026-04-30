@@ -4,7 +4,7 @@ export AbstractGenome, Genome
 export v_convert, v_unconvert
 export eval_time_step, op_eval, flat_workspace
 export run_genome, run_genome_to_last, num_instructions, num_operands, workspace_size
-export short_show
+export short_show, very_short_show
 export to_expr, compile, CompiledGenome
 export zeros_like, zero_like
 
@@ -288,11 +288,41 @@ function op_eval_add_into!(
 end
 
 """
-    short_show([io::IO], x)
+    short_show(io::IO, x)
 
-Print a short version of `x` to `io`, using `stdout` by default.
+Print a short version of `x` to `io`
 """
-short_show(x) = short_show(stdout, x)
+function short_show end
+
+"""
+    short_show(x)
+
+Return a short string representation of `x`.
+"""
+function short_show(x)
+    b = IOBuffer()
+    short_show(b, x)
+    return String(take!(b))
+end
+
+"""
+    very_short_show(io::IO, x)
+
+Print a very short version of `x` to `io`
+"""
+function very_short_show end
+
+"""
+    very_short_show(x)
+
+Return a very short string representation of `x`.
+"""
+function very_short_show(x)
+    b = IOBuffer()
+    very_short_show(b, x)
+    return String(take!(b))
+end
+
 
 """Abstract base type for genomes."""
 abstract type AbstractGenome end
@@ -610,7 +640,6 @@ function short_show(io::IO, g::Genome)
         block = g.instruction_blocks[dest]
         print(io, "$(dest) = sum [ ")
         for instr in block
-            print(io, "")
             short_show(io, instr.op)
             for j in instr.operand_ixs
                 print(io, " $j")
@@ -624,6 +653,21 @@ end
 function short_show(io::IO, cg::CompiledGenome)
     short_show(io, cg.genome)
     println(io, cg.expr)
+end
+
+function very_short_show(io::IO, g::Genome)
+    for dest in eachindex(g.instruction_blocks)
+        block = g.instruction_blocks[dest]
+        print(io, "$(dest)=(")
+        join(io,
+             [short_show(instr.op) * join([" $j" for j in instr.operand_ixs]) for instr in block],
+             " + ")
+        print(io, "); ")
+    end
+end
+
+function very_short_show(io::IO, cg::CompiledGenome)
+    very_short_show(io, cg.genome)
 end
 
 function check_genome(g)

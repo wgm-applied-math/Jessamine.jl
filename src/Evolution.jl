@@ -105,6 +105,14 @@ function short_show(io::IO, a::Agent)
     println(io, "extra = $(a.extra)")
 end
 
+function very_short_show(io::IO, a::Agent)
+    print(io, "{ rating = $(a.rating), genome = ")
+    very_short_show(io, a.genome)
+    print(io, "parameter = $(a.parameter), ")
+    println(io, "extra = $(a.extra) }")
+end
+
+
 """
     isless(x::Agent, y::Agent)
 
