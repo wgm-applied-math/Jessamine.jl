@@ -1,6 +1,6 @@
 name = "Jessamine"
 uuid = "2807b6de-c4a7-4d42-9dc5-a90bb38e3ffd"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["W. Garrett Mitchener <garrett.mitchener@gmail.com>"]
 
 [workspace]
