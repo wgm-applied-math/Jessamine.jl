@@ -1,14 +1,10 @@
-# Make language server happy
-if false
-end
-
 export AbstractGeneOp
 export GenomeSpec, CellState, Instruction
 export AbstractGenome, Genome
 export v_convert, v_unconvert
 export eval_time_step, op_eval, flat_workspace
 export run_genome, run_genome_to_last, num_instructions, num_operands, workspace_size
-export short_show
+export short_show, very_short_show
 export to_expr, compile, CompiledGenome
 export zeros_like, zero_like
 
@@ -22,25 +18,25 @@ A collection of parameters specifying the genome architecture and mutation proce
 """
 @kwdef struct GenomeSpec
     "How many output slots are in the state array"
-    output_size::Int
+    output_size::Int64
 
     "How many scratch slots are in the state array"
-    scratch_size::Int
+    scratch_size::Int64
 
     "How many parameter slots are in the state array"
-    parameter_size::Int
+    parameter_size::Int64
 
     "How many input slots are in the state array"
-    input_size::Int
+    input_size::Int64
 
     "How many time steps in an evaluation cycle"
-    num_time_steps::Int
+    num_time_steps::Int64
 
     "Table of which field and index therein corresponds to an overall index"
-    index_map::Vector{Tuple{Symbol, Int}}
+    index_map::Vector{Tuple{Symbol, Int64}}
 end
 
-function GenomeSpec(output_size, scratch_size, parameter_size, input_size, num_time_steps)
+function GenomeSpec(output_size::Int64, scratch_size::Int64, parameter_size::Int64, input_size::Int64, num_time_steps::Int64)
     index_map = vcat(
         [(:output, j) for j in 1:output_size],
         [(:scratch, j) for j in 1:scratch_size],
@@ -74,11 +70,18 @@ function workspace_size(g_spec::GenomeSpec)
            g_spec.input_size
 end
 
-struct CellState{E} <: AbstractVector{E}
-    output::Vector{E}
-    scratch::Vector{E}
-    parameter::Vector{E}
-    input::Vector{E}
+"""
+    CellState{EIn,EWork}
+
+Workspace for a genome.  The reason for two element type
+parameters is that this allows `EIn` to be something like a view
+into a matrix, while `EWork` can be a regular `Array`.
+"""
+struct CellState{EIn,EWork} <: AbstractVector{Union{EIn,EWork}}
+    output::Vector{EWork}
+    scratch::Vector{EWork}
+    parameter::Vector{EWork}
+    input::Vector{EIn}
     offset_scratch::Int64
     offset_parameter::Int64
     offset_input::Int64
@@ -91,19 +94,24 @@ function CellState(
     parameter,
     input)
     # E = least common supertype of the element types of all of these vectors
-    E = typejoin(eltype(output), eltype(scratch), eltype(parameter), eltype(input))
+    # E = typejoin(eltype(output), eltype(scratch), eltype(parameter), eltype(input))
     n_output = length(output)
     n_scratch = length(scratch)
     n_parameter = length(parameter)
     n_input = length(input)
-    return CellState{E}(
-        output, scratch, parameter, input,
+    # The collect() here is so that you can use an iterator,
+    # something like eachcol(X), as input
+    return CellState(
+        output, scratch, parameter, collect(input),
         n_output,
         n_output + n_scratch,
         n_output + n_scratch + n_parameter,
         n_output + n_scratch + n_parameter + n_input)
 end
 
+function Base.eltype(cs::CellState)
+    return eltype(cs.output)
+end
 
 function Base.show(io::IO, cs::CellState)
     println(io, "Cell state")
@@ -122,19 +130,43 @@ function Base.show(io::IO, cs::CellState)
     println(io, "end")
 end
 
+"""
+    v_convert(ref::Type{<:AbstractArray}, x::AbstractArray)
 
-function v_convert(::Type{<:AbstractArray}, x::AbstractArray)
-    return x
+Convert an array-like object `x` to a regular `Array`.
+This function is used to create arrays within `run_genome_*` functions.
+
+This function can be specialized for array types for which another
+array type is more appropriate.
+"""
+function v_convert(ref::Type{<:AbstractArray}, x::AbstractArray)
+    return convert(Array{eltype(ref)}, x)
 end
 
+"""
+    v_convert(ref::Type{<:AbstractArray}, x)
+
+Convert an `x` that is not an array to an array of the reference type with just one element equal to `x`.
+"""
 function v_convert(ref::Type{<:AbstractArray}, x)
-    singleton = [convert(eltype(ref), x)]
-    return convert(ref, singleton)
+    return [convert(eltype(ref), x)]
 end
 
+"""
+    v_convert(ref::Type, x)
+
+Just convert `x` to the reference type.
+"""
 function v_convert(ref::Type, x)
     return convert(ref, x)
 end
+
+"""
+    v_unconvert(xv::AbstractArray)
+
+Given a single-element array, return its element.
+Calls @assert to ensure that there's only one element.
+"""
 
 function v_unconvert(xv::AbstractArray)
     @assert length(xv) == 1
@@ -207,7 +239,6 @@ end
 # *sigh*
 function Instruction(op, operands::Vector{Any})
     @assert isempty(operands)
-
     return Instruction(op, Int[])
 end
 
@@ -257,11 +288,41 @@ function op_eval_add_into!(
 end
 
 """
-    short_show([io::IO], x)
+    short_show(io::IO, x)
 
-Print a short version of `x` to `io`, using `stdout` by default.
+Print a short version of `x` to `io`
 """
-short_show(x) = short_show(stdout, x)
+function short_show end
+
+"""
+    short_show(x)
+
+Return a short string representation of `x`.
+"""
+function short_show(x)
+    b = IOBuffer()
+    short_show(b, x)
+    return String(take!(b))
+end
+
+"""
+    very_short_show(io::IO, x)
+
+Print a very short version of `x` to `io`
+"""
+function very_short_show end
+
+"""
+    very_short_show(x)
+
+Return a very short string representation of `x`.
+"""
+function very_short_show(x)
+    b = IOBuffer()
+    very_short_show(b, x)
+    return String(take!(b))
+end
+
 
 """Abstract base type for genomes."""
 abstract type AbstractGenome end
@@ -277,15 +338,14 @@ end
 
 function to_expr(g_spec::GenomeSpec, genome::Genome)
     scratch_begin = 1 + g_spec.output_size
-    quote
-        function (cs::CellState{E}) where {E}
-            new_output = $(to_expr(
-                g_spec, genome.instruction_blocks[1:(g_spec.output_size)], :cs, :E))
-            new_scratch = $(to_expr(
-                g_spec, genome.instruction_blocks[scratch_begin:end], :cs, :E))
-            return CellState(new_output, new_scratch, cs.parameter, cs.input)
-        end
-    end
+    :(function (cs::CellState)
+          E = eltype(cs)
+          new_output = $(to_expr(
+              g_spec, genome.instruction_blocks[1:(g_spec.output_size)], :cs, :E))
+          new_scratch = $(to_expr(
+              g_spec, genome.instruction_blocks[scratch_begin:end], :cs, :E))
+          return CellState(new_output, new_scratch, cs.parameter, cs.input)
+      end)
 end
 
 """
@@ -444,7 +504,7 @@ end
 function compile(g_spec::GenomeSpec, genome::Genome)
     expr = to_expr(g_spec, genome)
     try
-        f = eval(expr)
+        f = @RuntimeGeneratedFunction(expr)
         return CompiledGenome(genome, expr, f)
     catch
         short_show(genome)
@@ -462,28 +522,11 @@ function compile(g_spec::GenomeSpec, cg::CompiledGenome)
 end
 
 
-# I have to do this, because it's a mess to serialize the constructed
-# function object.
-# See https://stackoverflow.com/questions/49007433/how-to-implement-custom-serialization-deserialization-for-a-struct-in-julia
-# function Serialization.serialize(s::AbstractSerializer, cg::CompiledGenome)
-#     Serialization.writetag(s.io, Serialization.OBJECT_TAG)
-#     Serialization.serialize(s, CompiledGenome)
-#     Serialization.serialize(s, cg.genome)
-#     Serialization.serialize(s, cg.expr)
-# end
-
-# function Serialization.deserialize(s::AbstractSerializer, ::Type{CompiledGenome})
-#     genome = Serialization.deserialize(s)
-#     expr = Serialization.deserialize(s)
-#     f = eval(expr)
-#     return CompiledGenome(genome, expr, f)
-# end
-
 function eval_time_step(
         cell_state::CellState,
         cg::CompiledGenome
 )::CellState
-    return invokelatest(cg.f, cell_state)
+    return cg.f(cell_state)
 end
 
 function num_operands(cg::CompiledGenome)
@@ -597,7 +640,6 @@ function short_show(io::IO, g::Genome)
         block = g.instruction_blocks[dest]
         print(io, "$(dest) = sum [ ")
         for instr in block
-            print(io, "")
             short_show(io, instr.op)
             for j in instr.operand_ixs
                 print(io, " $j")
@@ -611,6 +653,21 @@ end
 function short_show(io::IO, cg::CompiledGenome)
     short_show(io, cg.genome)
     println(io, cg.expr)
+end
+
+function very_short_show(io::IO, g::Genome)
+    for dest in eachindex(g.instruction_blocks)
+        block = g.instruction_blocks[dest]
+        print(io, "$(dest)=(")
+        join(io,
+             [short_show(instr.op) * join([" $j" for j in instr.operand_ixs]) for instr in block],
+             " + ")
+        print(io, "); ")
+    end
+end
+
+function very_short_show(io::IO, cg::CompiledGenome)
+    very_short_show(io, cg.genome)
 end
 
 function check_genome(g)

@@ -1,25 +1,9 @@
-module RD
-using Distributions
-using Random
-rng = Xoshiro(161004)
-
-num_points = 30
-x1_dist = Normal(0.0, 1.0)
-x1 = rand(rng, x1_dist, num_points)
-x2_dist = Normal(0.0, 2.0)
-x2 = rand(rng, x2_dist, num_points)
-y = @. 2 + 3 * (x2 + x1 * (1 - x2))
-# which is 2 + 3 x2 + 3 x1 ( 1 - x2)
-#          2 + 3 x2 + 3 x1 - 3 x1 x2
-
-xs = [x1, x2]
-end # module RD
-
 module TestRidge
 using LinearAlgebra
 using Test
 using Jessamine
-using ..RD
+
+include("RandomData.jl")
 
 z1, z2, z3, t1, t2, p1, pm1, x1, x2 = 1:9
 
@@ -59,57 +43,3 @@ function main()
 end
 
 end # module TestRidge
-
-module TestSymbolics
-
-using LinearAlgebra
-using Symbolics
-using Jessamine
-using ..RD
-using ..TestRidge
-
-function main()
-    # Things work best if we use an array of Symbolic objects
-    # instead of a Symbolic array object.
-    x = Symbolics.variables(:x, 1:2)
-
-    global z_sym = run_genome_to_last(
-        TestRidge.g_spec, TestRidge.genome, Num.(TestRidge.agent.parameter), x)
-    global b = coefficients(TestRidge.agent.extra)
-    global y_pred_sym = dot(z_sym, b)
-    @show y_pred_sym
-    global y_pred_simp = Symbolics.expand(y_pred_sym)
-    @show y_pred_simp
-end
-
-end # module TestSymbolics
-
-module TestSymPy
-using LinearAlgebra
-using SymPy
-using Jessamine
-using ..RD
-using ..TestRidge
-
-function main()
-    println("Part 1")
-    global x = [symbols("x$j", extended_real = true)
-                for j in 1:(TestRidge.g_spec.input_size)]
-
-    global z_sym = run_genome_to_last(
-        TestRidge.g_spec, TestRidge.genome, map(Sym, TestRidge.agent.parameter), x)
-    global b = coefficients(TestRidge.agent.extra)
-    global y_pred_sym = dot(z_sym, b)
-    @show y_pred_sym
-    global y_pred_simp = sympy.expand(y_pred_sym)
-    @show y_pred_simp
-
-    println("Part 2")
-
-    global show_sympy_res = show_sympy(TestRidge.g_spec, TestRidge.genome)
-    @show show_sympy_res
-
-    sym_res = run_genome_sympy(TestRidge.g_spec, TestRidge.genome)
-    @show sym_res
-end
-end # module TestSymPy
