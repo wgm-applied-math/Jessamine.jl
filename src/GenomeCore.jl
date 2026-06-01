@@ -402,16 +402,27 @@ function eval_time_step(
     n_output = length(new_output)
     for j in eachindex(new_output)
         block = genome.instruction_blocks[j]
-        for instr in block
-            new_output[j] += op_eval(instr.op, cell_state, instr.operand_ixs)
+        try
+            for instr in block
+                new_output[j] += op_eval(instr.op, cell_state, instr.operand_ixs)
+            end
+        catch e
+            @debug "eval_time_step/1: new_output: Masking exception" exception=(e, catch_backtrace()) j=j
+            fill!(new_output[j], NaN)
         end
     end
+
     # local new_scratch::Vector{E}
     new_scratch = cell_state_next.scratch
     for j in eachindex(new_scratch)
         block = genome.instruction_blocks[n_output + j]
-        for instr in block
-            new_scratch[j] += op_eval(instr.op, cell_state, instr.operand_ixs)
+        try
+            for instr in block
+                new_scratch[j] += op_eval(instr.op, cell_state, instr.operand_ixs)
+            end
+        catch e
+            @debug "eval_time_step/1: new_scratch: Masking exception" exception=(e, catch_backtrace())
+            fill!(new_scratch[j], NaN)
         end
     end
     return cell_state_next
@@ -420,24 +431,35 @@ end
 # This is the specialization for the case of arrays of inputs and outputs.
 # This method exists so that vectorization and op_eval_add_into! can be used.
 function eval_time_step(
-        cell_state::CellState{<:AbstractArray},
+        cell_state::CellState{EIn,EWork},
         genome::Genome
-)
+    )::CellState{EIn,EWork} where {EIn, EWork <: AbstractArray}
+
     cell_state_next = copy_blank(cell_state)
     n_output = length(cell_state.output)
     new_output = cell_state_next.output
     for j in eachindex(new_output)
         block = genome.instruction_blocks[j]
-        for instr in block
-            op_eval_add_into!(new_output[j], instr.op, cell_state, instr.operand_ixs)
+        try
+            for instr in block
+                op_eval_add_into!(new_output[j], instr.op, cell_state, instr.operand_ixs)
+            end
+        catch e
+            @debug "eval_time_step/2: new_output: Masking exception" exception=(e, catch_backtrace()) j=j
+            fill!(new_output[j], NaN)
         end
     end
-    n_scratch = length(cell_state.scratch)
+    # n_scratch = length(cell_state.scratch)
     new_scratch = cell_state_next.scratch
     for j in eachindex(new_scratch)
         block = genome.instruction_blocks[n_output + j]
-        for instr in block
-            op_eval_add_into!(new_scratch[j], instr.op, cell_state, instr.operand_ixs)
+        try
+            for instr in block
+                op_eval_add_into!(new_scratch[j], instr.op, cell_state, instr.operand_ixs)
+            end
+        catch e
+            @debug "eval_time_step/2: new_scratch: Masking exception" exception=(e, catch_backtrace())
+            fill!(new_scratch[j], NaN)
         end
     end
     return cell_state_next
@@ -483,14 +505,24 @@ function eval_time_step!(
     # Evaluate instructions
     for j in 1:n_output
         block = genome.instruction_blocks[j]
-        for instr in block
-            op_eval_add_into!(cell_state.output[j], instr.op, source_state, instr.operand_ixs)
+        try
+            for instr in block
+                op_eval_add_into!(cell_state.output[j], instr.op, source_state, instr.operand_ixs)
+            end
+        catch e
+            @debug "eval_time_step!: output: Masking exception" exception=(e, catch_backtrace()) j=j
+            fill!(cell_state.output[j], NaN)
         end
     end
     for j in 1:n_scratch
         block = genome.instruction_blocks[n_output + j]
-        for instr in block
-            op_eval_add_into!(cell_state.scratch[j], instr.op, source_state, instr.operand_ixs)
+        try
+            for instr in block
+                op_eval_add_into!(cell_state.scratch[j], instr.op, source_state, instr.operand_ixs)
+            end
+        catch e
+            @debug "eval_time_step!: scratch: Masking exception" exception=(e, catch_backtrace()) j=j
+            fill!(cell_state.scratch[j], NaN)
         end
     end
 end

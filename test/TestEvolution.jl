@@ -5,7 +5,8 @@ using Optimization
 using Random
 using Test
 using Jessamine
-using ..RD
+
+include("RandomData.jl")
 
 function main()
     # Set the global RNG seed in case something outside my control uses it
