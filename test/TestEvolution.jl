@@ -5,7 +5,8 @@ using Optimization
 using Random
 using Test
 using Jessamine
-using ..RD
+
+include("RandomData.jl")
 
 function main()
     rng = Xoshiro(3208201)
