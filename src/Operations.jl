@@ -52,6 +52,14 @@ function is_domain_safe(::AbstractUnaryOp)
 end
 
 
+function nan_like(ref::T)::T where {T <: Number}
+    return convert(T, NaN)
+end
+
+function nan_like(v::Array{T})::Array{T} where {T <: Number}
+    return fill(convert(T, NaN), size(v))
+end
+
 """
     splat_or_default(op, def, workspace, indices)
 
@@ -70,7 +78,12 @@ function splat_or_default(op, def, workspace::AbstractVector, indices::AbstractV
     elseif length(indices) == 1
         return workspace[indices[1]]
     else
-        return reduce(op, workspace[indices])
+        try
+            return reduce(op, workspace[indices])
+        catch e
+            @debug "splat_or_default: Masking exception" exception=(e, catch_backtrace()) op=op
+            return nan_like(workspace[1])
+        end
     end
 end
 
@@ -148,7 +161,12 @@ function op_eval(::Subtract, workspace, indices)
     elseif n == 1
         return workspace[indices[1]]
     else
-        return workspace[indices[1]] .- op_eval(Add(), workspace, indices[2:end])
+        try
+            return workspace[indices[1]] .- op_eval(Add(), workspace, indices[2:end])
+        catch e
+            @debug "op_eval: Masking exception" exception=(e, catch_backtrace()) op=Subtract
+            return nan_like(workspace[1])
+        end
     end
 end
 
@@ -212,12 +230,17 @@ function op_eval(::Multiply, workspace::AbstractVector{V}, indices::AbstractVect
     elseif n == 1
         return workspace[indices[1]]
     else
-        dest = similar(workspace[1])
-        dest .= workspace[indices[1]]
-        for k in indices[2:end]
-            dest .*= workspace[k]
+        try
+            dest = similar(workspace[1])
+            dest .= workspace[indices[1]]
+            for k in indices[2:end]
+                dest .*= workspace[k]
+            end
+            return dest
+        catch e
+            @debug "op_eval: Masking exception" exception=(e, catch_backtrace()) op=Multiply
+            return nan_like(workspace[1])
         end
-        return dest
     end
 end
 
@@ -262,7 +285,15 @@ end
 
 struct Reciprocal <: AbstractUnaryOp end
 short_show(io::IO, ::Reciprocal) = print(io, "rcp")
-un_op_eval(::Reciprocal, t) = 1 ./ t
+function un_op_eval(::Reciprocal, t)
+    try
+        return 1 ./ t
+    catch e
+        @debug "un_op_eval: Masking exception" exception=(e, catch_backtrace()) op=Reciprocal
+        return nan_like(t)
+    end
+
+end
 to_expr(::Reciprocal, expr) = :(1 ./ $expr)
 
 "Multiply operands and return the reciprocal."

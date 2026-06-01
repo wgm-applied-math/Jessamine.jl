@@ -2,7 +2,7 @@ export AbstractGeneOp
 export GenomeSpec, CellState, Instruction
 export AbstractGenome, Genome
 export v_convert, v_unconvert
-export eval_time_step, op_eval, flat_workspace
+export eval_time_step, flat_workspace
 export run_genome, run_genome_to_last, num_instructions, num_operands, workspace_size
 export short_show, very_short_show
 export to_expr, compile, CompiledGenome
@@ -284,7 +284,12 @@ temporary array to hold the result of `op_eval(...)`.
 """
 function op_eval_add_into!(
         dest::AbstractArray, op::AbstractGeneOp, workspace::AbstractArray, indices::AbstractArray{<:Integer})
-    dest .+= op_eval(op, workspace, indices)
+    try
+        dest .+= op_eval(op, workspace, indices)
+    catch e
+        @debug "op_eval_add_into!: Masking exception" exception=(e, catch_backtrace()) op=op
+        dest .= NaN
+    end
 end
 
 """
