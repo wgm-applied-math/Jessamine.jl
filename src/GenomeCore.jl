@@ -390,6 +390,16 @@ function num_operands(xs::AbstractArray)
     return n
 end
 
+function nan_like(x::T)::T where {T}
+    return convert(T, NaN)
+end
+
+function nan_like(x::AbstractArray)
+    y = similar(x)
+    fill!(y, NaN)
+    return y
+end
+
 # This is the general implementation, functional style.
 # This method is called for symbolic calculations, for example.
 function eval_time_step(
@@ -408,7 +418,7 @@ function eval_time_step(
             end
         catch e
             @debug "eval_time_step/1: new_output: Masking exception" exception=(e, catch_backtrace()) j=j
-            fill!(new_output[j], NaN)
+            new_output[j] = nan_like(cell_state.output[j])
         end
     end
 
@@ -422,7 +432,7 @@ function eval_time_step(
             end
         catch e
             @debug "eval_time_step/1: new_scratch: Masking exception" exception=(e, catch_backtrace())
-            fill!(new_scratch[j], NaN)
+            new_scratch[j] = nan_like(cell_state.new_scratch[j])
         end
     end
     return cell_state_next
