@@ -555,6 +555,9 @@ end
 @define_unary_op Sign sign
 is_domain_safe(::Sign) = true
 
+const SignAdd = UnaryComposition{Sign, Add}
+const SignSubtract = UnaryComposition{Sign, Subtract}
+
 @define_unary_op Sqrt sqrt
 @define_unary_op Exp exp
 is_domain_safe(::Exp) = true
