@@ -432,7 +432,7 @@ function eval_time_step(
             end
         catch e
             @debug "eval_time_step/1: new_scratch: Masking exception" exception=(e, catch_backtrace())
-            new_scratch[j] = nan_like(cell_state.new_scratch[j])
+            new_scratch[j] = nan_like(cell_state.scratch[j])
         end
     end
     return cell_state_next
