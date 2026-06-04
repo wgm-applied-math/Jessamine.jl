@@ -531,9 +531,10 @@ an agent with a better rating than the previous best is
 discovered.
 
 * `verbosity = 1`:
-Setting `verbosity` to `0` disables all `@info` messages.
-Progress is reported as an `@info` log message when an agent with
-a better rating than the previous best is discovered.
+Setting `verbosity` to `0` emits `@debug` messages instead of
+`@info` messages.  Progress is reported as a log message
+when an agent with a better rating than the previous best is
+discovered.
 
 * `generation_mod = 10`:
 Progress is reported as an `@info` log message when the
@@ -612,9 +613,7 @@ function evolution_loop(
             if !isnothing(discovery_channel)
                 put!(discovery_channel, best_in_gen)
             end
-            if verbosity > 0
-                @info "Generation $t, new best = $best_rating"
-            end
+            @debug_or_info verbosity "Generation $t, new best = $best_rating"
             if stop_on_innovation
                 condition = DiscoveredInnovation()
                 break
@@ -624,13 +623,11 @@ function evolution_loop(
         pop_next = next_generation(
             rng, g_spec, s_dist, m_dist, pop_next, grow_and_rate,
             valid_agent_max_attempts = valid_agent_max_attempts)
-        if verbosity > 0 && mod(t, generation_mod) == 0
-            @info "Generation $t, best = $best_rating"
+        if mod(t, generation_mod) == 0
+            @debug_or_info verbosity "Generation $t, best = $best_rating"
         end
     end
-    if verbosity > 0
-        @info "Stopping: $(describe_condition(condition))"
-    end
+    @debug_or_info verbosity "Stopping: $(describe_condition(condition))"
     return Population(pop_next.agents, condition)
 end
 
@@ -690,9 +687,9 @@ passed as keyword arguments to `evolution_loop`.
 Other keyword arguments:
 
 * `verbosity = 1`:
-Set `verbosity` to `0` to disable `@info` messages.
-`@info` log messages are
-produced after each epoch completes.
+Setting `verbosity` to `0` emits `@debug` messages instead of
+`@info` messages.  Log messages are produced after each epoch
+completes.
 
 * `max_epochs = nothing`:
 If `max_epochs` is an integer rather than `nothing`, the loop ends
@@ -776,17 +773,11 @@ function vns_evolution_loop(
         elseif neighborhood_index < length(neighborhoods)
             # Advance to the next neighborhood
             neighborhood_index += 1
-            if verbosity > 0
-                @info "Epoch $e: Completed with no innovation, advancing to neighborhood $neighborhood_index"
-            end
+            @debug_or_info verbosity "Epoch $e: Completed with no innovation, advancing to neighborhood $neighborhood_index"
         else
-            if verbosity > 0
-                @info "Epoch $e: Completed with no innovation, continuing in neighborhood $neighborhood_index"
-            end
+            @debug_or_info verbosity "Epoch $e: Completed with no innovation, continuing in neighborhood $neighborhood_index"
         end
     end
-    if verbosity > 0
-        @info "Stopping VNS: $(describe_condition(condition))"
-    end
+    @debug_or_info verbosity "Stopping VNS: $(describe_condition(condition))"
     return Population(pop_next.agents, condition)
 end
