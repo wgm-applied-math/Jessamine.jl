@@ -18,6 +18,8 @@ using Base.Threads
 
 RuntimeGeneratedFunctions.init(@__MODULE__)
 
+include("DebugOrInfo.jl")
+
 include("LoggingTools.jl")
 include("TablesUtil.jl")
 include("GenomeCore.jl")
