@@ -1,4 +1,4 @@
-module T
+#module T
 
 export @debug_or_info
 
@@ -30,4 +30,4 @@ function esc_rhs(eq)
 end
 
 
-end
+#end #module T
