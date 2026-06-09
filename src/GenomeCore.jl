@@ -481,7 +481,7 @@ end
 
 # vector case
 # This is a fallback implementation that works for GPU arrays and other oddities
-function zero_like(v::V)::AbstractArray where {V <: AbstractArray}
+function zero_like(v::AbstractArray)
     return v .* 0
 end
 
@@ -489,7 +489,7 @@ function zero_like(v::Array{T})::Array{T} where { T <: Number }
     return zeros(T, size(v))
 end
 
-function zeros_like(v::AbstractArray, num_elts::Int)
+function zeros_like(v::V, num_elts::Int)::Vector where { V <: AbstractVector }
     return [zero_like(v) for _ in 1:num_elts]
 end
 
@@ -499,10 +499,10 @@ end
 
 # Evaluate a time step in place
 function eval_time_step!(
-    cell_state::CellState{<:AbstractArray},
-    source_state::CellState{<:AbstractArray},
+    cell_state::CellState{EIn,EWork},
+    source_state::CellState{EIn,EWork},
     genome::Genome
-    )
+    ) where { EIn <: AbstractVector, EWork <: AbstractVector }
     n_output = length(cell_state.output)
     n_scratch = length(cell_state.scratch)
     # Zero out the current output and scratch
@@ -520,7 +520,7 @@ function eval_time_step!(
                 op_eval_add_into!(cell_state.output[j], instr.op, source_state, instr.operand_ixs)
             end
         catch e
-            @debug "eval_time_step!: output: Masking exception" exception=(e, catch_backtrace()) j=j
+            @debug "eval_time_step!: output: Masking exception" j=j exception=(e, catch_backtrace())
             fill!(cell_state.output[j], NaN)
         end
     end
@@ -531,7 +531,7 @@ function eval_time_step!(
                 op_eval_add_into!(cell_state.scratch[j], instr.op, source_state, instr.operand_ixs)
             end
         catch e
-            @debug "eval_time_step!: scratch: Masking exception" exception=(e, catch_backtrace()) j=j
+            @debug "eval_time_step!: scratch: Masking exception" j=j exception=(e, catch_backtrace())
             fill!(cell_state.scratch[j], NaN)
         end
     end
@@ -646,8 +646,8 @@ function run_genome_to_last(
         g_spec::GenomeSpec,
         genome::Genome,
         parameter::AbstractArray,
-        input::AbstractArray{<:AbstractArray}
-    )
+        input::AbstractArray{T}
+    ) where { T <: AbstractArray }
     # This implementation is intended to minimize allocation
 
     # Build a work space vector using zeros for each output and scratch

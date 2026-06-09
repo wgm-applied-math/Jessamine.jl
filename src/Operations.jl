@@ -205,7 +205,7 @@ This function multiplies the elements in `workspace` at the specified `indices`.
 """
 op_eval(::Multiply, workspace, indices) = splat_or_default(.*, 1.0, workspace, indices)
 
-function op_eval(::Multiply, workspace::AbstractVector{V}, indices::AbstractVector{<:Integer}) where {V<:AbstractVector}
+function op_eval(::Multiply, workspace::AbstractVector{V}, indices::AbstractVector{<:Integer}) where { V <: AbstractVector }
     n = length(indices)
     if n == 0
         return [one(eltype(V))]
