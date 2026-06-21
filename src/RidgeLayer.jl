@@ -54,9 +54,9 @@ end
     least_squares_ridge_grow_and_rate(xs, y, lambda_b, lambda_p, lambda_op, g_spec, genome, p_init = zeros(...))
 
 Solve for the parameter vector `p` that minimizes
-`norm(y - y_hat)^2 + lambda_b * norm(b)^2 + lambda_p * norm(p)^2 + lambda_op R`,
-where `y_hat` and `b` are found using `least_squares_ridge`.
-`R` is the total number of operands across all instructions in `genome`.
+`MSE + lambda_b * norm(b)^2 + lambda_p * norm(p)^2`,
+where `y_hat` and `b` are found using `least_squares_ridge`,
+and `MSE` is the mean-square error between `y` and `y_hat`.
 
 The solver starts with `p_init` for the initial value of `p`.
 If `p_init` is `nothing` or not given, a vector of zeros is used.
@@ -64,9 +64,10 @@ If `p_init` is `nothing` or not given, a vector of zeros is used.
 If all goes well, return an `Agent`, whose genome is `genome`,
 whose `parameter` is the best `p`, and whose `extra` is a
 `BasicLinearModelResult` with coefficient vector `b`.
+The agent's rating is the objective function's value plus `lambda_op R`
+where `R` is the total number of operands across all instructions in `genome`.
 
 Otherwise, return `nothing`.
-
 """
 function least_squares_ridge_grow_and_rate(
         xs::AbstractVector{V},
@@ -148,6 +149,6 @@ function _LSRGR_f(u::Vector{Float64}, c::_LSRGR_Context)
         return n
     else
         # Ridge regression succeeded.
-        return n^2 + c.lambda_b * dot(b, b) + c.lambda_p * dot(u, u)
+        return n^2/length(c.y) + c.lambda_b * dot(b, b) + c.lambda_p * dot(u, u)
     end
 end
