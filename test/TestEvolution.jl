@@ -17,14 +17,15 @@ function main()
     @show rng
     global g_spec = GenomeSpec(4, 0, 1, 2, 3)
     global index_max = workspace_size(g_spec)
-    global m_spec = MutationSpec(
+    global m_spec = mutation_spec_auto_weight(
+        [Multiply()];
         p_mutate_op = 0.0,
         p_mutate_index = 0.1,
         p_duplicate_index = 0.01,
         p_delete_index = 0.01,
         p_duplicate_instruction = 0.001,
-        p_delete_instruction = 0.001,
-        op_inventory = [Multiply()])
+        p_delete_instruction = 0.001
+    )
     global m_dist = MutationDist(m_spec, index_max)
     global arity_dist = DiscreteNonParametric([1, 2, 3], [0.25, 0.5, 0.25])
     global s_spec = SelectionSpec(20, 30, 0.6, 0.1)
