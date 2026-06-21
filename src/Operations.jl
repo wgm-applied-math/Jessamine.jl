@@ -12,15 +12,14 @@ export splat_or_default
 export AbstractUnaryOp, AbstractMultiOp
 export Add, Multiply, Subtract, Divide
 export UnaryComposition
-export Reciprocal, ReciprocalMultiply, ReciprocalAdd, ReciprocalSubtract
+export Reciprocal
 export Power, WholePower
 export FzAnd, FzOr, FzNand, FzNor
 export SoftMax, SoftMin
 export Maximum, Minimum
-export Sign, SignAdd, SignSubtract
-export Sigmoid, SigmoidAdd, SigmoidSubtract
 export define_unary_op
 export build_op_inventory, get_op_inventory
+export AbstractWeightScheme, StandardWeightScheme
 
 abstract type AbstractUnaryOp end
 
@@ -33,7 +32,6 @@ Return `true` if the operation has no domain restrictions.
 Return `false` if the operation has domain restrictions, such as division, in which the denominator cannot be zero.
 The default is to return `false`.
 """
-
 function is_domain_safe(::AbstractMultiOp)
     return false
 end
@@ -45,7 +43,6 @@ Return `true` if the operation has no domain restrictions.
 Return `false` if the operation has domain restrictions, such as division, in which the denominator cannot be zero.
 The default is to return `false`.
 """
-
 function is_domain_safe(::AbstractUnaryOp)
     return false
 end
@@ -59,10 +56,6 @@ with `op([]) = def` and `op([x1...]) = op(x1, op(x2, ...))`.
 The `Base.splat` function doesn't have a way to deal with the first case.
 The operation should be flat (commutative and associative).
 """
-
-#    return reduce(op, operands, def)
-
-
 function splat_or_default(op, def, workspace::AbstractVector, indices::AbstractVector{<:Integer})
     if isempty(indices)
         return def
@@ -86,7 +79,6 @@ is_domain_safe(::Add) = true
 Evaluate the `Add` operation on the `workspace` at the given `indices`.
 This function adds the elements in `workspace` at the specified `indices`.
 """
-
 op_eval(::Add, workspace, indices) = splat_or_default(.+, 0.0, workspace, indices)
 
 function op_eval(::Add, workspace::AbstractVector{V}, indices::AbstractVector{<:Integer}) where {V<:AbstractVector}
@@ -139,7 +131,6 @@ Evaluate the `Subtract` operation on the `workspace` at the given `indices`.
 This function returns 0 if the list of indices is empty,
 and otherwise computes the result of `workspace[indices[1]] - workspace[indices[2]] - ...`.
 """
-
 function op_eval(::Subtract, workspace, indices)
     n = length(indices)
     if n == 0
@@ -450,21 +441,6 @@ function to_expr(::FzNor, cs, operands)
     end
 end
 
-"Apply the exponential sigmoid to the operand"
-struct Sigmoid <: AbstractUnaryOp end
-short_show(io::IO, ::Sigmoid) = print(io, "sigmoid")
-is_domain_safe(::Sigmoid) = true
-sigmoid(t) = 1.0 / (1.0 + exp(-t))
-# un_op_eval(::Sigmoid, t) = 1 ./ (1 .+ exp.(-t))
-un_op_eval(::Sigmoid, t) = sigmoid.(t)
-to_expr(::Sigmoid, expr) = :(1.0 ./ (1.0 .+ exp.(-$expr)))
-
-"Apply the exponential sigmoid to the sum of the operands"
-const SigmoidAdd = UnaryComposition{Sigmoid, Add}
-
-"Apply the exponential sigmoid to the difference of the operands"
-const SigmoidSubtract = UnaryComposition{Sigmoid, Subtract}
-
 # TODO The SoftMax and SoftMin will allocate a lot of temporary
 # arrays as written.  Re-write them to the form softmax.(...)
 # somehow.
@@ -595,7 +571,7 @@ macro define_unary_op(struct_name, function_name)
         export $(Symbol(string(struct_name) * "Subtract"))
         export $(Symbol(string(struct_name) * "Multiply"))
         export $(Symbol(string(struct_name) * "Divide"))
-        @doc "Return "*string($function_name)*" of the operand"
+        @doc "Return [`"*string($function_name)*"`](@ref) of the operand"
         struct $struct_name <: AbstractUnaryOp end
         global short_show
         short_show(io::IO, ::($struct_name)) = print(io, string($function_name))
@@ -603,30 +579,49 @@ macro define_unary_op(struct_name, function_name)
         un_op_eval(::($struct_name), t) = ($function_name).(t)
         global to_expr
         to_expr(::($struct_name), expr) = :($($function_name).($expr))
-        @doc "Return "*string($function_name)*" applied to the sum of the operands"
-        const $(Symbol(string(struct_name) * "Add")) = UnaryComposition{$struct_name, Add}
-        @doc "Return "*string($function_name)*" applied to the result of subtraction of the operands"
-        const $(Symbol(string(struct_name) * "Subtract")) = UnaryComposition{
+        @doc "Return [`"*string($function_name)*"`](@ref) applied to the sum of the operands"
+        const $(esc(Symbol(string(struct_name) * "Add"))) = UnaryComposition{$struct_name, Add}
+        @doc "Return [`"*string($function_name)*"`](@ref) applied to the result of subtraction of the operands"
+        const $(esc(Symbol(string(struct_name) * "Subtract"))) = UnaryComposition{
             $struct_name, Subtract}
-        @doc "Return "*string($function_name)*" applied to the product of the operands"
-        const $(Symbol(string(struct_name) * "Multiply")) = UnaryComposition{
+        @doc "Return [`"*string($function_name)*"`](@ref) applied to the product of the operands"
+        const $(esc(Symbol(string(struct_name) * "Multiply"))) = UnaryComposition{
             $struct_name, Multiply}
-        @doc "Return "*string($function_name)*" applied to the quotient of the operands"
-        const $(Symbol(string(struct_name) * "Divide")) = UnaryComposition{
+        @doc "Return [`"*string($function_name)*"`](@ref) applied to the quotient of the operands"
+        const $(esc(Symbol(string(struct_name) * "Divide"))) = UnaryComposition{
             $struct_name, Divide}
     end
 end
 
+@define_unary_op Identity identity
+is_domain_safe(::Identity) = true
 @define_unary_op Sign sign
 is_domain_safe(::Sign) = true
-
-const SignAdd = UnaryComposition{Sign, Add}
-const SignSubtract = UnaryComposition{Sign, Subtract}
-
+@define_unary_op AbsoluteValue abs
+is_domain_safe(::AbsoluteValue) = true
 @define_unary_op Sqrt sqrt
 @define_unary_op Exp exp
 is_domain_safe(::Exp) = true
 @define_unary_op Log log
+
+@doc raw"""
+    sigmoid(t)
+
+Return ``\frac{1}{1 + \exp(-t)}``.
+Inverse of [`logit`](@ref).
+"""
+sigmoid(t) = 1.0 / (1.0 + exp(-t))
+@define_unary_op Sigmoid sigmoid
+is_domain_safe(::Sigmoid) = true
+
+@doc raw"""
+    logit(t)
+
+Return ``\ln\frac{t}{1-t}``.
+Inverse of [`sigmoid`](@ref).
+"""
+logit(t) = log(t / (1.0 - t))
+@define_unary_op Logit logit
 
 @define_unary_op Sin sin
 is_domain_safe(::Sin) = true
@@ -664,6 +659,15 @@ is_domain_safe(::ASinh) = true
 @define_unary_op ASech asech
 @define_unary_op ACsch acsch
 
+"""
+    fznot(q)
+
+Apply the fuzzy-not function to `q`.
+    """
+fznot(q) = 1.0 - q
+@define_unary_op FzNot fznot
+is_domain_safe(::FzNot) = true
+
 export PolynomialInventory
 const PolynomialInventory = [Add(), Subtract(), Multiply()]
 
@@ -683,16 +687,25 @@ export ExpLogInventory
 const ExpLogInventory = vcat(RationalFunctionInventory,
     reshape(
         [UnaryComposition{un_op, bin_op}()
-         for un_op in [Sqrt, Exp, Log], bin_op in [Add, Subtract, Multiply, Divide]],
+         for un_op in [Sqrt, Exp, Log, Sigmoid], bin_op in [Add, Subtract, Multiply, Divide]],
         :))
 
 export TrigInventory
-const TrigInventory = vcat(ExpLogInventory,
+const TrigInventory = vcat(RationalFunctionInventory,
+    reshape(
+        [UnaryComposition{un_op, bin_op}()
+         for un_op in [Sin, Cos, Tan, Cot],
+            bin_op in [Add, Subtract, Multiply, Divide]],
+        :))
+
+export ExtendedTrigInventory
+const ExtendedTrigInventory = vcat(RationalFunctionInventory,
     reshape(
         [UnaryComposition{un_op, bin_op}()
          for un_op in [Sin, Cos, Tan, Cot, Sec, Csc, ASin, ACos, ATan, ACot, ASec, ACsc],
             bin_op in [Add, Subtract, Multiply, Divide]],
         :))
+
 
 export HyperbolicInventory
 const HyperbolicInventory = vcat(ExpLogInventory,
@@ -702,20 +715,34 @@ const HyperbolicInventory = vcat(ExpLogInventory,
                 bin_op in [Add, Subtract, Multiply, Divide]],
             :))
 
+export FuzzyLogicInventory
+const FuzzyLogicInventory =
+        reshape(
+            [UnaryComposition{un_op, bin_op}()
+             for un_op in [Identity, FzNot],
+                bin_op in [FzAnd, FzOr, FzNand, FzNor]],
+            :)
+
 op_inventory_map = Dict(
     "Polynomial" => PolynomialInventory,
     "PolynomialSigmoid" => PolynomialSigmoidInventory,
     "RationalFunction" => RationalFunctionInventory,
     "ExpLog" => ExpLogInventory,
     "Trig" => TrigInventory,
+    "ExtendedTrig" => ExtendedTrigInventory,
     "Hyperbolic" => HyperbolicInventory,
+    "FuzzyLogic" => FuzzyLogicInventory
 )
 
 unary_op_map = Dict(
+    "id" => Identity,
+    "identity" => Identity,
+    "abs" => AbsoluteValue,
     "sqrt" => Sqrt,
     "exp" => Exp,
     "log" => Log,
     "sigmoid" => Sigmoid,
+    "logit" => Logit,
     "rcp" => Reciprocal,
     "reciprocal" => Reciprocal,
     "sign" => Sign,
@@ -765,6 +792,7 @@ multiary_op_map = Dict(
     "fzor" => FzOr,
     "fznand" => FzNand,
     "fznor" => FzNor,
+    "fznot" => FzNot,
 )
 
 """
@@ -821,4 +849,76 @@ function get_op_inventory(inventory_name="Polynomial")
         return (inventory=PolynomialInventory,
                 found=false)
     end
+end
+
+
+abstract type AbstractWeightScheme end
+
+@kwdef struct StandardWeightScheme <: AbstractWeightScheme
+    identity::Float64 = 1
+    additive::Float64 = 2
+    multiplicative::Float64 = 4
+    power::Float64 = 8
+    exponential::Float64 = 12
+    trigonometric::Float64 = 12
+    extended_trig::Float64 = 12
+    hyperbolic::Float64 = 16
+    corner::Float64 = 6
+    fuzzy_logic::Float64 = 4
+end
+
+"""
+    weight(op, weight_scheme)
+
+Return a positive number that indicates the weight of the
+operation.  During mutation, operations are selected at rates
+proportional to the *reciprocal* of their weights, so heavier
+operations are less likely to be selected.
+"""
+function weight(::AbstractGeneOp, weight_scheme::StandardWeightScheme = StandardWeightScheme())
+    return 1
+end
+
+function weight(::Union{Add,Subtract}, weight_scheme::StandardWeightScheme = StandardWeightScheme())
+    return weight_scheme.additive
+end
+
+function weight(::Union{Multiply,Divide}, weight_scheme::StandardWeightScheme = StandardWeightScheme())
+    return weight_scheme.multiplicative
+end
+
+function weight(::Reciprocal, weight_scheme::StandardWeightScheme = StandardWeightScheme())
+    return weight_scheme.multiplicative
+end
+
+function weight(::Union{Sqrt,Power,WholePower}, weight_scheme::StandardWeightScheme = StandardWeightScheme())
+    return weight_scheme.power
+end
+
+function weight(::Union{Exp,Log,Sigmoid,Logit}, weight_scheme::StandardWeightScheme = StandardWeightScheme())
+    return weight_scheme.exponential
+end
+
+function weight(::Union{Sin,Cos,Tan,Cot}, weight_scheme::StandardWeightScheme = StandardWeightScheme())
+    return weight_scheme.trigonometric
+end
+
+function weight(::Union{Sec,Csc,ASin,ACos,ATan,ACot,ASec,ACsc}, weight_scheme::StandardWeightScheme = StandardWeightScheme())
+    return weight_scheme.extended_trig
+end
+
+function weight(::Union{Sinh,Cosh,Tanh,Coth,Sech,Csch,ASinh,ACosh,ATanh,ACoth,ASech,ACsch}, weight_scheme::StandardWeightScheme = StandardWeightScheme())
+    return weight_scheme.hyperbolic
+end
+
+function weight(::Union{Minimum,Maximum,AbsoluteValue,Sign}, weight_scheme::StandardWeightScheme = StandardWeightScheme())
+    return weight_scheme.corner
+end
+
+function weight(::Union{SoftMin,SoftMax,FzAnd,FzOr,FzNand,FzNor,FzNot}, weight_scheme::StandardWeightScheme = StandardWeightScheme())
+    return weight_scheme.fuzzy_logic
+end
+
+function weight(op::UnaryComposition, weight_scheme::StandardWeightScheme = StandardWeightScheme())
+    return weight(op.unary, weight_scheme) * weight(op.multi, weight_scheme)
 end
