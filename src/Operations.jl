@@ -687,7 +687,7 @@ export ExpLogInventory
 const ExpLogInventory = vcat(RationalFunctionInventory,
     reshape(
         [UnaryComposition{un_op, bin_op}()
-         for un_op in [Sqrt, Exp, Log, Sigmoid], bin_op in [Add, Subtract, Multiply, Divide]],
+         for un_op in [Sqrt, Exp, Log, Sigmoid, Logit], bin_op in [Add, Subtract, Multiply, Divide]],
         :))
 
 export TrigInventory
@@ -695,7 +695,15 @@ const TrigInventory = vcat(RationalFunctionInventory,
     reshape(
         [UnaryComposition{un_op, bin_op}()
          for un_op in [Sin, Cos, Tan, Cot],
-            bin_op in [Add, Subtract, Multiply, Divide]],
+             bin_op in [Add, Subtract, Multiply, Divide]],
+        :))
+
+export ExpLogTrigInventory
+const ExpLogTrigInventory = vcat(RationalFunctionInventory,
+    reshape(
+        [UnaryComposition{un_op, bin_op}()
+         for un_op in [Sqrt, Exp, Log, Sigmoid, Logit, Sin, Cos, Tan, Cot],
+             bin_op in [Add, Subtract, Multiply, Divide]],
         :))
 
 export ExtendedTrigInventory
@@ -706,6 +714,14 @@ const ExtendedTrigInventory = vcat(RationalFunctionInventory,
             bin_op in [Add, Subtract, Multiply, Divide]],
         :))
 
+export ExpLogExtendedTrigInventory
+const ExpLogExtendedTrigInventory = vcat(RationalFunctionInventory,
+    reshape(
+        [UnaryComposition{un_op, bin_op}()
+         for un_op in [Sqrt, Exp, Log, Sigmoid, Logit, Sin, Cos, Tan, Cot, Sec, Csc, ASin, ACos, ATan, ACot, ASec, ACsc],
+             bin_op in [Add, Subtract, Multiply, Divide]],
+        :))
+
 
 export HyperbolicInventory
 const HyperbolicInventory = vcat(ExpLogInventory,
@@ -714,6 +730,26 @@ const HyperbolicInventory = vcat(ExpLogInventory,
              for un_op in [Sinh, Cosh, Tanh, Coth, Sech, Csch, ASinh, ACosh, ATanh, ACoth, ASech, ACsch],
                 bin_op in [Add, Subtract, Multiply, Divide]],
             :))
+
+export ExpLogHyperbolicInventory
+const ExpLogHyperbolicInventory = vcat(ExpLogInventory,
+        reshape(
+            [UnaryComposition{un_op, bin_op}()
+             for un_op in [Sqrt, Exp, Log, Sigmoid, Logit, Sinh, Cosh, Tanh, Coth, Sech, Csch, ASinh, ACosh, ATanh, ACoth, ASech, ACsch],
+                 bin_op in [Add, Subtract, Multiply, Divide]],
+            :))
+
+export AllFamiliarInventory
+const AllFamiliarInventory = vcat(ExpLogInventory,
+        reshape(
+            [UnaryComposition{un_op, bin_op}()
+             for un_op in [Sqrt, Exp, Log, Sigmoid, Logit,
+                           Sin, Cos, Tan, Cot, Sec, Csc, ASin, ACos, ATan, ACot, ASec, ACsc,
+                           Sinh, Cosh, Tanh, Coth, Sech, Csch, ASinh, ACosh, ATanh, ACoth, ASech, ACsch],
+                 bin_op in [Add, Subtract, Multiply, Divide]],
+            :))
+
+
 
 export FuzzyLogicInventory
 const FuzzyLogicInventory =
@@ -729,8 +765,12 @@ op_inventory_map = Dict(
     "RationalFunction" => RationalFunctionInventory,
     "ExpLog" => ExpLogInventory,
     "Trig" => TrigInventory,
+    "ExpLogTrig" => ExpLogInventory,
     "ExtendedTrig" => ExtendedTrigInventory,
+    "ExpLogExtendedTrig" => ExpLogExtendedTrigInventory,
     "Hyperbolic" => HyperbolicInventory,
+    "ExpLogHyperbolic" => ExpLogHyperbolicInventory,
+    "AllFamiliar" => AllFamiliarInventory,
     "FuzzyLogic" => FuzzyLogicInventory
 )
 
