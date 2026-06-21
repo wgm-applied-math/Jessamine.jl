@@ -118,15 +118,15 @@ function main()
 
     println("Test mutation")
 
-    m_spec = MutationSpec(
+    m_spec = mutation_spec_auto_weight(
+        [Add(), Multiply()];
         p_mutate_op = 0.5,
         p_mutate_index = 0.5,
         p_duplicate_index = 0.2,
         p_delete_index = 0.2,
         p_duplicate_instruction = 0.2,
         p_delete_instruction = 0.2,
-        p_hop_instruction = 0.2,
-        op_inventory = [Add(), Multiply()])
+        p_hop_instruction = 0.2)
 
     m_dist = MutationDist(m_spec, 9)
 
