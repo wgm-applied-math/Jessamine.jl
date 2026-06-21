@@ -10,7 +10,7 @@
 
 export splat_or_default
 export AbstractUnaryOp, AbstractMultiOp
-export Add, Multiply, Subtract
+export Add, Multiply, Subtract, Divide
 export UnaryComposition
 export Reciprocal, ReciprocalMultiply, ReciprocalAdd, ReciprocalSubtract
 export Power, WholePower
