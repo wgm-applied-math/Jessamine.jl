@@ -1,6 +1,5 @@
 # !!! TODO Look into NaNMath.jl which returns NaN instead of throwing an error for things
 # like sqrt(negative)
-using Base: signequal
 
 # For vectorization, sometimes we need a blank vector of the appropriate size.
 # I'm taking the size and type from workspace[1].
@@ -126,7 +125,7 @@ function to_expr(::Add, cs, operands)
     end
 end
 
-"Subtract LISP-style: `0 + x[1] - x[2] - x[3]...`"
+"Subtract operands, as in `x[1] - x[2] - x[3]...`"
 struct Subtract <: AbstractMultiOp end
 
 short_show(io::IO, ::Subtract) = print(io, "sub")
@@ -221,7 +220,6 @@ function op_eval(::Multiply, workspace::AbstractVector{V}, indices::AbstractVect
     end
 end
 
-
 function to_expr(::Multiply, cs, operands)
     if isempty(operands)
         return :(1)
@@ -232,6 +230,69 @@ function to_expr(::Multiply, cs, operands)
         return Expr(:call, :.*, (:($cs.$field[$j]) for (field, j) in operands)...)
     end
 end
+
+
+
+"Divide operands, as in `x[1] / (x[2] * x[3] * ...)`."
+struct Divide <: AbstractMultiOp end
+
+short_show(io::IO, ::Divide) = print(io, "div")
+
+is_domain_safe(::Divide) = false
+
+"""
+    op_eval(op::Divide, workspace, indices)
+
+Evaluate the `Divide` operation on the `workspace` at the given `indices`.
+
+This function divides the element in `workspace` at the first
+index by the product of the elements in `workspace` at the
+remaining `indices`.  If the list of indices is empty, the result
+is 1.  If the list of indices has only one index, the result is
+the `workspace` element at that index.
+"""
+function op_eval(::Divide, workspace, indices)
+    n = length(indices)
+    if n == 0
+        return 0
+    elseif n == 1
+        return workspace[indices[1]]
+    else
+        return workspace[indices[1]] ./ op_eval(Multiply(), workspace, indices[2:end])
+    end
+end
+
+function op_eval(::Divide, workspace::AbstractVector{V}, indices::AbstractVector{<:Integer}) where { V <: AbstractVector }
+    n = length(indices)
+    if n == 0
+        return [one(eltype(V))]
+    elseif n == 1
+        return workspace[indices[1]]
+    else
+        dest = similar(workspace[1])
+        dest .= workspace[indices[1]]
+        for k in indices[2:end]
+            dest ./= workspace[k]
+        end
+        return dest
+    end
+end
+
+function to_expr(::Divide, cs, operands)
+    if isempty(operands)
+        return :(1)
+    elseif length(operands) == 1
+        field, j = operands[1]
+        return :($cs.$field[$j])
+    else
+        field1, j1 = operands[1]
+        return Expr(:call, :./, :($cs.$field1[$j1]),
+                    Expr(:call, :.*, (:($cs.$field[$j]) for (field, j) in operands[2:end])...))
+    end
+end
+
+
+
 
 "Do a multiary operation and apply a unary operation"
 @kwdef struct UnaryComposition{Un <: AbstractUnaryOp, Multi <: AbstractMultiOp} <:
@@ -533,6 +594,7 @@ macro define_unary_op(struct_name, function_name)
         export $(Symbol(string(struct_name) * "Add"))
         export $(Symbol(string(struct_name) * "Subtract"))
         export $(Symbol(string(struct_name) * "Multiply"))
+        export $(Symbol(string(struct_name) * "Divide"))
         @doc "Return "*string($function_name)*" of the operand"
         struct $struct_name <: AbstractUnaryOp end
         global short_show
@@ -549,6 +611,9 @@ macro define_unary_op(struct_name, function_name)
         @doc "Return "*string($function_name)*" applied to the product of the operands"
         const $(Symbol(string(struct_name) * "Multiply")) = UnaryComposition{
             $struct_name, Multiply}
+        @doc "Return "*string($function_name)*" applied to the quotient of the operands"
+        const $(Symbol(string(struct_name) * "Divide")) = UnaryComposition{
+            $struct_name, Divide}
     end
 end
 
@@ -612,7 +677,7 @@ const PolynomialSigmoidInventory = vcat(PolynomialInventory,
 
 export RationalFunctionInventory
 const RationalFunctionInventory = vcat(
-    PolynomialInventory, [ReciprocalAdd(), ReciprocalSubtract(), ReciprocalMultiply()])
+    PolynomialInventory, [Divide()])
 
 export ExpLogInventory
 const ExpLogInventory = vcat(RationalFunctionInventory,
@@ -651,8 +716,7 @@ unary_op_map = Dict(
     "exp" => Exp,
     "log" => Log,
     "sigmoid" => Sigmoid,
-    "/" => Reciprocal,
-    "÷" => Reciprocal,
+    "rcp" => Reciprocal,
     "reciprocal" => Reciprocal,
     "sign" => Sign,
     "signum" => Sign,
@@ -688,7 +752,11 @@ multiary_op_map = Dict(
     "-" => Subtract,
     "sub" => Subtract,
     "*" => Multiply,
+    "×" => Multiply,
     "mul" => Multiply,
+    "/" => Divide,
+    "÷" => Divide,
+    "div" => Divide,
     "min" => Minimum,
     "max" => Maximum,
     "softmin" => SoftMin,
