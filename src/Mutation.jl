@@ -1,5 +1,6 @@
 export MutationSpec, MutationDist
 export mutate
+export mutation_spec_auto_weight
 
 """
 A collection of parameters specifying the probabilities of various mutations.
@@ -24,13 +25,25 @@ A collection of parameters specifying the probabilities of various mutations.
     p_delete_instruction::Float64 = 0.001
 
     "Probability that an instruction hops to another block"
-    p_hop_instruction::Float64 = 0.0
+    p_hop_instruction::Float64 = 0.001
 
-    "Which operators are available"
+    "Which operations are available"
     op_inventory::Vector{AbstractGeneOp} = [Add(), Subtract(), Multiply()]
 
-    "Probability of choosing each operator; `nothing` means choose uniformly"
+    "Probability of choosing each operation; `nothing` means choose uniformly"
     op_probabilities::Union{Vector{Float64}, Nothing} = nothing
+end
+
+"""
+    mutation_spec_auto_weight(op_inventory, weight_scheme; kwargs...)
+
+Build a [`MutationSpec`](@ref) using the given operation inventory and weight scheme.
+Other keyword arguments are passed to the constructor of `MutationSpec`.
+"""
+function mutation_spec_auto_weight(op_inventory, weight_scheme::AbstractWeightScheme = StandardWeightScheme(); kwargs...)
+    inv_weights = map(op -> 1.0/weight(op, weight_scheme), op_inventory)
+    op_probabilities = inv_weights ./ sum(inv_weights)
+    return MutationSpec(; op_inventory, op_probabilities, kwargs...)
 end
 
 function Base.convert(::Type{MutationSpec}, m_spec::MutationSpec)
