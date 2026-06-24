@@ -4,9 +4,7 @@
 # For vectorization, sometimes we need a blank vector of the appropriate size.
 # I'm taking the size and type from workspace[1].
 # This assumes the outputs are first in the workspace,
-# and that they are expanded to full vectors.  Otherwise,
-# we have to go through all the indices and figure out
-# how big of a vector to make.
+# and that they are expanded to full vectors.
 
 export splat_or_default
 export AbstractUnaryOp, AbstractMultiOp
@@ -65,6 +63,17 @@ function splat_or_default(op, def, workspace::AbstractVector, indices::AbstractV
         return reduce(op, workspace[indices])
     end
 end
+
+"""
+    to_expr(op, cell_state, operands)
+
+Given an [`AbstractGeneOp`](@ref), a cell state, and a vector of
+operands of the form `(field, index)`, build a Julia
+expression that represents the application of `op` to
+the operands `cell_state.field1[operand1]`, `cell_state.field2[operand2]`, ...
+This function is for the implementation of compiled genomes.
+"""
+function to_expr end
 
 "Add operands."
 struct Add <: AbstractMultiOp end
@@ -245,7 +254,7 @@ the `workspace` element at that index.
 function op_eval(::Divide, workspace, indices)
     n = length(indices)
     if n == 0
-        return 0
+        return 1
     elseif n == 1
         return workspace[indices[1]]
     else
