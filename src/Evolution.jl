@@ -109,7 +109,7 @@ function very_short_show(io::IO, a::Agent)
     print(io, "{ rating = $(a.rating), genome = ")
     very_short_show(io, a.genome)
     print(io, "parameter = $(a.parameter), ")
-    println(io, "extra = $(a.extra) }")
+    print(io, "extra = $(a.extra) }")
 end
 
 
@@ -192,7 +192,7 @@ function short_show(io::IO, p::Population)
 end
 
 """
-    random_genome(rng::AbstractRNG, g_spec::GenomeSpec, m_spec::MutationSpec, arity_dist::Distribution; domain_safe=false)
+    random_genome(rng::AbstractRNG, g_spec::GenomeSpec, m_spec::MutationSpec, arity_dist::Distribution; domain_safe=true, restrict_operands=true)
 
 Produce a random genome.  It will contain an instruction block
 for each mutable slot in the state array as specified by
@@ -201,14 +201,28 @@ operator is picked uniformly at random from
 `m_spec.op_inventory`.  The number of operands is drawn from
 `arity_dist`.  The operands are drawn uniformly from the set of
 possible indices.
-If `domain_safe` is `true`, only operators for which `is_domain_safe(op)` is `true` are
-used.
+
+If `domain_safe` is `true`, only operators for which
+`is_domain_safe(op)` is `true` are used.
+
+If `restrict_operands` is `true`, all randomly selected operand
+indices will come from parameters and inputs.
 """
-function random_genome(rng::AbstractRNG, g_spec::GenomeSpec,
-        m_dist::MutationDist, arity_dist::Distribution;
-        domain_safe = false)
+function random_genome(
+    rng::AbstractRNG,
+    g_spec::GenomeSpec,
+    m_dist::MutationDist,
+    arity_dist::Distribution;
+    domain_safe = false,
+    restrict_operands = true)
+
     index_max = workspace_size(g_spec)
-    index_dist = DiscreteUniform(1, index_max)
+    if restrict_operands
+        index_min = 1 + g_spec.output_size + g_spec.scratch_size
+    else
+        index_min = 1
+    end
+    index_dist = DiscreteUniform(index_min, index_max)
     num_instruction_blocks = g_spec.output_size + g_spec.scratch_size
     instruction_blocks = Vector(undef, num_instruction_blocks)
     if domain_safe
@@ -291,7 +305,8 @@ end
         arity_dist::Distribution,
         s_spec::SelectionSpec,
         grow_and_rate;
-        domain_safe = false,
+        domain_safe = true,
+        restrict_operands = true,
         valid_agent_max_attempts = 100,
         sense = MinSense)::Population
 
@@ -306,8 +321,8 @@ will try to produce a valid agent up to `valid_agent_max_attempts`
 times.  After that many failures, it will give up and throw an
 error.
 
-If `domain_safe` is `true`, only operators for which `is_domain_safe(op)`
-is `true` are used in the genomes.
+The `domain_safe` and `restrict_operands` parameters are passed
+to `random_genome`.
 
 The `sense` parameter specifies whether selection should aim to
 minimize (`MinSense`) or maximize (`MaxSense`) the rating of the agents.
@@ -319,7 +334,8 @@ function random_initial_population(
         arity_dist::Distribution,
         s_spec::SelectionSpec,
         grow_and_rate;
-        domain_safe = false,
+        domain_safe = true,
+        restrict_operands = true,
         valid_agent_max_attempts = 100,
         sense = MinSense)::Population
     pop_size = s_spec.num_to_keep + s_spec.num_to_generate
@@ -335,7 +351,7 @@ function random_initial_population(
                 return agent
             end
             genome = random_genome(
-                rng, g_spec, m_dist, arity_dist; domain_safe = domain_safe)
+                rng, g_spec, m_dist, arity_dist; domain_safe, restrict_operands)
             try
                 agent = grow_and_rate(rng, g_spec, genome)
             catch e
@@ -368,7 +384,8 @@ end
         rng::AbstractRNG,
         e_spec::EvolutionSpec,
         arity_dist::Distribution;
-        domain_safe = false,
+        domain_safe = true,
+        restrict_operands = true,
         sense = MinSense)
 
 Initialize a random initial population from an `e_spec`.
@@ -377,7 +394,8 @@ function random_initial_population(
         rng::AbstractRNG,
         e_spec::EvolutionSpec,
         arity_dist::Distribution;
-        domain_safe = false,
+        domain_safe = true,
+        restrict_operands = true,
         sense = MinSense)::Population
     return random_initial_population(
         rng,
@@ -386,8 +404,9 @@ function random_initial_population(
         arity_dist,
         e_spec.s_dist.spec,
         e_spec.grow_and_rate;
-        domain_safe = domain_safe,
-        sense = sense)
+        domain_safe,
+        restrict_operands,
+        sense)
 end
 
 """
@@ -646,7 +665,6 @@ Calls `evolution_loop()` with the specifications unpacked from `e_spec`.
 Keyword arguments are passed to the next implementation of
 `evolution_loop()`.
 """
-
 function evolution_loop(
         rng::AbstractRNG,
         e_spec::EvolutionSpec,
@@ -719,7 +737,6 @@ calling `next_generation`, and if so, the loop stops.
 * `valid_agent_max_attempts = 100`:
 Passed to `next_generation()`.
 """
-
 function vns_evolution_loop(
         rng::AbstractRNG,
         neighborhoods::AbstractArray{EvolutionSpec},
@@ -767,9 +784,7 @@ function vns_evolution_loop(
             best_rating = best_in_gen.rating
             # Return to neighborhood 1
             neighborhood_index = 1
-            if verbosity > 0
-                @info "Epoch $e: Discovered innovation, returning to first neighborhood"
-            end
+            @debug_or_info verbosity "Epoch $e: Discovered innovation, returning to first neighborhood"
         elseif neighborhood_index < length(neighborhoods)
             # Advance to the next neighborhood
             neighborhood_index += 1
