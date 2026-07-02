@@ -778,7 +778,7 @@ op_inventory_map = Dict(
     "FuzzyLogic" => FuzzyLogicInventory
 )
 
-unary_op_map = Dict(
+unary_op_map::Dict{String,AbstractUnaryOp} = Dict(
     "id" => Identity(),
     "identity" => Identity(),
     "pow(2)" => Power(2),
@@ -821,9 +821,10 @@ unary_op_map = Dict(
     "acoth" => ACoth(),
     "asech" => ASech(),
     "acsch" => ACsch(),
+    "fznot" => FzNot(),
 )
 
-multiary_op_map = Dict(
+multiary_op_map::Dict{String,AbstractMultiOp} = Dict(
     "+" => Add(),
     "add" => Add(),
     "-" => Subtract(),
@@ -842,7 +843,6 @@ multiary_op_map = Dict(
     "fzor" => FzOr(),
     "fznand" => FzNand(),
     "fznor" => FzNor(),
-    "fznot" => FzNot(),
 )
 
 """
@@ -858,8 +858,8 @@ operations.  Return a named tuple with fields
   any known operation
 """
 function build_op_inventory(op_names)
-    un_ops = []
-    multi_ops = []
+    un_ops = AbstractUnaryOp[]
+    multi_ops = AbstractMultiOp[]
     unknown = eltype(op_names)[]
     for s in op_names
         if haskey(unary_op_map, s)
@@ -870,7 +870,7 @@ function build_op_inventory(op_names)
             push!(unknown, s)
         end
     end
-    inventory =
+    inventory::Vector{AbstractMultiOp} =
         vcat(multi_ops,
              reshape(
                  [UnaryComposition(un_op, bin_op)
