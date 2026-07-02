@@ -871,7 +871,7 @@ function build_op_inventory(op_names)
         end
     end
     inventory =
-        vcat([bin_op() for bin_op in multi_ops],
+        vcat(multi_ops,
              reshape(
                  [UnaryComposition(un_op, bin_op)
                   for un_op in un_ops, bin_op in multi_ops],
