@@ -11,7 +11,7 @@ export AbstractUnaryOp, AbstractMultiOp
 export Add, Multiply, Subtract, Divide
 export UnaryComposition
 export Reciprocal
-export Power, WholePower
+export Power
 export FzAnd, FzOr, FzNand, FzNor
 export SoftMax, SoftMin
 export Maximum, Minimum
@@ -294,7 +294,7 @@ end
 
 
 
-"Do a multiary operation and apply a unary operation"
+"Compose a multiary operation and apply a unary operation"
 @kwdef struct UnaryComposition{Un <: AbstractUnaryOp, Multi <: AbstractMultiOp} <:
               AbstractMultiOp
     unary::Un = Un()
@@ -335,28 +335,16 @@ const ReciprocalAdd = UnaryComposition{Reciprocal, Add}
 "Subtract operands and return the reciprocal."
 const ReciprocalSubtract = UnaryComposition{Reciprocal, Subtract}
 
-struct Power <: AbstractUnaryOp
-    exponent::Float64
+"Compute a power of a real number.  Domain-safe if the exponent is greater than zero."
+struct Power{T} <: AbstractUnaryOp
+    exponent::T
 end
 
 short_show(io::IO, p::Power) = print(io, "pow(", p.exponent, ")")
-is_domain_safe(::Power) = false
+is_domain_safe(p::Power) = p.exponent > 0
 un_op_eval(p::Power, t) = t .^ p.exponent
 to_expr(p::Power, expr) = :($expr .^ $(p.exponent))
 
-struct WholePower <: AbstractUnaryOp
-    exponent::Int
-    function WholePower(exponent::Int)
-        if exponent < 0
-            throw(ArgumentError("WholePower exponent must be non-negative, given $exponent"))
-        end
-        new(exponent)
-    end
-end
-short_show(io::IO, p::WholePower) = print(io, "wpow(", p.exponent, ")")
-is_domain_safe(::WholePower) = true
-un_op_eval(p::WholePower, t) = t .^ p.exponent
-to_expr(p::WholePower, expr) = :($expr .^ $(p.exponent))
 
 "Return fuzzy AND of the operands"
 struct FzAnd <: AbstractMultiOp end
@@ -678,19 +666,26 @@ fznot(q) = 1.0 - q
 is_domain_safe(::FzNot) = true
 
 export PolynomialInventory
-const PolynomialInventory = [Add(), Subtract(), Multiply()]
+const PolynomialInventory = vcat([Add(), Subtract(), Multiply()],
+    reshape(
+        [UnaryComposition(un_op, bin_op)
+         for un_op in [Power(2)], bin_op in [Add(), Subtract(), Multiply()]],
+    :))
 
 export PolynomialSigmoidInventory
 const PolynomialSigmoidInventory = vcat(PolynomialInventory,
     reshape(
-        [UnaryComposition{un_op, bin_op}()
-         for un_op in [Sigmoid], bin_op in [Add, Subtract, Multiply]],
+        [UnaryComposition(un_op, bin_op)
+         for un_op in [Sigmoid()], bin_op in [Add(), Subtract(), Multiply()]],
         :))
 
 
 export RationalFunctionInventory
-const RationalFunctionInventory = vcat(
-    PolynomialInventory, [Divide()])
+const RationalFunctionInventory = vcat([Add(), Subtract(), Multiply(), Divide()],
+    reshape(
+        [UnaryComposition(un_op, bin_op)
+         for un_op in [Power(2)], bin_op in [Add(), Subtract(), Multiply(), Divide()]],
+    :))
 
 export ExpLogInventory
 const ExpLogInventory = vcat(RationalFunctionInventory,
@@ -784,64 +779,70 @@ op_inventory_map = Dict(
 )
 
 unary_op_map = Dict(
-    "id" => Identity,
-    "identity" => Identity,
-    "abs" => AbsoluteValue,
-    "sqrt" => Sqrt,
-    "exp" => Exp,
-    "log" => Log,
-    "sigmoid" => Sigmoid,
-    "logit" => Logit,
-    "rcp" => Reciprocal,
-    "reciprocal" => Reciprocal,
-    "sign" => Sign,
-    "signum" => Sign,
-    "sin" => Sin,
-    "cos" => Cos,
-    "tan" => Tan,
-    "cot" => Cot,
-    "sec" => Sec,
-    "csc" => Csc,
-    "asin" => ASin,
-    "acos" => ACos,
-    "atan" => ATan,
-    "acot" => ACot,
-    "asec" => ASec,
-    "acsc" => ACsc,
-    "sinh" => Sinh,
-    "cosh" => Cosh,
-    "tanh" => Tanh,
-    "coth" => Coth,
-    "sech" => Sech,
-    "csch" => Csch,
-    "asinh" => ASinh,
-    "acosh" => ACosh,
-    "atanh" => ATanh,
-    "acoth" => ACoth,
-    "asech" => ASech,
-    "acsch" => ACsch,
+    "id" => Identity(),
+    "identity" => Identity(),
+    "abs" => AbsoluteValue(),
+    "sqrt" => Sqrt(),
+    "exp" => Exp(),
+    "log" => Log(),
+    "sigmoid" => Sigmoid(),
+    "logit" => Logit(),
+    "rcp" => Reciprocal(),
+    "reciprocal" => Reciprocal(),
+    "sign" => Sign(),
+    "signum" => Sign(),
+    "sin" => Sin(),
+    "cos" => Cos(),
+    "tan" => Tan(),
+    "cot" => Cot(),
+    "sec" => Sec(),
+    "csc" => Csc(),
+    "asin" => ASin(),
+    "acos" => ACos(),
+    "atan" => ATan(),
+    "acot" => ACot(),
+    "asec" => ASec(),
+    "acsc" => ACsc(),
+    "sinh" => Sinh(),
+    "cosh" => Cosh(),
+    "tanh" => Tanh(),
+    "coth" => Coth(),
+    "sech" => Sech(),
+    "csch" => Csch(),
+    "asinh" => ASinh(),
+    "acosh" => ACosh(),
+    "atanh" => ATanh(),
+    "acoth" => ACoth(),
+    "asech" => ASech(),
+    "acsch" => ACsch(),
 )
 
 multiary_op_map = Dict(
-    "+" => Add,
-    "add" => Add,
-    "-" => Subtract,
-    "sub" => Subtract,
-    "*" => Multiply,
-    "×" => Multiply,
-    "mul" => Multiply,
-    "/" => Divide,
-    "÷" => Divide,
-    "div" => Divide,
-    "min" => Minimum,
-    "max" => Maximum,
-    "softmin" => SoftMin,
-    "softmax" => SoftMax,
-    "fzand" => FzAnd,
-    "fzor" => FzOr,
-    "fznand" => FzNand,
-    "fznor" => FzNor,
-    "fznot" => FzNot,
+    "+" => Add(),
+    "add" => Add(),
+    "-" => Subtract(),
+    "sub" => Subtract(),
+    "*" => Multiply(),
+    "×" => Multiply(),
+    "mul" => Multiply(),
+    "/" => Divide(),
+    "÷" => Divide(),
+    "div" => Divide(),
+    "pow(2)" => Power(2),
+    "^2" => Power(2),
+    "pow(3)" => Power(3),
+    "^3" => Power(3),
+    "pow(4)" => Power(4),
+    "^4" => Power(4),
+    "min" => Minimum(),
+    "max" => Maximum(),
+    "softmin" => SoftMin(),
+    "softmax" => SoftMax(),
+    "fzand" => FzAnd(),
+    "fzor" => FzOr(),
+    "fznand" => FzNand(),
+    "fznor" => FzNor(),
+    "fznot" => FzNot(),
 )
 
 """
@@ -872,7 +873,7 @@ function build_op_inventory(op_names)
     inventory =
         vcat([bin_op() for bin_op in multi_ops],
              reshape(
-                 [UnaryComposition{un_op, bin_op}()
+                 [UnaryComposition(un_op, bin_op)
                   for un_op in un_ops, bin_op in multi_ops],
                  :))
     return (inventory=inventory, unknown=unknown)
@@ -940,7 +941,7 @@ function weight(::Reciprocal, weight_scheme::StandardWeightScheme = StandardWeig
     return weight_scheme.multiplicative
 end
 
-function weight(::Union{Sqrt,Power,WholePower}, weight_scheme::StandardWeightScheme = StandardWeightScheme())
+function weight(::Union{Sqrt,Power}, weight_scheme::StandardWeightScheme = StandardWeightScheme())
     return weight_scheme.power
 end
 
