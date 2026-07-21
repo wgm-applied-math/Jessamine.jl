@@ -78,7 +78,8 @@ function least_squares_ridge_grow_and_rate(
         g_spec::GenomeSpec,
         genome::AbstractGenome,
         p_init::AbstractVector = zeros(g_spec.parameter_size)
-)::Union{Agent, Nothing} where { V <:AbstractArray }
+    )::Union{Agent, Nothing} where { V <:AbstractArray }
+    @debug "least_squares_ridge_grow_and_rate: Begin"
     c = _LSRGR_Context(g_spec, genome, lambda_b, xs, y, lambda_p, nothing, nothing)
     if g_spec.parameter_size == 0
         # No need to solve for p; no ps to solve for.
@@ -94,19 +95,21 @@ function least_squares_ridge_grow_and_rate(
         optim_fn = OptimizationFunction(_LSRGR_f)
         optim_prob = OptimizationProblem(optim_fn, p_init, c, sense = MinSense)
         try
+            # sol = solve(optim_prob, NelderMead(); show_trace = true)
             sol = solve(optim_prob, NelderMead())
             if SciMLBase.successful_retcode(sol)
                 _LSRGR_f(sol.u, c)
                 @assert !isnothing(c.b) "Optimization should have succeeded."
                 r = sol.objective + lambda_operand * num_operands(genome)
+                @debug "least_squares_ridge_grow_and_rate: Success!"
                 return Agent(r, genome, sol.u, BasicLinearModelResult(c.b))
             else
-                @debug "Solve for optimal p did not succeed: $(sol.retcode)"
+                @debug "least_squares_ridge_grow_and_rate: Solve for optimal p did not succeed: $(sol.retcode)"
                 return Agent(infinitely_bad(optim_prob.sense), genome, nothing, nothing)
             end
         catch e
             if isa(e, ArgumentError) || isa(e, SingularException) || isa(e, DomainError)
-                @debug "Masking exception" exception=e
+                @debug "least_squares_ridge_grow_and_rate: Solve for optimal p did not succeeed; masking exception" exception=e
                 return Agent(infinitely_bad(optim_prob.sense), genome, nothing, nothing)
             end
             rethrow()
