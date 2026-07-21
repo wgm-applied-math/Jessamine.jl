@@ -112,6 +112,7 @@ function least_squares_ridge_grow_and_rate(
                 @debug "least_squares_ridge_grow_and_rate: Solve for optimal p did not succeeed; masking exception" exception=e
                 return Agent(infinitely_bad(optim_prob.sense), genome, nothing, nothing)
             end
+            @debug "least_squares_ridge_grow_and_rate: Solve for optimal p did not succeed; propagating exception" exception=(e, catch_backtrace())
             rethrow()
         end
     end
