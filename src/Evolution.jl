@@ -356,7 +356,7 @@ function random_initial_population(
                 agent = grow_and_rate(rng, g_spec, genome)
             catch e
                 if isa(e, Union{ArgumentError,SingularException,DomainError})
-                    @debug "random_initial_population: attempt to create agent failed with numerical exception, trying again" exception=e
+                    @debug "random_initial_population: attempt $(attempt_count) to create agent failed with numerical exception, trying again" exception=e
                 else
                     rethrow()
                 end
