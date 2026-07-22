@@ -1,4 +1,4 @@
-#module T
+# module T
 
 export @debug_or_info
 
@@ -13,21 +13,12 @@ That is, the messges are used to create a `@debug` log item,
 unless verbosity is turned on, in which case it's promoted to a
 `@info` log item.
 """
-macro debug_or_info(verbosity, main_message, keywords...)
-    ekws = map(esc_rhs, keywords)
-    quote
-	if $(esc(verbosity)) > 0
-            @info $(esc(main_message)) $(ekws...)
-        else
-            @debug $(esc(main_message)) $(ekws...)
-        end
-    end
+macro debug_or_info(verbosity, exs...)
+    # This is adapted directly from julia/base/logging/logging.jl
+    Base.CoreLogging.logmsg_code(
+        (Base.CoreLogging.@_sourceinfo)...,
+        :($(esc(verbosity)) > 0 ? Base.CoreLogging.Info : Base.CoreLogging.Debug),
+        exs...)
 end
 
-function esc_rhs(eq)
-    # assuming eq is Expr(:=, lhs, rhs)
-    Expr(eq.head, eq.args[1], esc(eq.args[2]))
-end
-
-
-#end #module T
+# end #module T
