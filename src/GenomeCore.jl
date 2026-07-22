@@ -292,7 +292,9 @@ end
 
 Print a short version of `x` to `io`
 """
-function short_show end
+function short_show(io::IO, x::Any)
+    print(io, x)
+end
 
 """
     short_show(x)
@@ -310,7 +312,9 @@ end
 
 Print a very short version of `x` to `io`
 """
-function very_short_show end
+function very_short_show(io::IO, x::Any)
+    short_show(io, x)
+end
 
 """
     very_short_show(x)
