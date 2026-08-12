@@ -159,10 +159,10 @@ function main()
         [],
         [inst7, inst8, inst9, inst10]])
     println("genome1 = ")
-    short_show(genome1)
+    println(short_show(genome1))
     genome2 = mutate(rng, m_dist, genome1)
     println("genome2 = ")
-    short_show(genome2)
+    println(short_show(genome2))
 
     println("----------")
 
@@ -176,13 +176,13 @@ function main()
         [inst1, inst2],
         [inst2, inst3, inst4]])
     println("genome3 = ")
-    short_show(genome3)
+    println(short_show(genome3))
     genome4 = recombine(rng, genome1, genome3)
     println("genome4 = ")
-    short_show(genome4)
+    println(short_show(genome4))
     genome5 = recombine(rng, genome3, genome1)
     println("genome5 = ")
-    short_show(genome5)
+    println(short_show(genome5))
 
     genome_fzlogic = Genome(
         [
@@ -192,7 +192,7 @@ function main()
             Instruction(FzNand(), [5]), Instruction(FzNand(), [])],
         [Instruction(FzNor(), [1, 2]), Instruction(FzNor(), [5]), Instruction(FzNor(), [])],
         []])
-    short_show(genome_fzlogic)
+    println(short_show(genome_fzlogic))
     @show compile(g_spec, genome_fzlogic).expr
 
     genome_min_max = Genome(
@@ -207,7 +207,7 @@ function main()
         []
     ]
     )
-    short_show(genome_min_max)
+    println(short_show(genome_min_max))
     @show compile(g_spec, genome_min_max).expr
 
     println("----------")
