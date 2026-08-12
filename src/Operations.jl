@@ -694,6 +694,13 @@ const ExpLogInventory = vcat(RationalFunctionInventory,
          for un_op in [Sqrt, Exp, Log, Sigmoid, Logit], bin_op in [Add, Subtract, Multiply, Divide]],
         :))
 
+export SRBenchInventory
+const SRBenchInventory = vcat([Add(), Subtract(), Multiply(), Divide()],
+    reshape(
+        [UnaryComposition(un_op, bin_op)
+         for un_op in [Power(2), Power(3), Sqrt(), Exp(), Log(), Sin(), Cos()], bin_op in [Add(), Subtract(), Multiply(), Divide()]],
+    :))
+
 export TrigInventory
 const TrigInventory = vcat(RationalFunctionInventory,
     reshape(
@@ -770,6 +777,7 @@ op_inventory_map = Dict(
     "ExpLog" => ExpLogInventory,
     "Trig" => TrigInventory,
     "ExpLogTrig" => ExpLogInventory,
+    "SRBench" => SRBenchInventory,
     "ExtendedTrig" => ExtendedTrigInventory,
     "ExpLogExtendedTrig" => ExpLogExtendedTrigInventory,
     "Hyperbolic" => HyperbolicInventory,
