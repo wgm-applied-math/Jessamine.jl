@@ -8,7 +8,7 @@ makedocs(;
     authors="W. G. Mitchener <mitchenerg@charleston.edu> and others",
     sitename="Jessamine.jl",
     format=Documenter.HTML(;
-        canonical="https://wgmitchener.github.io/Jessamine.jl",
+        canonical="https://wgm-applied-math.github.io/Jessamine.jl",
         edit_link="main",
         assets=String[],
     ),
