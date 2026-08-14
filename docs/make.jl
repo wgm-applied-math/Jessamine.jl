@@ -13,5 +13,5 @@ deploydocs(
     repo = "github.com/wgm-applied-math/Jessamine.jl.git",
     devbranch = "main",
     devurl = "dev",
-    versions = ["stable" => "v^", "v#.#", devurl =>  devurl] # Explicitly forces version tracking
+    versions = ["stable" => "v^", "v#.#", "dev" =>  "dev"] # Explicitly forces version tracking
 )
