@@ -1,16 +1,14 @@
-# Jessamine.jl
-
-Documentation for Jessamine.jl
-
-```@contents
+```@meta
+CurrentModule = Jessamine
 ```
 
-## Introduction
+# Jessamine
 
-*Note* Jessamine is experimental and under development.
-Expect the source code to change in unpredictable ways.
-
-## Index
+Documentation for [Jessamine](https://github.com/wgmitchener/Jessamine.jl).
 
 ```@index
+```
+
+```@autodocs
+Modules = [Jessamine]
 ```

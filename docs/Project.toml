@@ -1,11 +1,3 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
-
-# DocumenterMarkdown is needed to produce Markdown (rather than
-# HTML) and send that to mkdocs.  But it indirectly requires an
-# old version of DocStringExtensions that conflicts with
-# SciMLBase.  So we don't use it.
-
-# DocumenterMarkdown = "997ab1e6-3595-5248-9280-8efb232c3433"
-
-# Jessamine = "2807b6de-c4a7-4d42-9dc5-a90bb38e3ffd"
+Jessamine = "5bbdca83-2569-487c-aaf5-eb9061bacfd0"

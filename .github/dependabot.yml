@@ -5,14 +5,20 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 99
-    labels:
-      - "dependencies"
-      - "github-actions"
+    # To group all GitHub Actions updates into a single PR, uncomment the following:
+    # groups:
+    #   github-actions:
+    #     patterns:
+    #       - "*"
   - package-ecosystem: "julia"
-    directory: "/"
+    directories:
+      - "/"
+      - "/docs"
+      - "/test"
     schedule:
       interval: "weekly"
-    labels:
-      - "dependencies"
-      - "julia"
+    # To group all Julia dependency updates into a single PR, uncomment the following:
+    # groups:
+    #   julia-dependencies:
+    #     patterns:
+    #       - "*"
