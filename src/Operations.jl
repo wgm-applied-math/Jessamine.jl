@@ -568,7 +568,7 @@ macro define_unary_op(struct_name, function_name)
         export $(Symbol(string(struct_name) * "Subtract"))
         export $(Symbol(string(struct_name) * "Multiply"))
         export $(Symbol(string(struct_name) * "Divide"))
-        @doc "Return [`"*string($function_name)*"`](@ref) of the operand"
+        @doc "Return `"*string($function_name)*"` of the operand"
         struct $struct_name <: AbstractUnaryOp end
         global short_show
         short_show(io::IO, ::($struct_name)) = print(io, string($function_name))
@@ -576,15 +576,15 @@ macro define_unary_op(struct_name, function_name)
         un_op_eval(::($struct_name), t) = ($function_name).(t)
         global to_expr
         to_expr(::($struct_name), expr) = :($($function_name).($expr))
-        @doc "Return [`"*string($function_name)*"`](@ref) applied to the sum of the operands"
+        @doc "Return `"*string($function_name)*"` applied to the sum of the operands"
         const $(esc(Symbol(string(struct_name) * "Add"))) = UnaryComposition{$struct_name, Add}
-        @doc "Return [`"*string($function_name)*"`](@ref) applied to the result of subtraction of the operands"
+        @doc "Return `"*string($function_name)*"` applied to the result of subtraction of the operands"
         const $(esc(Symbol(string(struct_name) * "Subtract"))) = UnaryComposition{
             $struct_name, Subtract}
-        @doc "Return [`"*string($function_name)*"`](@ref) applied to the product of the operands"
+        @doc "Return `"*string($function_name)*"` applied to the product of the operands"
         const $(esc(Symbol(string(struct_name) * "Multiply"))) = UnaryComposition{
             $struct_name, Multiply}
-        @doc "Return [`"*string($function_name)*"`](@ref) applied to the quotient of the operands"
+        @doc "Return `"*string($function_name)*"` applied to the quotient of the operands"
         const $(esc(Symbol(string(struct_name) * "Divide"))) = UnaryComposition{
             $struct_name, Divide}
     end
