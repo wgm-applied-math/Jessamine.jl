@@ -10,5 +10,8 @@ makedocs(
 # See "Hosting Documentation" and deploydocs() in the Documenter manual
 # for more information.
 deploydocs(
-    repo = "github.com/wgm-applied-math/Jessamine.jl.git"
+    repo = "github.com/wgm-applied-math/Jessamine.jl.git",
+    devbranch = "main",
+    devurl = "dev",
+    versions = ["stable" => "v^", "v#.#", devurl =>  devurl] # Explicitly forces version tracking
 )
