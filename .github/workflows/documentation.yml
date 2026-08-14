@@ -6,7 +6,7 @@ on:
     branches:
       - main # update to match your development branch (master, main, dev, trunk, ...)
     tags:
-      - '*' # supposedly this triggers the versioned / stable documentation branches
+      - 'v*' # supposedly this triggers the versioned / stable documentation branches
 
   # Allow me to run it manually
   workflow_dispatch:
